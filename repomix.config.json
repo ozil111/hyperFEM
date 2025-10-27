@@ -1,9 +1,9 @@
 {
   "include": [
-    "include/xfem/Core/Components/geometry/geometry.h",
-    "include/xfem/Core/Systems.h",
-    "include/xfem/Core/Systems/ISystem.h",
-    "include/xfem/Core/Systems/SystemManager.h",
+    "include/hyperFEM/Core/Components/geometry/geometry.h",
+    "include/hyperFEM/Core/Systems.h",
+    "include/hyperFEM/Core/Systems/ISystem.h",
+    "include/hyperFEM/Core/Systems/SystemManager.h",
     "src/Core/Systems/SystemManager.cpp"
   ],
   "ignore": {

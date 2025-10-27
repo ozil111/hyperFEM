@@ -1,6 +1,6 @@
-# xFEM Build Guide
+# hyperFEM Build Guide
 
-This document describes how to use build scripts to compile and run the xFEM project.
+This document describes how to use build scripts to compile and run the hyperFEM project.
 
 ## Prerequisites
 

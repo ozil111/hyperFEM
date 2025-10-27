@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "===== xFEM Build Script ====="
+echo "===== hyperFEM Build Script ====="
 
 # Check if CMake is installed
 if ! command -v cmake &> /dev/null; then

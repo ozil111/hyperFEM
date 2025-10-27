@@ -47,7 +47,8 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # 包含头文件目录
-include_directories(${CMAKE_SOURCE_DIR}/include)
+include_directories(${CMAKE_SOURCE_DIR}/data_center)
+include_directories(${CMAKE_SOURCE_DIR}/system)
 
 # 查找依赖库
 find_package(spdlog CONFIG REQUIRED)
@@ -64,8 +65,8 @@ add_compile_definitions(
 
 # 收集源文件
 file(GLOB_RECURSE hyperFEM_SOURCES
-    src/*.cpp
-    src/*.c
+    system/*.cpp
+    system/*.c
 )
 
 # 排除便利性实现文件，因为它的内容已经被分离到各个模块中
