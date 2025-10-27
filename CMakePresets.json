@@ -1,0 +1,234 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 19,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "default",
+      "displayName": "Default (Debug, MinGW)",
+      "description": "Debug build using MinGW-w64",
+      "binaryDir": "build/default",
+      "generator": "MinGW Makefiles",
+      "toolchainFile": "D:/Document/vcpkg/scripts/buildsystems/vcpkg.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++",
+        "VCPKG_TARGET_TRIPLET": "x64-mingw-dynamic"
+      },
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Release (Release, MinGW)",
+      "description": "Release build using MinGW-w64",
+      "binaryDir": "build/release",
+      "generator": "MinGW Makefiles",
+      "toolchainFile": "D:/Document/vcpkg/scripts/buildsystems/vcpkg.cmake", 
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++",
+        "VCPKG_TARGET_TRIPLET": "x64-mingw-dynamic"
+      },
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "msvc",
+      "displayName": "MSVC Build (Debug, MSVC)",
+      "description": "Debug build using MSVC with /bigobj support",
+      "binaryDir": "build/msvc",
+      "generator": "Visual Studio 17 2022",
+      "toolchainFile": "D:/Document/vcpkg/scripts/buildsystems/vcpkg.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "cl.exe",
+        "CMAKE_CXX_COMPILER": "cl.exe",
+        "CMAKE_GENERATOR_PLATFORM": "x64",
+        "CMAKE_GENERATOR_CONFIGURATION": "Debug",
+        "VCPKG_TARGET_TRIPLET": "x64-windows"
+      },
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "msvc_release",
+      "displayName": "MSVC Release Build (Release, MSVC)",
+      "description": "Release build using MSVC with optimizations",
+      "binaryDir": "build/msvc_release",
+      "generator": "Visual Studio 17 2022",
+      "toolchainFile": "D:/Document/vcpkg/scripts/buildsystems/vcpkg.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_COMPILER": "cl.exe",
+        "CMAKE_CXX_COMPILER": "cl.exe",
+        "CMAKE_GENERATOR_PLATFORM": "x64",
+        "CMAKE_GENERATOR_CONFIGURATION": "Release",
+        "VCPKG_TARGET_TRIPLET": "x64-windows"
+      },
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "test-default",
+      "displayName": "Test Default (Debug, MinGW)",
+      "description": "Debug build with tests using MinGW-w64",
+      "binaryDir": "build/test-default",
+      "generator": "MinGW Makefiles",
+      "toolchainFile": "D:/Document/vcpkg/scripts/buildsystems/vcpkg.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++",
+        "VCPKG_TARGET_TRIPLET": "x64-mingw-dynamic",
+        "BUILD_TESTING": "ON"
+      },
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "test-release",
+      "displayName": "Test Release (Release, MinGW)",
+      "description": "Release build with tests using MinGW-w64",
+      "binaryDir": "build/test-release",
+      "generator": "MinGW Makefiles",
+      "toolchainFile": "D:/Document/vcpkg/scripts/buildsystems/vcpkg.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++",
+        "VCPKG_TARGET_TRIPLET": "x64-mingw-dynamic",
+        "BUILD_TESTING": "ON"
+      },
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "test-msvc",
+      "displayName": "Test MSVC (Debug, MSVC)",
+      "description": "Debug build with tests using MSVC",
+      "binaryDir": "build/test-msvc",
+      "generator": "Visual Studio 17 2022",
+      "toolchainFile": "D:/Document/vcpkg/scripts/buildsystems/vcpkg.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "cl.exe",
+        "CMAKE_CXX_COMPILER": "cl.exe",
+        "CMAKE_GENERATOR_PLATFORM": "x64",
+        "CMAKE_GENERATOR_CONFIGURATION": "Debug",
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "BUILD_TESTING": "ON"
+      },
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "test-msvc_release",
+      "displayName": "Test MSVC Release (Release, MSVC)",
+      "description": "Release build with tests using MSVC",
+      "binaryDir": "build/test-msvc_release",
+      "generator": "Visual Studio 17 2022",
+      "toolchainFile": "D:/Document/vcpkg/scripts/buildsystems/vcpkg.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_COMPILER": "cl.exe",
+        "CMAKE_CXX_COMPILER": "cl.exe",
+        "CMAKE_GENERATOR_PLATFORM": "x64",
+        "CMAKE_GENERATOR_CONFIGURATION": "Release",
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "BUILD_TESTING": "ON"
+      },
+      "architecture": {
+        "value": "x64",
+        "strategy": "external"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "build-default",
+      "displayName": "Build Default",
+      "description": "Build the 'default' configuration",
+      "configurePreset": "default" 
+    },
+    {
+      "name": "build-release",
+      "displayName": "Build Release",
+      "description": "Build the 'release' configuration",
+      "configurePreset": "release" 
+    },
+    {
+      "name": "build-msvc",
+      "displayName": "Build MSVC",
+      "description": "Build the 'msvc' configuration",
+      "configurePreset": "msvc",
+      "configuration": "Debug"
+    },
+    {
+      "name": "build-msvc_release",
+      "displayName": "Build MSVC Release",
+      "description": "Build the 'msvc_release' configuration",
+      "configurePreset": "msvc_release",
+      "configuration": "Release"
+    }
+  ]
+}
