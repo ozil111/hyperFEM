@@ -25,8 +25,8 @@ bool FemParser::parse(const std::string& filepath, Mesh& mesh) {
     std::string line;
     try {
         while (std::getline(file, line)) {
-            trim(line);
-            if (line.empty() || line[0] == '#') {
+            preprocess_line(line);
+            if (line.empty()) {
                 continue;
             }
 

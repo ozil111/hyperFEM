@@ -35,6 +35,6 @@ std::vector<NodeID> node_index_to_id;       // 内部逻辑索引 -> 外部ID
 6,0,0,1
 7,0,1,0
 8,0,0,0
-* node end
+*node end
 ```
 

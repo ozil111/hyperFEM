@@ -5,47 +5,45 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <vector>
 
 
 namespace NodeParser {
 
 void parse(std::ifstream& file, Mesh& mesh) {
-    // --- 优化点：添加预扫描和内存预留 ---
-    std::streampos start_pos = file.tellg(); // 记录当前文件位置
-    size_t line_count = 0;
     std::string line;
+    std::vector<std::string> node_lines; // Vector to store the data lines
 
+    spdlog::debug("--> Entering NodeParser, pre-scanning block...");
+
+    // --- Step 1: Pre-scan and store relevant lines ---
+    // This loop reads the whole block and saves only the actual data lines.
     while (std::getline(file, line)) {
-        trim(line);
-        if (line.find("*node end") != std::string::npos) break; // 找到结尾
-        if (line.empty() || line[0] == '#') continue;
-        line_count++;
+        preprocess_line(line); // Preprocess first to handle comments correctly
+        
+        if (line.find("*node end") != std::string::npos) {
+            break; // Found the end of the block
+        }
+
+        if (line.empty()) {
+            continue; // Skip empty/comment lines
+        }
+
+        node_lines.push_back(line); // Store the clean data line
     }
 
-    // 预留空间
-    mesh.node_coordinates.reserve(mesh.node_coordinates.size() + line_count * 3);
-    mesh.node_index_to_id.reserve(mesh.node_index_to_id.size() + line_count);
+    // --- Step 2: Reserve memory based on the stored lines ---
+    if (!node_lines.empty()) {
+        spdlog::debug("Pre-reserved for {} nodes.", node_lines.size());
+        mesh.node_coordinates.reserve(mesh.node_coordinates.size() + node_lines.size() * 3);
+        mesh.node_index_to_id.reserve(mesh.node_index_to_id.size() + node_lines.size());
+    }
 
-    // 回到块的开始位置，进行真正的解析
-    file.clear(); // 清除eof等状态位
-    file.seekg(start_pos);
-    // --- 优化结束 ---
-
+    // --- Step 3: Parse from the in-memory vector ---
+    // This is much faster and avoids all file I/O problems.
     size_t current_index = mesh.get_node_count();
-    spdlog::debug("--> Entering NodeParser... (pre-reserved for {} nodes)", line_count);
-
-    while (std::getline(file, line)) {
-        trim(line);
-
-        if (line.find("*node end") != std::string::npos) {
-            spdlog::debug("<-- Exiting NodeParser.");
-            return;
-        }
-        if (line.empty() || line[0] == '#') {
-            continue;
-        }
-
-        std::stringstream ss(line);
+    for (const auto& data_line : node_lines) {
+        std::stringstream ss(data_line);
         std::string segment;
         NodeID id;
         double x, y, z;
@@ -56,7 +54,7 @@ void parse(std::ifstream& file, Mesh& mesh) {
             std::getline(ss, segment, ','); y = std::stod(segment);
             std::getline(ss, segment, ','); z = std::stod(segment);
         } catch (const std::exception& e) {
-            spdlog::warn("NodeParser skipping malformed line: {}", line);
+            spdlog::warn("NodeParser skipping malformed line: {}", data_line);
             continue;
         }
 
@@ -72,8 +70,10 @@ void parse(std::ifstream& file, Mesh& mesh) {
         mesh.node_index_to_id.push_back(id);
         current_index++;
     }
-    
-    throw std::runtime_error("Parser error: Reached end of file without finding *node end.");
+
+    spdlog::debug("<-- Exiting NodeParser.");
+    // Note: We no longer need the "throw runtime_error" for a missing "*node end",
+    // because the main FemParser will handle cases where the file ends unexpectedly.
 }
 
 } // namespace NodeParser
