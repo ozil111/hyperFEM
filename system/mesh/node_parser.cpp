@@ -10,10 +10,29 @@
 namespace NodeParser {
 
 void parse(std::ifstream& file, Mesh& mesh) {
+    // --- 优化点：添加预扫描和内存预留 ---
+    std::streampos start_pos = file.tellg(); // 记录当前文件位置
+    size_t line_count = 0;
     std::string line;
-    size_t current_index = mesh.get_node_count();
 
-    spdlog::debug("--> Entering NodeParser...");
+    while (std::getline(file, line)) {
+        trim(line);
+        if (line.find("*node end") != std::string::npos) break; // 找到结尾
+        if (line.empty() || line[0] == '#') continue;
+        line_count++;
+    }
+
+    // 预留空间
+    mesh.node_coordinates.reserve(mesh.node_coordinates.size() + line_count * 3);
+    mesh.node_index_to_id.reserve(mesh.node_index_to_id.size() + line_count);
+
+    // 回到块的开始位置，进行真正的解析
+    file.clear(); // 清除eof等状态位
+    file.seekg(start_pos);
+    // --- 优化结束 ---
+
+    size_t current_index = mesh.get_node_count();
+    spdlog::debug("--> Entering NodeParser... (pre-reserved for {} nodes)", line_count);
 
     while (std::getline(file, line)) {
         trim(line);
