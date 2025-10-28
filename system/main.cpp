@@ -2,6 +2,7 @@
 #include "spdlog/sinks/basic_file_sink.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
 #include "parser_base/parserBase.h"
+#include "exporter_base/exporterBase.h"
 #include "mesh.h"
 #include <iostream>
 #include <string>
@@ -32,12 +33,13 @@ void print_help() {
     std::cout << "Usage: hyperFEM_app [options]" << std::endl;
     std::cout << "Options:" << std::endl;
     std::cout << "  --input-file, -i <file>    Specify input .xfem file to process" << std::endl;
+    std::cout << "  --output-file, -o <file>   Specify output .xfem file to save" << std::endl;
     std::cout << "  --log-level, -l <level>    Set log level (trace, debug, info, warn, error, critical)" << std::endl;
     std::cout << "  --log-directory, -d <path> Set log file path" << std::endl;
     std::cout << "  --help, -h                 Show this help message" << std::endl;
     std::cout << std::endl;
     std::cout << "Example:" << std::endl;
-    std::cout << "  hyperFEM_app --input-file case/node.xfem" << std::endl;
+    std::cout << "  hyperFEM_app --input-file case/node.xfem --output-file case/output.xfem" << std::endl;
 }
 
 
@@ -55,6 +57,9 @@ int main(int argc, char* argv[]) {
     
     // 输入文件路径
     std::string input_file_path;
+    
+    // 输出文件路径
+    std::string output_file_path;
     
     // 解析命令行参数
     for (int i = 1; i < argc; ++i) {
@@ -103,6 +108,21 @@ int main(int argc, char* argv[]) {
                     std::cerr << "Valid levels: trace, debug, info, warn, error, critical" << std::endl;
                     return 1;
                 }
+            }
+        } else if (arg == "--output-file" || arg == "-o") {
+            if (i + 1 < argc) {
+                output_file_path = argv[++i];
+                
+                // 验证文件扩展名
+                std::filesystem::path file_path(output_file_path);
+                if (file_path.extension() != ".xfem") {
+                    std::cerr << "Error: Output file must have .xfem extension" << std::endl;
+                    std::cerr << "Provided file: " << output_file_path << std::endl;
+                    return 1;
+                }
+            } else {
+                std::cerr << "Error: --output-file requires a file path argument" << std::endl;
+                return 1;
             }
         } else if (arg == "--log-directory" || arg == "-d") {
             if (i + 1 < argc) {
@@ -153,10 +173,16 @@ int main(int argc, char* argv[]) {
             spdlog::info("Total elements loaded: {}", mesh.getElementCount());
             spdlog::info("Total sets loaded: {}", mesh.set_id_to_name.size());
             
-            // 这里可以添加更多的处理逻辑，比如：
-            // - 显示网格信息
-            // - 进行有限元计算
-            // - 输出结果等
+            // --- Step 5: Export the mesh if an output file is specified ---
+            if (!output_file_path.empty()) {
+                spdlog::info("Exporting mesh data to: {}", output_file_path);
+                if (FemExporter::save(output_file_path, mesh)) {
+                    spdlog::info("Successfully exported mesh data.");
+                } else {
+                    spdlog::error("Failed to export mesh data to: {}", output_file_path);
+                    return 1; // Or handle error as needed
+                }
+            }
             
         } else {
             spdlog::error("Failed to parse input file: {}", input_file_path);
