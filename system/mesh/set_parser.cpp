@@ -21,8 +21,8 @@ void parse_generic_set(
     std::string line;
     spdlog::debug("--> Entering {}", parser_name);
 
-    while (std::getline(file, line)) {
-        preprocess_line(line); // From string_utils.h
+    while (get_logical_line(file, line)) {
+        // preprocess_line(line) is now handled inside get_logical_line
 
         if (line.find(end_keyword) != std::string::npos) {
             break; // Found the end of the block

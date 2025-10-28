@@ -18,8 +18,8 @@ void parse(std::ifstream& file, Mesh& mesh) {
 
     // --- Step 1: Pre-scan and store relevant lines ---
     // This loop reads the whole block and saves only the actual data lines.
-    while (std::getline(file, line)) {
-        preprocess_line(line); // Preprocess first to handle comments correctly
+    while (get_logical_line(file, line)) {
+        // preprocess_line(line) is now handled inside get_logical_line
         
         if (line.find("*node end") != std::string::npos) {
             break; // Found the end of the block

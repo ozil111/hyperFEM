@@ -16,8 +16,8 @@ void parse(std::ifstream& file, Mesh& mesh) {
     spdlog::debug("--> Entering ElementParser, pre-scanning block...");
 
     // --- Step 1: Pre-scan and store all relevant data lines ---
-    while (std::getline(file, line)) {
-        preprocess_line(line); // Remove comments and trim whitespace
+    while (get_logical_line(file, line)) {
+        // preprocess_line(line) is now handled inside get_logical_line
         
         if (line.find("*element end") != std::string::npos) {
             break; // Found the end of the block
