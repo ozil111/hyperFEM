@@ -149,7 +149,8 @@ int main(int argc, char* argv[]) {
         // 使用FemParser解析输入文件
         if (FemParser::parse(input_file_path, mesh)) {
             spdlog::info("Successfully parsed input file: {}", input_file_path);
-            spdlog::info("Total nodes loaded: {}", mesh.get_node_count());
+            spdlog::info("Total nodes loaded: {}", mesh.getNodeCount());
+            spdlog::info("Total elements loaded: {}", mesh.getElementCount());
             
             // 这里可以添加更多的处理逻辑，比如：
             // - 显示网格信息

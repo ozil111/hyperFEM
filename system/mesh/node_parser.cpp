@@ -41,7 +41,7 @@ void parse(std::ifstream& file, Mesh& mesh) {
 
     // --- Step 3: Parse from the in-memory vector ---
     // This is much faster and avoids all file I/O problems.
-    size_t current_index = mesh.get_node_count();
+    size_t current_index = mesh.getNodeCount();
     for (const auto& data_line : node_lines) {
         std::stringstream ss(data_line);
         std::string segment;
