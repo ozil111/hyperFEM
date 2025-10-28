@@ -2,10 +2,12 @@
 #pragma once
 #include <vector>
 #include <unordered_map>
+#include <string> // Added for Set Name/ID mapping if needed later
 
 // 使用类型别名增强代码可读性和可维护性
 using NodeID = int;
 using ElementID = int;
+using SetID = int; // Add new type alias for Set ID
 
 // 这是一个纯数据聚合体，描述一个具体的网格实例
 struct Mesh {
@@ -19,7 +21,17 @@ struct Mesh {
     std::vector<int> element_connectivity;        // 所有单元的节点ID连续存储
     std::vector<size_t> element_offsets;          // 每个单元的节点列表在 connectivity 中的起始位置
     std::unordered_map<ElementID, size_t> element_id_to_index; // 外部ID -> 内部索引
-    std::vector<ElementID> element_index_to_id;   // 内部索引 -> 外部ID 
+    std::vector<ElementID> element_index_to_id;   // 内部索引 -> 外部ID
+
+    // --- 集合数据 (Set Data) ---
+    // Bi-directional mapping for Set Names and IDs
+    SetID next_set_id = 0; // Simple counter to generate unique SetIDs
+    std::unordered_map<std::string, SetID> set_name_to_id;
+    std::vector<std::string> set_id_to_name;
+
+    // Containers for the actual set data, using efficient integer IDs
+    std::unordered_map<SetID, std::vector<NodeID>>       node_sets;
+    std::unordered_map<SetID, std::vector<ElementID>>    element_sets; 
 
     // --- 辅助函数 ---
     size_t getNodeCount() const {
@@ -43,5 +55,12 @@ struct Mesh {
         element_offsets.clear();
         element_id_to_index.clear();
         element_index_to_id.clear();
+
+        // 清理集合数据
+        next_set_id = 0;
+        set_name_to_id.clear();
+        set_id_to_name.clear();
+        node_sets.clear();
+        element_sets.clear();
     }
 };

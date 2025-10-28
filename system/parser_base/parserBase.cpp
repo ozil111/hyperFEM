@@ -2,6 +2,7 @@
 #include "parser_base/parserBase.h"
 #include "mesh/node_parser.h" // 引入节点解析器的头文件
 #include "mesh/element_parser.h" // 引入单元解析器的头文件
+#include "mesh/set_parser.h" // 引入集合解析器的头文件
 #include "parser_base/string_utils.h" // 使用统一的trim函数
 #include "spdlog/spdlog.h"
 #include <iostream>
@@ -38,6 +39,14 @@ bool FemParser::parse(const std::string& filepath, Mesh& mesh) {
             else if (line.find("*element begin") != std::string::npos) {
                 // 任务分发给 ElementParser
                 ElementParser::parse(file, mesh);
+            }
+            else if (line.find("*nodeset begin") != std::string::npos) {
+                // 任务分发给 SetParser for node sets
+                SetParser::parse_node_sets(file, mesh);
+            }
+            else if (line.find("*eleset begin") != std::string::npos) {
+                // 任务分发给 SetParser for element sets
+                SetParser::parse_element_sets(file, mesh);
             }
             else {
                 // 可以选择忽略未知关键字或发出警告

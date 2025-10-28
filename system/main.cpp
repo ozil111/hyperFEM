@@ -151,6 +151,7 @@ int main(int argc, char* argv[]) {
             spdlog::info("Successfully parsed input file: {}", input_file_path);
             spdlog::info("Total nodes loaded: {}", mesh.getNodeCount());
             spdlog::info("Total elements loaded: {}", mesh.getElementCount());
+            spdlog::info("Total sets loaded: {}", mesh.set_id_to_name.size());
             
             // 这里可以添加更多的处理逻辑，比如：
             // - 显示网格信息
