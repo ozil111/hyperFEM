@@ -4,11 +4,15 @@
 #include "parser_base/parserBase.h"
 #include "exporter_base/exporterBase.h"
 #include "mesh.h"
+#include "TopologyData.h"      // 引入拓扑数据结构
+#include "mesh/TopologySystems.h"   // 引入拓扑逻辑系统
+#include "AppSession.h"        // 引入会话状态机
 #include <iostream>
 #include <string>
 #include <memory>
 #include <vector>
 #include <filesystem>
+#include <sstream>
 
 // Function to print the startup banner
 void print_banner() {
@@ -42,6 +46,98 @@ void print_help() {
     std::cout << "  hyperFEM_app --input-file case/node.xfem --output-file case/output.xfem" << std::endl;
 }
 
+// --- 引入交互模式的命令处理器 ---
+void process_command(const std::string& command_line, AppSession& session) {
+    std::stringstream ss(command_line);
+    std::string command;
+    ss >> command;
+
+    if (command == "quit" || command == "exit") {
+        session.is_running = false;
+        spdlog::info("Exiting hyperFEM. Goodbye!");
+    }
+    else if (command == "help") {
+        spdlog::info("Available commands: import, info, build_topology, list_bodies, save, help, quit");
+    }
+    else if (command == "import") {
+        std::string file_path;
+        ss >> file_path;
+        if (file_path.empty()) {
+            spdlog::error("Usage: import <path_to_xfem_file>");
+            return;
+        }
+        session.clear_mesh();
+        spdlog::info("Importing mesh from: {}", file_path);
+        if (FemParser::parse(file_path, session.mesh)) {
+            session.mesh_loaded = true;
+            spdlog::info("Successfully imported mesh. {} nodes, {} elements.",
+                         session.mesh.getNodeCount(), session.mesh.getElementCount());
+        } else {
+            spdlog::error("Failed to import mesh from: {}", file_path);
+        }
+    }
+    else if (command == "build_topology") {
+        if (!session.mesh_loaded) {
+            spdlog::error("No mesh loaded. Please 'import' a mesh first.");
+            return;
+        }
+        spdlog::info("Building topology data...");
+        session.topology = std::make_unique<TopologyData>(session.mesh);
+        TopologySystems::extract_topology(session.mesh, *session.topology);
+        session.topology_built = true;
+        spdlog::info("Topology built successfully. Found {} unique faces.", session.topology->faces.size());
+    }
+    else if (command == "list_bodies") {
+        if (!session.topology_built) {
+            spdlog::error("Topology not built. Please run 'build_topology' first.");
+            return;
+        }
+        spdlog::info("Finding continuous bodies...");
+        TopologySystems::find_continuous_bodies(*session.topology);
+        spdlog::info("Found {} continuous body/bodies:", session.topology->body_to_elements.size());
+        for (const auto& pair : session.topology->body_to_elements) {
+            spdlog::info("  - Body {}: {} elements", pair.first, pair.second.size());
+        }
+    }
+    else if (command == "save") {
+        if (!session.mesh_loaded) {
+            spdlog::error("No mesh loaded to save. Please 'import' a mesh first.");
+            return;
+        }
+        std::string file_path;
+        ss >> file_path;
+        if (file_path.empty()) {
+            spdlog::error("Usage: save <path_to_output_file.xfem>");
+            return;
+        }
+        spdlog::info("Exporting mesh data to: {}", file_path);
+        if (FemExporter::save(file_path, session.mesh)) {
+            spdlog::info("Successfully exported mesh data.");
+        } else {
+            spdlog::error("Failed to export mesh data to: {}", file_path);
+        }
+    }
+    else if (command == "info") {
+        if (!session.mesh_loaded) {
+            spdlog::warn("No mesh loaded.");
+        } else {
+            spdlog::info("Mesh loaded: {} nodes, {} elements, {} sets",
+                         session.mesh.getNodeCount(), 
+                         session.mesh.getElementCount(),
+                         session.mesh.set_id_to_name.size());
+            if (session.topology_built) {
+                spdlog::info("Topology built: {} unique faces, {} bodies",
+                             session.topology->faces.size(),
+                             session.topology->body_to_elements.size());
+            } else {
+                spdlog::info("Topology not built yet.");
+            }
+        }
+    }
+    else {
+        spdlog::warn("Unknown command: '{}'. Type 'help' for a list of commands.", command);
+    }
+}
 
 int main(int argc, char* argv[]) {
     // --- Step 1: Print the banner first ---
@@ -159,8 +255,11 @@ int main(int argc, char* argv[]) {
     spdlog::info("Logger initialized. Application starting...");
     spdlog::info("Log level set to: {}", spdlog::level::to_string_view(log_level));
     
-    // --- Step 4: Process input file if provided ---
+    // --- Step 4: 模式决策 ---
+    // 根据是否提供了 --input-file 来决定进入哪种模式
     if (!input_file_path.empty()) {
+        // --- BATCH MODE EXECUTION ---
+        spdlog::info("Running in Batch Mode.");
         spdlog::info("Processing input file: {}", input_file_path);
         
         // 创建Mesh对象来存储解析的数据
@@ -173,6 +272,9 @@ int main(int argc, char* argv[]) {
             spdlog::info("Total elements loaded: {}", mesh.getElementCount());
             spdlog::info("Total sets loaded: {}", mesh.set_id_to_name.size());
             
+            // 在批处理模式下，可以增加更多可选操作，例如
+            // if (build_topology_flag) { ... }
+            
             // --- Step 5: Export the mesh if an output file is specified ---
             if (!output_file_path.empty()) {
                 spdlog::info("Exporting mesh data to: {}", output_file_path);
@@ -180,7 +282,7 @@ int main(int argc, char* argv[]) {
                     spdlog::info("Successfully exported mesh data.");
                 } else {
                     spdlog::error("Failed to export mesh data to: {}", output_file_path);
-                    return 1; // Or handle error as needed
+                    return 1;
                 }
             }
             
@@ -189,8 +291,25 @@ int main(int argc, char* argv[]) {
             return 1;
         }
     } else {
-        spdlog::warn("No input file specified. Use --input-file to specify a .xfem file to process.");
-        spdlog::info("Use --help for usage information.");
+        // --- INTERACTIVE MODE EXECUTION ---
+        spdlog::info("No input file specified. Running in Interactive Mode.");
+        spdlog::info("Type 'help' for a list of commands, 'quit' or 'exit' to leave.");
+        
+        AppSession session;
+        std::string command_line;
+        
+        while (session.is_running) {
+            std::cout << "hyperFEM> " << std::flush;
+            if (std::getline(std::cin, command_line)) {
+                if (!command_line.empty()) {
+                    process_command(command_line, session);
+                }
+            } else {
+                // 处理 Ctrl+D (Unix) 或 Ctrl+Z (Windows) 结束输入
+                session.is_running = false;
+                std::cout << std::endl; // 换行以保持终端整洁
+            }
+        }
     }
     
     spdlog::info("Application finished successfully.");
