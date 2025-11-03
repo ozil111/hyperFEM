@@ -99,6 +99,41 @@ void process_command(const std::string& command_line, AppSession& session) {
             spdlog::info("  - Body {}: {} elements", pair.first, pair.second.size());
         }
     }
+    else if (command == "show_body") {
+        if (!session.topology_built) {
+            spdlog::error("Topology not built. Please run 'build_topology' first.");
+            return;
+        }
+
+        int body_id_to_show;
+        if (!(ss >> body_id_to_show)) {
+            spdlog::error("Usage: show_body <body_id>");
+            return;
+        }
+
+        // Check if the requested BodyID exists
+        const auto& body_map = session.topology->body_to_elements;
+        auto it = body_map.find(body_id_to_show);
+
+        if (it == body_map.end()) {
+            spdlog::error("Body with ID {} not found. Use 'list_bodies' to see available bodies.", body_id_to_show);
+            return;
+        }
+
+        const std::vector<ElementIndex>& element_indices = it->second;
+        
+        // Use a stringstream to build the output list to avoid printing too many lines
+        std::stringstream element_list_ss;
+        for (size_t i = 0; i < element_indices.size(); ++i) {
+            ElementIndex elem_idx = element_indices[i];
+            // Convert internal index back to external ID for user display
+            ElementID elem_id = session.mesh.element_index_to_id[elem_idx];
+            element_list_ss << elem_id << (i == element_indices.size() - 1 ? "" : ", ");
+        }
+
+        spdlog::info("Elements in Body {}:", body_id_to_show);
+        spdlog::info("{}", element_list_ss.str());
+    }
     else if (command == "save") {
         if (!session.mesh_loaded) {
             spdlog::error("No mesh loaded to save. Please 'import' a mesh first.");
