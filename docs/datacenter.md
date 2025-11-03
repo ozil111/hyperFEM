@@ -529,9 +529,13 @@ hyperFEM 提供两种操作模式：**批处理模式**和**交互模式**，以
 7. **保存结果**: `save path/to/your/output.xfem`
 8. **退出程序**: `exit`
 
+# 函数曲线
+
+
+
 # 材料
 
-首先需要有一个几何type
+首先需要有一个材料type
 
 命名规则，采用三位数，首位是大类，第二三位是小类
 
@@ -556,6 +560,10 @@ hyperFEM 提供两种操作模式：**批处理模式**和**交互模式**，以
 未来持续添加
 
 具体到每一种材料需要输入的参数需要单独定义
+
+对于材料，特别是超弹材料，有一个特点就是参数个数是不固定的，不能像几何单元那样固定每种材料有多少参数。而且材料一般来说不会像单元那么多，可以不必像材料节点那样维护一个统一大数组节省内存
+
+关键是要根据mid找到type id，然后根据type id调用对应的材料程序
 
 ## mat1
 
@@ -594,18 +602,8 @@ $E>0$
 
 ```
 *material begin
-# typeid,mid,order,1,
-101,1,1,1&
-# unixial test data fucid(如果是0代表没有)
-1&
-#bixial test data fucid
-2,3&
-#planar test data funcid
-0&
-#volumetric test data funcid
-0&
-#nu(如果volumetric test data funcid为0)
-0.49
+# typeid,mid,order,1,unixial test data flag,bixial test data flag,planar test data flag,volumeteric test data flag,unixial func id...,bixial func id...,planar func id...,volumetric func id...,nu
+101,1,1,1,1,1,1,0,1,2,3,0.49
 *material end
 ```
 
@@ -625,18 +623,8 @@ $E>0$
 
 ```
 *material begin
-# typeid,mid,order,1,
-102,1,1,1&
-# unixial test data fucid(如果是0代表没有)(如果不是零则可以任意长度)
-1&
-#bixial test data fucid
-2,3&
-#planar test data funcid
-0&
-#volumetric test data funcid
-0&
-#nu(如果volumetric test data funcid为0)
-0.49
+# typeid,mid,order,1,unixial test data flag,bixial test data flag,planar test data flag,volumeteric test data flag,unixial func id...,bixial func id...,planar func id...,volumetric func id...,nu
+101,1,1,1,2,2,0,0,1,2,3,4,0.49
 *material end
 ```
 
@@ -656,18 +644,8 @@ $E>0$
 
 ```
 *material begin
-# typeid,mid,order,1,
-103,1,1,1&
-# unixial test data fucid(如果是0代表没有)(如果不是零则可以任意长度)
-1&
-#bixial test data fucid
-2,3&
-#planar test data funcid
-0&
-#volumetric test data funcid
-0&
-#nu(如果volumetric test data funcid为0)
-0.49
+# typeid,mid,order,1,unixial test data flag,bixial test data flag,planar test data flag,volumeteric test data flag,unixial func id...,bixial func id...,planar func id...,volumetric func id...,nu
+101,1,1,1,1,1,1,0,1,2,3,0.49
 *material end
 ```
 
