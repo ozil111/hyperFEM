@@ -39,7 +39,7 @@ inline void preprocess_line(std::string& line) {
 
 /**
  * @brief 从文件流中读取一个完整的"逻辑行".
- * 通过查找行尾的逗号来处理行连续。
+ * 通过查找行尾的 & 符号来处理行连续。
  * @param file [in, out] 输入文件流.
  * @param logical_line [out] 存储最终合并后的逻辑行.
  * @return bool 如果成功读取到内容则返回 true, 否则返回 false (文件结束).
@@ -65,11 +65,15 @@ inline bool get_logical_line(std::ifstream& file, std::string& logical_line) {
         
         is_first_line = false;
 
-        if (physical_line.back() == ',') {
+        // 检查行连续符是否为 '&'
+        if (physical_line.back() == '&') {
             // 发现行连续符
-            physical_line.pop_back(); // 移除末尾的逗号
-            trim(physical_line);      // 再次 trim 以防 "1, 2, 3 , " 这种情况
-            logical_line += physical_line + ","; // 拼接并保留一个逗号作为分隔
+            physical_line.pop_back(); // 移除末尾的 '&'
+            trim(physical_line);      // 再次 trim 以防 "1, 2, 3 & " 这种情况
+            logical_line += physical_line; // 拼接字符串。
+                                           // 注意：不再像以前那样-额外-添加-逗号，
+                                           // 因为 '&' 只是连续符，不是分隔符。
+                                           // 数据行本身应该包含它需要的逗号。
         } else {
             // 没有行连续符，这是逻辑行的最后一部分
             logical_line += physical_line;

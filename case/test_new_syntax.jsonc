@@ -1,0 +1,43 @@
+{
+    "mesh": {
+        "nodes": [
+            //{nid:id, x:x, y:y, z:z}
+            {"nid":1, "x":1.0, "y":1.0, "z":1.0},
+            {"nid":2, "x":1.0, "y":0.0, "z":1.0},
+            {"nid":3, "x":1.0, "y":1.0, "z":0.0},
+            {"nid":4, "x":1.0, "y":0.0, "z":0.0},
+            {"nid":5, "x":0.0, "y":1.0, "z":1.0},
+            {"nid":6, "x":0.0, "y":0.0, "z":1.0},
+            {"nid":7, "x":0.0, "y":1.0, "z":0.0},
+            {"nid":8, "x":0.0, "y":0.0, "z":0.0}
+        ],
+        "elements": [
+            //{eid:id, etype:type, nids:[nid1, nid2, nid3, nid4]}
+            {"eid":1, "etype":308, "pid":1,"nids":[5, 6, 8, 7, 1, 2, 4, 3]}
+        ]
+    },
+    "nodeset": [
+        {"nsid":1,"name":"fix","nids":[3, 4, 7, 8]},
+        {"nsid":2,"name":"load","nids":[1, 2, 5, 6]}
+    ],
+    "eleset": [
+        {"esid":1,"name":"all","eids":[1]}
+    ],
+    "material": [
+        {"mid":1,"typeid":1,"rho":1000.0,"E":2e9,"nu":0.3}
+    ],
+    "property": [
+        {"pid":1,"typeid":1,"mid":1,"integration_network":2,"hourglass_control":"null"}
+    ],
+    "boundary": [
+        {"bid":1,"typeid":1,"nsid":1,"dof":"all","value":0.0}
+    ],
+    "load": [
+        {"lid":1,"typeid":1,"nsid":2,"dof":"x","value":1000.0},
+        {"lid":2,"typeid":1,"nsid":2,"dof":"y","value":1000.0},
+        {"lid":3,"typeid":1,"nsid":2,"dof":"z","value":1000.0}
+    ],
+    "analysis": [
+        {"analysis_type":"static"}
+    ]
+}

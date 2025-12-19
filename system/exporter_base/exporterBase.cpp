@@ -3,11 +3,12 @@
 #include "mesh/node_exporter.h"     // Include the node exporter header
 #include "mesh/element_exporter.h"  // Include the element exporter header
 #include "mesh/set_exporter.h"      // Include the set exporter header
+#include "components/mesh_components.h"
 #include "spdlog/spdlog.h"
 #include <fstream>
 #include <iomanip> // For std::setprecision
 
-bool FemExporter::save(const std::string& filepath, const Mesh& mesh) {
+bool FemExporter::save(const std::string& filepath, const DataContext& data_context) {
     // std::ios::trunc ensures that if the file exists, it's overwritten.
     std::ofstream file(filepath, std::ios::trunc);
     if (!file.is_open()) {
@@ -20,27 +21,33 @@ bool FemExporter::save(const std::string& filepath, const Mesh& mesh) {
     // Set precision for floating-point output
     file << std::fixed << std::setprecision(8);
 
+    const auto& registry = data_context.registry;
+
     try {
         // --- Dispatch tasks to specialized exporters ---
 
         // 1. Export Nodes
-        if (mesh.getNodeCount() > 0) {
-            NodeExporter::save(file, mesh);
+        auto node_count = registry.view<Component::Position>().size();
+        if (node_count > 0) {
+            NodeExporter::save(file, registry);
         }
 
         // 2. Export Elements
-        if (mesh.getElementCount() > 0) {
-            ElementExporter::save(file, mesh);
+        auto element_count = registry.view<Component::Connectivity>().size();
+        if (element_count > 0) {
+            ElementExporter::save(file, registry);
         }
 
         // 3. Export Node Sets
-        if (!mesh.node_sets.empty()) {
-            SetExporter::save_node_sets(file, mesh);
+        auto node_set_view = registry.view<const Component::SetName, const Component::NodeSetMembers>();
+        if (node_set_view.size_hint() != 0) {
+            SetExporter::save_node_sets(file, registry);
         }
 
         // 4. Export Element Sets
-        if (!mesh.element_sets.empty()) {
-            SetExporter::save_element_sets(file, mesh);
+        auto element_set_view = registry.view<const Component::SetName, const Component::ElementSetMembers>();
+        if (element_set_view.size_hint() != 0) {
+            SetExporter::save_element_sets(file, registry);
         }
 
     } catch (const std::exception& e) {

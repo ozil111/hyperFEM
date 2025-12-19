@@ -1,16 +1,16 @@
 // system/mesh/node_exporter.h
 #pragma once
-#include "mesh.h"
+#include "entt/entt.hpp"
 #include <fstream>
 
 // Encapsulate the node exporter in its own namespace
 namespace NodeExporter {
 
 /**
- * @brief Saves the node data from a Mesh object to a file stream.
+ * @brief Saves the node data from the registry to a file stream.
  * @param file [out] The output file stream.
- * @param mesh [in] The Mesh data object containing the node data.
+ * @param registry [in] The EnTT registry containing node entities with Position and OriginalID components.
  */
-void save(std::ofstream& file, const Mesh& mesh);
+void save(std::ofstream& file, const entt::registry& registry);
 
 } // namespace NodeExporter

@@ -1,21 +1,34 @@
-// Session.h
+// AppSession.h
 #pragma once
-#include "mesh.h"
-#include "TopologyData.h" // 引入我们之前设计的拓扑数据结构
+#include "DataContext.h"
+#include "TopologyData.h"
 
+/**
+ * @brief Application session state machine
+ * @details Manages the lifecycle of the mesh data and topology analysis.
+ * All mesh data is stored in the DataContext's registry using ECS components.
+ */
 struct AppSession {
     bool is_running = true;
     bool mesh_loaded = false;
     bool topology_built = false;
 
-    Mesh mesh;
-    std::unique_ptr<TopologyData> topology; // 使用指针，因为只有在需要时才创建
+    DataContext data; // The single source of truth - EnTT registry
 
-    AppSession() : topology(nullptr) {}
+    AppSession() = default;
 
-    void clear_mesh() {
-        mesh.clear();
-        topology.reset(); // 如果清除了网格，拓扑数据也必须失效
+    /**
+     * @brief Clears all mesh data and topology from the registry
+     */
+    void clear_data() {
+        // Erase topology data from context if it exists
+        if (data.registry.ctx().contains<std::unique_ptr<TopologyData>>()) {
+            data.registry.ctx().erase<std::unique_ptr<TopologyData>>();
+        }
+        
+        // Clear all entities and components
+        data.clear();
+        
         mesh_loaded = false;
         topology_built = false;
     }

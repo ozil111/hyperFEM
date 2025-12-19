@@ -1,12 +1,14 @@
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/basic_file_sink.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
-#include "parser_base/parserBase.h"
+#include "parser_base/parserBase.h"       // 旧的 .xfem 解析器（向后兼容）
+#include "parser_json/JsonParser.h"       // 新的 JSON 解析器
 #include "exporter_base/exporterBase.h"
-#include "mesh.h"
-#include "TopologyData.h"      // 引入拓扑数据结构
-#include "mesh/TopologySystems.h"   // 引入拓扑逻辑系统
-#include "AppSession.h"        // 引入会话状态机
+#include "DataContext.h"                  // 引入ECS数据中心
+#include "components/mesh_components.h"   // 引入组件定义
+#include "TopologyData.h"                 // 引入拓扑数据结构
+#include "mesh/TopologySystems.h"         // 引入拓扑逻辑系统
+#include "AppSession.h"                   // 引入会话状态机
 #include <iostream>
 #include <string>
 #include <memory>
@@ -36,13 +38,19 @@ void print_banner() {
 void print_help() {
     std::cout << "Usage: hyperFEM_app [options]" << std::endl;
     std::cout << "Options:" << std::endl;
-    std::cout << "  --input-file, -i <file>    Specify input .xfem file to process" << std::endl;
-    std::cout << "  --output-file, -o <file>   Specify output .xfem file to save" << std::endl;
+    std::cout << "  --input-file, -i <file>    Specify input file (.xfem or .json/.jsonc)" << std::endl;
+    std::cout << "  --output-file, -o <file>   Specify output file (.xfem)" << std::endl;
     std::cout << "  --log-level, -l <level>    Set log level (trace, debug, info, warn, error, critical)" << std::endl;
     std::cout << "  --log-directory, -d <path> Set log file path" << std::endl;
     std::cout << "  --help, -h                 Show this help message" << std::endl;
     std::cout << std::endl;
-    std::cout << "Example:" << std::endl;
+    std::cout << "Supported Input Formats:" << std::endl;
+    std::cout << "  .xfem  - Legacy text format (backward compatible)" << std::endl;
+    std::cout << "  .json  - JSON format (recommended)" << std::endl;
+    std::cout << "  .jsonc - JSON with comments (recommended)" << std::endl;
+    std::cout << std::endl;
+    std::cout << "Examples:" << std::endl;
+    std::cout << "  hyperFEM_app --input-file case/model.jsonc --output-file case/output.xfem" << std::endl;
     std::cout << "  hyperFEM_app --input-file case/node.xfem --output-file case/output.xfem" << std::endl;
 }
 
@@ -63,15 +71,41 @@ void process_command(const std::string& command_line, AppSession& session) {
         std::string file_path;
         ss >> file_path;
         if (file_path.empty()) {
-            spdlog::error("Usage: import <path_to_xfem_file>");
+            spdlog::error("Usage: import <path_to_file>");
             return;
         }
-        session.clear_mesh();
+        
+        // 检查文件是否存在
+        if (!std::filesystem::exists(file_path)) {
+            spdlog::error("File does not exist: {}", file_path);
+            return;
+        }
+        
+        session.clear_data();
         spdlog::info("Importing mesh from: {}", file_path);
-        if (FemParser::parse(file_path, session.mesh)) {
+        
+        // 根据文件扩展名自动选择解析器
+        std::filesystem::path path(file_path);
+        std::string extension = path.extension().string();
+        bool parse_success = false;
+        
+        if (extension == ".json" || extension == ".jsonc") {
+            spdlog::info("Detected JSON format, using JsonParser...");
+            parse_success = JsonParser::parse(file_path, session.data);
+        } else if (extension == ".xfem") {
+            spdlog::info("Detected XFEM format, using FemParser (legacy)...");
+            parse_success = FemParser::parse(file_path, session.data);
+        } else {
+            spdlog::error("Unsupported file format: {}. Supported: .json, .jsonc, .xfem", extension);
+            return;
+        }
+        
+        if (parse_success) {
             session.mesh_loaded = true;
-            spdlog::info("Successfully imported mesh. {} nodes, {} elements.",
-                         session.mesh.getNodeCount(), session.mesh.getElementCount());
+            // Count entities using views
+            auto node_count = session.data.registry.view<Component::Position>().size();
+            auto element_count = session.data.registry.view<Component::Connectivity>().size();
+            spdlog::info("Successfully imported mesh. {} nodes, {} elements.", node_count, element_count);
         } else {
             spdlog::error("Failed to import mesh from: {}", file_path);
         }
@@ -82,10 +116,12 @@ void process_command(const std::string& command_line, AppSession& session) {
             return;
         }
         spdlog::info("Building topology data...");
-        session.topology = std::make_unique<TopologyData>(session.mesh);
-        TopologySystems::extract_topology(session.mesh, *session.topology);
+        TopologySystems::extract_topology(session.data.registry);
         session.topology_built = true;
-        spdlog::info("Topology built successfully. Found {} unique faces.", session.topology->faces.size());
+        
+        // Get the topology from context to report statistics
+        auto& topology = *session.data.registry.ctx().get<std::unique_ptr<TopologyData>>();
+        spdlog::info("Topology built successfully. Found {} unique faces.", topology.faces.size());
     }
     else if (command == "list_bodies") {
         if (!session.topology_built) {
@@ -93,9 +129,12 @@ void process_command(const std::string& command_line, AppSession& session) {
             return;
         }
         spdlog::info("Finding continuous bodies...");
-        TopologySystems::find_continuous_bodies(*session.topology);
-        spdlog::info("Found {} continuous body/bodies:", session.topology->body_to_elements.size());
-        for (const auto& pair : session.topology->body_to_elements) {
+        TopologySystems::find_continuous_bodies(session.data.registry);
+        
+        // Get the topology from context
+        auto& topology = *session.data.registry.ctx().get<std::unique_ptr<TopologyData>>();
+        spdlog::info("Found {} continuous body/bodies:", topology.body_to_elements.size());
+        for (const auto& pair : topology.body_to_elements) {
             spdlog::info("  - Body {}: {} elements", pair.first, pair.second.size());
         }
     }
@@ -111,24 +150,25 @@ void process_command(const std::string& command_line, AppSession& session) {
             return;
         }
 
+        // Get the topology from context
+        auto& topology = *session.data.registry.ctx().get<std::unique_ptr<TopologyData>>();
+        
         // Check if the requested BodyID exists
-        const auto& body_map = session.topology->body_to_elements;
-        auto it = body_map.find(body_id_to_show);
-
-        if (it == body_map.end()) {
+        auto it = topology.body_to_elements.find(body_id_to_show);
+        if (it == topology.body_to_elements.end()) {
             spdlog::error("Body with ID {} not found. Use 'list_bodies' to see available bodies.", body_id_to_show);
             return;
         }
 
-        const std::vector<ElementIndex>& element_indices = it->second;
+        const std::vector<entt::entity>& element_entities = it->second;
         
-        // Use a stringstream to build the output list to avoid printing too many lines
+        // Build the output list
         std::stringstream element_list_ss;
-        for (size_t i = 0; i < element_indices.size(); ++i) {
-            ElementIndex elem_idx = element_indices[i];
-            // Convert internal index back to external ID for user display
-            ElementID elem_id = session.mesh.element_index_to_id[elem_idx];
-            element_list_ss << elem_id << (i == element_indices.size() - 1 ? "" : ", ");
+        for (size_t i = 0; i < element_entities.size(); ++i) {
+            entt::entity elem_entity = element_entities[i];
+            // Get the OriginalID component to display external ID
+            const auto& orig_id = session.data.registry.get<Component::OriginalID>(elem_entity);
+            element_list_ss << orig_id.value << (i == element_entities.size() - 1 ? "" : ", ");
         }
 
         spdlog::info("Elements in Body {}:", body_id_to_show);
@@ -146,7 +186,7 @@ void process_command(const std::string& command_line, AppSession& session) {
             return;
         }
         spdlog::info("Exporting mesh data to: {}", file_path);
-        if (FemExporter::save(file_path, session.mesh)) {
+        if (FemExporter::save(file_path, session.data)) {
             spdlog::info("Successfully exported mesh data.");
         } else {
             spdlog::error("Failed to export mesh data to: {}", file_path);
@@ -156,14 +196,19 @@ void process_command(const std::string& command_line, AppSession& session) {
         if (!session.mesh_loaded) {
             spdlog::warn("No mesh loaded.");
         } else {
+            // Count entities using views
+            auto node_count = session.data.registry.view<Component::Position>().size();
+            auto element_count = session.data.registry.view<Component::Connectivity>().size();
+            auto set_count = session.data.registry.view<Component::SetName>().size();
+            
             spdlog::info("Mesh loaded: {} nodes, {} elements, {} sets",
-                         session.mesh.getNodeCount(), 
-                         session.mesh.getElementCount(),
-                         session.mesh.set_id_to_name.size());
+                         node_count, element_count, set_count);
+            
             if (session.topology_built) {
+                auto& topology = *session.data.registry.ctx().get<std::unique_ptr<TopologyData>>();
                 spdlog::info("Topology built: {} unique faces, {} bodies",
-                             session.topology->faces.size(),
-                             session.topology->body_to_elements.size());
+                             topology.faces.size(),
+                             topology.body_to_elements.size());
             } else {
                 spdlog::info("Topology not built yet.");
             }
@@ -202,10 +247,11 @@ int main(int argc, char* argv[]) {
             if (i + 1 < argc) {
                 input_file_path = argv[++i];
                 
-                // 验证文件扩展名
+                // 验证文件扩展名（支持 .xfem, .json, .jsonc）
                 std::filesystem::path file_path(input_file_path);
-                if (file_path.extension() != ".xfem") {
-                    std::cerr << "Error: Input file must have .xfem extension" << std::endl;
+                std::string extension = file_path.extension().string();
+                if (extension != ".xfem" && extension != ".json" && extension != ".jsonc") {
+                    std::cerr << "Error: Input file must have .xfem, .json, or .jsonc extension" << std::endl;
                     std::cerr << "Provided file: " << input_file_path << std::endl;
                     return 1;
                 }
@@ -297,15 +343,33 @@ int main(int argc, char* argv[]) {
         spdlog::info("Running in Batch Mode.");
         spdlog::info("Processing input file: {}", input_file_path);
         
-        // 创建Mesh对象来存储解析的数据
-        Mesh mesh;
+        // 创建DataContext对象来存储解析的数据
+        DataContext data_context;
         
-        // 使用FemParser解析输入文件
-        if (FemParser::parse(input_file_path, mesh)) {
+        // 根据文件扩展名自动选择解析器
+        std::filesystem::path path(input_file_path);
+        std::string extension = path.extension().string();
+        bool parse_success = false;
+        
+        if (extension == ".json" || extension == ".jsonc") {
+            spdlog::info("Detected JSON format, using JsonParser...");
+            parse_success = JsonParser::parse(input_file_path, data_context);
+        } else if (extension == ".xfem") {
+            spdlog::info("Detected XFEM format, using FemParser (legacy)...");
+            parse_success = FemParser::parse(input_file_path, data_context);
+        }
+        
+        if (parse_success) {
             spdlog::info("Successfully parsed input file: {}", input_file_path);
-            spdlog::info("Total nodes loaded: {}", mesh.getNodeCount());
-            spdlog::info("Total elements loaded: {}", mesh.getElementCount());
-            spdlog::info("Total sets loaded: {}", mesh.set_id_to_name.size());
+            
+            // Count entities using views
+            auto node_count = data_context.registry.view<Component::Position>().size();
+            auto element_count = data_context.registry.view<Component::Connectivity>().size();
+            auto set_count = data_context.registry.view<Component::SetName>().size();
+            
+            spdlog::info("Total nodes loaded: {}", node_count);
+            spdlog::info("Total elements loaded: {}", element_count);
+            spdlog::info("Total sets loaded: {}", set_count);
             
             // 在批处理模式下，可以增加更多可选操作，例如
             // if (build_topology_flag) { ... }
@@ -313,7 +377,7 @@ int main(int argc, char* argv[]) {
             // --- Step 5: Export the mesh if an output file is specified ---
             if (!output_file_path.empty()) {
                 spdlog::info("Exporting mesh data to: {}", output_file_path);
-                if (FemExporter::save(output_file_path, mesh)) {
+                if (FemExporter::save(output_file_path, data_context)) {
                     spdlog::info("Successfully exported mesh data.");
                 } else {
                     spdlog::error("Failed to export mesh data to: {}", output_file_path);

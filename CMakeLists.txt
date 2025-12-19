@@ -41,6 +41,13 @@ if(MSVC)
     add_definitions(-D_USE_MATH_DEFINES)
 endif()
 
+# MinGW 特定设置：支持大目标文件（解决 "too many sections" 错误）
+# 当使用 MinGW 编译器时，添加 -Wa,-mbig-obj 标志以支持大目标文件
+# 这解决了 nlohmann/json.hpp 等大型头文件库导致的编译错误
+if(MINGW OR (WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU"))
+    add_compile_options(-Wa,-mbig-obj)
+endif()
+
 # 设置默认构建类型
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Debug)
@@ -56,11 +63,19 @@ find_package(fmt CONFIG REQUIRED)
 find_package(eigen3 CONFIG REQUIRED)
 find_package(gtest CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
+find_package(entt CONFIG REQUIRED)
 
 # 添加编译定义以使用header-only模式
 add_compile_definitions(
     SPDLOG_HEADER_ONLY 
     FMT_HEADER_ONLY
+)
+
+# 配置EnTT使用64位实体ID以支持大规模网格
+# 默认32位ID最多支持约100万个实体（2^20 = 1,048,576）
+# 64位ID支持几乎无限数量的实体，适合大型FEM模型
+add_compile_definitions(
+    ENTT_ID_TYPE=std::uint64_t
 )
 
 # 收集源文件
@@ -81,6 +96,7 @@ target_link_libraries(hyperFEM_app
     fmt::fmt
     Eigen3::Eigen
     nlohmann_json::nlohmann_json
+    EnTT::EnTT
 )
 
 # 设置主程序的工作目录

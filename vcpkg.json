@@ -6,7 +6,8 @@
     "spdlog",
     "eigen3",
     "gtest",
-    "nlohmann-json"
+    "nlohmann-json",
+    "entt"
   ],
   "builtin-baseline": "cf72b50294a4aa13e607a0c7b40280b933801698"
 }

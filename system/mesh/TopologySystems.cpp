@@ -2,29 +2,46 @@
 #include "TopologySystems.h"
 #include <algorithm> // for std::sort
 #include <queue>     // for std::queue in flood fill
+#include <unordered_set> // for visited tracking
 #include "spdlog/spdlog.h"
 
 // -------------------------------------------------------------------
 // **System 1: 拓扑提取**
 // -------------------------------------------------------------------
-void TopologySystems::extract_topology(const Mesh& source_mesh, TopologyData& topology) {
-    topology.clear();
-    topology.element_to_faces.resize(source_mesh.getElementCount());
+void TopologySystems::extract_topology(entt::registry& registry) {
+    spdlog::info("TopologySystems: Starting topology extraction...");
+    
+    // Create a new TopologyData instance
+    auto topology_ptr = std::make_unique<TopologyData>();
+    TopologyData& topology = *topology_ptr;
 
-    for (ElementIndex elem_idx = 0; elem_idx < source_mesh.getElementCount(); ++elem_idx) {
-        // 1. 获取当前单元的节点 (使用外部ID)
-        size_t start = source_mesh.element_offsets[elem_idx];
-        size_t end = (elem_idx + 1 < source_mesh.getElementCount())
-                       ? source_mesh.element_offsets[elem_idx + 1]
-                       : source_mesh.element_connectivity.size();
-        std::vector<NodeID> element_nodes(
-            source_mesh.element_connectivity.begin() + start,
-            source_mesh.element_connectivity.begin() + end
-        );
-        int elem_type = source_mesh.element_types[elem_idx];
+    // Get a view of all element entities with Connectivity and ElementType
+    auto element_view = registry.view<const Component::Connectivity, const Component::ElementType>();
+    
+    // Count elements for logging
+    size_t element_count = 0;
+    for (auto element_entity : element_view) {
+        ++element_count;
+    }
+    spdlog::debug("Processing {} element entities...", element_count);
+
+    // Process each element entity
+    for (auto element_entity : element_view) {
+        const auto& connectivity = element_view.get<const Component::Connectivity>(element_entity);
+        const auto& elem_type = element_view.get<const Component::ElementType>(element_entity);
+
+        // 1. 获取当前单元的节点 (需要转换为外部ID)
+        std::vector<NodeID> element_node_ids;
+        element_node_ids.reserve(connectivity.nodes.size());
+        
+        for (entt::entity node_entity : connectivity.nodes) {
+            // Get the OriginalID component from each node entity
+            const auto& node_orig_id = registry.get<Component::OriginalID>(node_entity);
+            element_node_ids.push_back(node_orig_id.value);
+        }
 
         // 2. 从单元中提取所有的面
-        auto element_faces = get_faces_from_element(element_nodes, elem_type);
+        auto element_faces = get_faces_from_element(element_node_ids, elem_type.type_id);
 
         for (auto& face_key : element_faces) {
             // 3. 对面的节点ID排序，创建唯一的 FaceKey
@@ -44,59 +61,92 @@ void TopologySystems::extract_topology(const Mesh& source_mesh, TopologyData& to
                 face_id = it->second;
             }
 
-            // 5. 构建双向关系
-            topology.element_to_faces[elem_idx].push_back(face_id);
-            // **优化点**: 存储单元的内部索引 `elem_idx` 而不是外部ID
-            topology.face_to_elements[face_id].push_back(elem_idx);
+            // 5. 构建双向关系 - 使用entity而不是索引
+            topology.element_to_faces[element_entity].push_back(face_id);
+            topology.face_to_elements[face_id].push_back(element_entity);
         }
     }
+
+    spdlog::info("Topology extraction complete. Found {} unique faces.", topology.faces.size());
+    
+    // Store the topology data in the registry's context
+    registry.ctx().emplace<std::unique_ptr<TopologyData>>(std::move(topology_ptr));
 }
 
 // -------------------------------------------------------------------
 // **System 2: 连续体查找 (洪水填充)**
 // -------------------------------------------------------------------
-void TopologySystems::find_continuous_bodies(TopologyData& topology) {
-    topology.element_to_body.assign(topology.source_mesh.getElementCount(), -1); // -1代表未访问
+void TopologySystems::find_continuous_bodies(entt::registry& registry) {
+    spdlog::info("TopologySystems: Finding continuous bodies...");
+    
+    // Get the topology data from the registry context
+    if (!registry.ctx().contains<std::unique_ptr<TopologyData>>()) {
+        spdlog::error("Topology has not been built. Please run 'extract_topology' first.");
+        throw std::runtime_error("TopologyData not found in registry context");
+    }
+
+    auto& topology_ptr = registry.ctx().get<std::unique_ptr<TopologyData>>();
+    TopologyData& topology = *topology_ptr;
+
+    // Clear previous body data
+    topology.element_to_body.clear();
     topology.body_to_elements.clear();
+    
     BodyID current_body_id = 0;
 
-    for (ElementIndex i = 0; i < topology.source_mesh.getElementCount(); ++i) {
-        if (topology.element_to_body[i] == -1) { // 如果此单元还未被分配到任何连续体
-            // 从此单元开始进行一次新的洪水填充
-            std::queue<ElementIndex> q;
-            q.push(i);
-            topology.element_to_body[i] = current_body_id;
+    // Get all element entities
+    auto element_view = registry.view<const Component::Connectivity>();
+    
+    // Track which entities have been visited
+    std::unordered_set<entt::entity> visited;
+
+    for (auto element_entity : element_view) {
+        // If this element hasn't been assigned to any body yet
+        if (visited.find(element_entity) == visited.end()) {
+            // Start a new flood fill from this element
+            std::queue<entt::entity> q;
+            q.push(element_entity);
+            visited.insert(element_entity);
+            topology.element_to_body[element_entity] = current_body_id;
 
             while (!q.empty()) {
-                ElementIndex current_elem_idx = q.front();
+                entt::entity current_elem_entity = q.front();
                 q.pop();
 
-                // **优化点**: 在body_to_elements中存储内部索引
-                topology.body_to_elements[current_body_id].push_back(current_elem_idx);
+                // Add to the body's element list
+                topology.body_to_elements[current_body_id].push_back(current_elem_entity);
 
-                // 通过共享面寻找所有邻居单元
-                const auto& faces_of_current_elem = topology.element_to_faces[current_elem_idx];
+                // Find all neighbor elements through shared faces
+                auto faces_it = topology.element_to_faces.find(current_elem_entity);
+                if (faces_it == topology.element_to_faces.end()) {
+                    continue; // This element has no faces (shouldn't happen)
+                }
+                
+                const auto& faces_of_current_elem = faces_it->second;
                 for (FaceID face_id : faces_of_current_elem) {
                     const auto& elements_sharing_face = topology.face_to_elements[face_id];
                     
-                    // 只有内部面（被两个单元共享）才能连接邻居
+                    // Only internal faces (shared by exactly 2 elements) connect neighbors
                     if (elements_sharing_face.size() == 2) {
-                        // 找到另一个共享该面的单元
-                        ElementIndex neighbor_elem_idx = (elements_sharing_face[0] == current_elem_idx)
-                                                       ? elements_sharing_face[1]
-                                                       : elements_sharing_face[0];
+                        // Find the other element sharing this face
+                        entt::entity neighbor_elem_entity = (elements_sharing_face[0] == current_elem_entity)
+                                                           ? elements_sharing_face[1]
+                                                           : elements_sharing_face[0];
                         
-                        if (topology.element_to_body[neighbor_elem_idx] == -1) {
-                            // 如果邻居未被访问，则标记并加入队列
-                            topology.element_to_body[neighbor_elem_idx] = current_body_id;
-                            q.push(neighbor_elem_idx);
+                        // If neighbor hasn't been visited, mark it and add to queue
+                        if (visited.find(neighbor_elem_entity) == visited.end()) {
+                            visited.insert(neighbor_elem_entity);
+                            topology.element_to_body[neighbor_elem_entity] = current_body_id;
+                            q.push(neighbor_elem_entity);
                         }
                     }
                 }
             }
-            current_body_id++; // 为下一个发现的连续体准备新的ID
+            current_body_id++; // Prepare a new ID for the next discovered body
         }
     }
+    
+    spdlog::info("Found {} continuous body/bodies.", topology.body_to_elements.size());
 }
 
 // -------------------------------------------------------------------
@@ -107,11 +157,17 @@ std::vector<FaceKey> TopologySystems::get_faces_from_element(
     
     // 对于梁单元，它们是1D实体，没有“面”的概念，因此返回空列表。
     // 它们的连接性需要通过其他方式（如节点共享）来定义，而不是面共享。
-    if (element_type == 102 || element_type == 103) {
-        return {};
-    }
+    // if (element_type == 102 || element_type == 103) {
+    //     return {};
+    // }
 
     switch (element_type) {
+        case 102:
+            return {{nodes[0]}, {nodes[1]}};
+            break;
+        case 103:
+            return {{nodes[0]}, {nodes[1]}};
+            break;
         // --- 2D 单元 (面是边) ---
         case 203: // 3节点平面三角形
             if (nodes.size() == 3) {
