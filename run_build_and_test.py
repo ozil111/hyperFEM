@@ -219,7 +219,14 @@ def main():
         else:  # debug
             preset_name = 'default'
 
+    # If building with tests, we need to use test presets
+    # Pass the preset name to build script if we're building tests
     build_args = [f'--{args.mode}']
+    if args.test:
+        # Add a flag to indicate we want to build with tests
+        build_args.append('--test-preset')
+        build_args.append(preset_name)
+    
     # The --rebuild logic is now handled entirely within this Python script
     # by deleting the directory, so we no longer pass a --clean flag down.
 
@@ -268,6 +275,10 @@ def main():
         if args.test_target and args.test_target != 'all':
             test_args.append('--test-target')
             test_args.append(args.test_target)
+        
+        # Pass project root to test script to avoid path calculation issues
+        test_args.append('--project-root')
+        test_args.append(os.path.abspath('.'))
         
         run_test_script(test_args, show_time=True)
 

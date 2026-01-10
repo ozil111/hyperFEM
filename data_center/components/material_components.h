@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <string>
+#include <Eigen/Dense>
 
 /**
  * @namespace Component
@@ -27,6 +28,20 @@ namespace Component {
         double rho; // 密度
         double E;   // 弹性模量
         double nu;  // 泊松比
+    };
+
+    /**
+     * @brief [派生数据] 线性弹性本构矩阵 (D Matrix)
+     * @details 这是一个运行时生成的组件，挂载在 Material 实体上。
+     * 对于 3D 各向同性材料，这是一个 6x6 矩阵。
+     * 使用 Abaqus/Fortran 顺序: xx, yy, zz, xy, yz, xz
+     */
+    struct LinearElasticMatrix {
+        // 使用 Eigen 存储 6x6 矩阵 (Voigt notation: xx, yy, zz, xy, yz, xz - Abaqus/Fortran 顺序)
+        Eigen::Matrix<double, 6, 6> D;
+        
+        // 标记是否已初始化，防止重复计算
+        bool is_initialized = false;
     };
 
     /**

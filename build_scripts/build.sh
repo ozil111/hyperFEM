@@ -17,6 +17,7 @@ fi
 BUILD_TYPE="Debug"
 BUILD_MODE="default"
 PRESET_NAME="default"
+USE_TEST_PRESET=0
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -39,6 +40,11 @@ while [[ $# -gt 0 ]]; do
             BUILD_TYPE="Release"
             shift
             ;;
+        --test-preset)
+            USE_TEST_PRESET=1
+            PRESET_NAME="$2"
+            shift 2
+            ;;
         *)
             echo "Unknown option: $1"
             exit 1
@@ -46,12 +52,14 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Set preset name based on build mode and type
-if [ "$BUILD_MODE" = "default" ]; then
-    if [ "$BUILD_TYPE" = "Release" ]; then
-        PRESET_NAME="release"
-    else
-        PRESET_NAME="default"
+# Set preset name based on build mode and type (only if not using test preset)
+if [ $USE_TEST_PRESET -eq 0 ]; then
+    if [ "$BUILD_MODE" = "default" ]; then
+        if [ "$BUILD_TYPE" = "Release" ]; then
+            PRESET_NAME="release"
+        else
+            PRESET_NAME="default"
+        fi
     fi
 fi
 

@@ -21,6 +21,7 @@ set BUILD_TYPE=Debug
 set CLEAN=0
 set BUILD_MODE=default
 set PRESET_NAME=default
+set USE_TEST_PRESET=0
 
 :parse_args
 if "%~1"=="" goto :end_parse_args
@@ -35,16 +36,23 @@ if /i "%~1"=="--msvc-release" (
     set PRESET_NAME=msvc_release
     set BUILD_TYPE=Release
 )
+if /i "%~1"=="--test-preset" (
+    set USE_TEST_PRESET=1
+    set "PRESET_NAME=%~2"
+    shift
+)
 shift
 goto :parse_args
 :end_parse_args
 
-:: Set preset name based on build mode and type
-if %BUILD_MODE%==default (
-    if %BUILD_TYPE%==Release (
-        set PRESET_NAME=release
-    ) else (
-        set PRESET_NAME=default
+:: Set preset name based on build mode and type (only if not using test preset)
+if %USE_TEST_PRESET%==0 (
+    if %BUILD_MODE%==default (
+        if %BUILD_TYPE%==Release (
+            set PRESET_NAME=release
+        ) else (
+            set PRESET_NAME=default
+        )
     )
 )
 
