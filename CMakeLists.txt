@@ -6,6 +6,8 @@ cmake_policy(SET CMP0167 NEW)
 # 禁用自动运行 vcpkg install
 set(VCPKG_MANIFEST_INSTALL OFF)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # 设置 vcpkg 工具链文件路径
 set(CMAKE_TOOLCHAIN_FILE "D:/Document/vcpkg/scripts/buildsystems/vcpkg.cmake" CACHE STRING "Vcpkg toolchain file")
 
