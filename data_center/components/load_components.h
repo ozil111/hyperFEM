@@ -2,6 +2,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 #include "entt/entt.hpp"
 
 /**
@@ -49,6 +50,14 @@ namespace Component {
     };
 
     /**
+     * @brief [新] 附加到 Load 实体，指向关联的 Curve 实体（可选）
+     * @details 如果存在，载荷值会根据curve和时间进行缩放
+     */
+    struct CurveRef {
+        entt::entity curve_entity;  // 指向Curve实体的引用
+    };
+
+    /**
      * @brief [新] 附加到 Boundary 实体，存储单点约束 (SPC) 的定义
      * @details 对应 JSON 中的 "boundary" 对象
      * 一个 Boundary 实体代表一个抽象的边界条件定义，可以被应用到多个节点上
@@ -57,6 +66,25 @@ namespace Component {
         int type_id;        // 边界条件类型 ID
         std::string dof;    // 约束自由度："all", "x", "y", "z", "xy" 等
         double value;       // 约束值（通常为 0.0 表示固定）
+    };
+
+    /**
+     * @brief [新] 附加到 Curve 实体，存储曲线ID
+     * @details 用于标识Curve实体
+     */
+    struct CurveID {
+        int value;
+    };
+
+    /**
+     * @brief [新] 附加到 Curve 实体，存储曲线的定义
+     * @details 对应 JSON 中的 "curve" 对象
+     * 支持不同类型的曲线（如linear），用于随时间缩放载荷值
+     */
+    struct Curve {
+        std::string type;   // 曲线类型："linear" 等
+        std::vector<double> x;  // x坐标数组（通常是时间）
+        std::vector<double> y;  // y坐标数组（通常是缩放因子）
     };
 
     // ===================================================================

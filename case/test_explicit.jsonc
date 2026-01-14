@@ -33,9 +33,12 @@
         {"bid":1,"typeid":1,"nsid":1,"dof":"all","value":0.0}
     ],
     "load": [
-        {"lid":1,"typeid":1,"nsid":2,"dof":"x","value":1000.0},
-        {"lid":2,"typeid":1,"nsid":2,"dof":"y","value":1000.0},
-        {"lid":3,"typeid":1,"nsid":2,"dof":"z","value":1000.0}
+        {"lid":1,"typeid":1,"nsid":2,"dof":"x","value":1000.0,"curve":1},
+        {"lid":2,"typeid":1,"nsid":2,"dof":"y","value":1000.0,"curve":1},
+        {"lid":3,"typeid":1,"nsid":2,"dof":"z","value":1000.0,"curve":1}
+    ],
+    "curve":[
+        {"cid":1,"type":"linear","x":[0.0,1.0],"y":[0.0,1.0]}
     ],
     "analysis": [
         {"analysis_type":"explicit"}

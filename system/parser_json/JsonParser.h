@@ -126,15 +126,29 @@ private:
     );
 
     /**
+     * @brief 步骤 6.5: 解析 Curve 实体（曲线定义）
+     * @param j JSON 根对象
+     * @param registry EnTT registry
+     * @param curve_id_map [out] cid -> entity 映射表
+     */
+    static void parse_curves(
+        const nlohmann::json& j,
+        entt::registry& registry,
+        std::unordered_map<int, entt::entity>& curve_id_map
+    );
+
+    /**
      * @brief 步骤 7: 解析 Load 实体（抽象定义）
      * @param j JSON 根对象
      * @param registry EnTT registry
      * @param load_id_map [out] lid -> entity 映射表
+     * @param curve_id_map [inout] cid -> entity 映射表（可能被修改以添加默认curve）
      */
     static void parse_loads(
         const nlohmann::json& j,
         entt::registry& registry,
-        std::unordered_map<int, entt::entity>& load_id_map
+        std::unordered_map<int, entt::entity>& load_id_map,
+        std::unordered_map<int, entt::entity>& curve_id_map
     );
 
     /**

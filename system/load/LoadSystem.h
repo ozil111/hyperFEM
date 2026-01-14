@@ -19,7 +19,9 @@ public:
     /**
      * @brief Apply nodal loads to nodes
      * @param registry EnTT registry
-     * @details Traverses nodes with AppliedLoadRef and applies loads based on NodalLoad definition
+     * @param t Current time (for curve evaluation)
+     * @details Traverses nodes with AppliedLoadRef and applies loads based on NodalLoad definition.
+     *          If load has a curve reference, the load value is scaled by the curve value at time t.
      */
-    static void apply_nodal_loads(entt::registry& registry);
+    static void apply_nodal_loads(entt::registry& registry, double t);
 };

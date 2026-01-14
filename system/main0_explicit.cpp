@@ -68,7 +68,7 @@ void run_explicit_solver(DataContext& data_context) {
         
         // Reset and apply external loads
         LoadSystem::reset_external_forces(data_context.registry);
-        LoadSystem::apply_nodal_loads(data_context.registry);
+        LoadSystem::apply_nodal_loads(data_context.registry, t);
         
         // Time integration
         ExplicitSolver::integrate(data_context.registry, dt);

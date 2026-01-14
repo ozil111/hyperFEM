@@ -47,6 +47,7 @@ bool JsonParser::parse(const std::string& filepath, DataContext& data_context) {
     std::unordered_map<int, entt::entity> eleset_id_map;
     std::unordered_map<int, entt::entity> load_id_map;
     std::unordered_map<int, entt::entity> boundary_id_map;
+    std::unordered_map<int, entt::entity> curve_id_map;
 
     // 4. 按照严格的依赖顺序执行 N-Step 解析
     try {
@@ -80,9 +81,14 @@ bool JsonParser::parse(const std::string& filepath, DataContext& data_context) {
             parse_elesets(j, registry, element_id_map, eleset_id_map);
         }
 
-        // 步骤 7: Load (无依赖)
+        // 步骤 6.5: Curve (无依赖，需要在Load之前解析)
+        if (j.contains("curve")) {
+            parse_curves(j, registry, curve_id_map);
+        }
+
+        // 步骤 7: Load (依赖 Curve)
         if (j.contains("load")) {
-            parse_loads(j, registry, load_id_map);
+            parse_loads(j, registry, load_id_map, curve_id_map);
         }
 
         // 步骤 8: Boundary (无依赖)
@@ -415,12 +421,73 @@ void JsonParser::parse_elesets(
 }
 
 // ============================================================================
+// 步骤 6.5: 解析 Curve（曲线定义）
+// ============================================================================
+void JsonParser::parse_curves(
+    const json& j,
+    entt::registry& registry,
+    std::unordered_map<int, entt::entity>& curve_id_map
+) {
+    spdlog::debug("--> Parsing Curves...");
+
+    for (const auto& curve : j["curve"]) {
+        int cid = curve["cid"];
+        std::string type = curve["type"];
+
+        // 检查重复 ID
+        if (curve_id_map.count(cid)) {
+            spdlog::warn("Duplicate curve ID {}. Skipping.", cid);
+            continue;
+        }
+
+        entt::entity e = registry.create();
+        registry.emplace<Component::CurveID>(e, cid);
+
+        Component::Curve curve_data;
+        curve_data.type = type;
+        
+        // 解析x和y数组
+        if (curve.contains("x") && curve["x"].is_array()) {
+            for (const auto& x_val : curve["x"]) {
+                curve_data.x.push_back(x_val.get<double>());
+            }
+        }
+        if (curve.contains("y") && curve["y"].is_array()) {
+            for (const auto& y_val : curve["y"]) {
+                curve_data.y.push_back(y_val.get<double>());
+            }
+        }
+
+        // 验证数组长度
+        if (curve_data.x.size() != curve_data.y.size()) {
+            spdlog::warn("Curve {} has mismatched x/y array sizes. Skipping.", cid);
+            registry.destroy(e);
+            continue;
+        }
+
+        if (curve_data.x.empty()) {
+            spdlog::warn("Curve {} has empty data. Skipping.", cid);
+            registry.destroy(e);
+            continue;
+        }
+
+        registry.emplace<Component::Curve>(e, curve_data);
+        curve_id_map[cid] = e;
+        spdlog::debug("  Created Curve {}: type={}, points={}", 
+                      cid, type, curve_data.x.size());
+    }
+
+    spdlog::debug("<-- Curves parsed: {} entities created.", curve_id_map.size());
+}
+
+// ============================================================================
 // 步骤 7: 解析 Load（抽象定义）
 // ============================================================================
 void JsonParser::parse_loads(
     const json& j,
     entt::registry& registry,
-    std::unordered_map<int, entt::entity>& load_id_map
+    std::unordered_map<int, entt::entity>& load_id_map,
+    std::unordered_map<int, entt::entity>& curve_id_map
 ) {
     spdlog::debug("--> Parsing Loads...");
 
@@ -454,6 +521,50 @@ void JsonParser::parse_loads(
             default:
                 spdlog::warn("Unknown load typeid: {}. Skipping parameters.", type_id);
                 break;
+        }
+
+        // 解析curve字段：如果未指定，使用默认curve (cid=0)
+        entt::entity curve_entity = entt::null;
+        
+        if (load.contains("curve") && !load["curve"].is_null()) {
+            // 使用指定的curve
+            int curve_id = load["curve"];
+            auto curve_it = curve_id_map.find(curve_id);
+            if (curve_it != curve_id_map.end()) {
+                curve_entity = curve_it->second;
+                spdlog::debug("  Load {} linked to Curve {}", lid, curve_id);
+            } else {
+                spdlog::warn("Load {} references undefined Curve ID {}. Ignoring curve.", lid, curve_id);
+            }
+        }
+        
+        // 如果没有指定curve或指定的curve不存在，使用默认curve (cid=0)
+        if (curve_entity == entt::null) {
+            auto default_curve_it = curve_id_map.find(0);
+            if (default_curve_it != curve_id_map.end()) {
+                // 默认curve已存在，使用它
+                curve_entity = default_curve_it->second;
+                spdlog::debug("  Load {} using default Curve 0", lid);
+            } else {
+                // 创建默认curve: {"cid":0,"type":"linear","x":[0.0,1.0],"y":[0.0,1.0]}
+                entt::entity default_curve = registry.create();
+                registry.emplace<Component::CurveID>(default_curve, 0);
+                
+                Component::Curve default_curve_data;
+                default_curve_data.type = "linear";
+                default_curve_data.x = {0.0, 1.0};
+                default_curve_data.y = {0.0, 1.0};
+                registry.emplace<Component::Curve>(default_curve, default_curve_data);
+                
+                curve_id_map[0] = default_curve;
+                curve_entity = default_curve;
+                spdlog::debug("  Created default Curve 0 for Load {}", lid);
+            }
+        }
+        
+        // 为load添加CurveRef
+        if (curve_entity != entt::null) {
+            registry.emplace<Component::CurveRef>(e, curve_entity);
         }
 
         load_id_map[lid] = e;
