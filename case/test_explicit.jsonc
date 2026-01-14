@@ -27,7 +27,7 @@
         {"mid":1,"typeid":1,"rho":1000.0,"E":2e9,"nu":0.3}
     ],
     "property": [
-        {"pid":1,"typeid":1,"mid":1,"integration_network":2,"hourglass_control":"null"}
+        {"pid":1,"typeid":1,"mid":1,"integration_network":1,"hourglass_control":"null"}
     ],
     "boundary": [
         {"bid":1,"typeid":1,"nsid":1,"dof":"all","value":0.0}
