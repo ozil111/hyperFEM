@@ -100,6 +100,20 @@ bool JsonParser::parse(const std::string& filepath, DataContext& data_context) {
             apply_boundaries(j, registry, boundary_id_map, nodeset_id_map);
         }
 
+        // 步骤 11: 解析 Analysis (无依赖，但应在最后解析)
+        if (j.contains("analysis") && j["analysis"].is_array() && !j["analysis"].empty()) {
+            // 取第一个分析配置的 analysis_type
+            const auto& analysis_config = j["analysis"][0];
+            if (analysis_config.contains("analysis_type") && analysis_config["analysis_type"].is_string()) {
+                data_context.analysis_type = analysis_config["analysis_type"].get<std::string>();
+                spdlog::info("Analysis type set to: {}", data_context.analysis_type);
+            } else {
+                spdlog::warn("Analysis array found but 'analysis_type' not specified, defaulting to 'static'");
+            }
+        } else {
+            spdlog::debug("No 'analysis' field found, defaulting to 'static' analysis");
+        }
+
     } catch (const std::exception& e) {
         spdlog::error("A critical parsing error occurred: {}", e.what());
         return false;

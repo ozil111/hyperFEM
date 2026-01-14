@@ -152,5 +152,62 @@ namespace Component {
         entt::entity property_entity;
     };
 
+    // ===================================================================
+    // Explicit Dynamics Components
+    // ===================================================================
+    // Components for explicit time integration solver
+
+    /**
+     * @brief 节点速度组件（用于显式动力学）
+     * @details 附加到 Node 实体，存储节点在三个方向的速度分量
+     */
+    struct Velocity {
+        double vx, vy, vz;
+    };
+
+    /**
+     * @brief 节点加速度组件（用于显式动力学）
+     * @details 附加到 Node 实体，存储节点在三个方向的加速度分量
+     */
+    struct Acceleration {
+        double ax, ay, az;
+    };
+
+    /**
+     * @brief 节点集中质量组件（用于显式动力学）
+     * @details 附加到 Node 实体，存储节点的集中质量（Lumped Mass）
+     * 通过 MassSystem 从单元质量分配得到
+     */
+    struct Mass {
+        double value;
+    };
+
+    /**
+     * @brief 节点外力组件（用于显式动力学）
+     * @details 附加到 Node 实体，存储外部载荷在三个方向的分量
+     * 由 LoadSystem 从 AppliedLoadRef 计算得到
+     */
+    struct ExternalForce {
+        double fx, fy, fz;
+    };
+
+    /**
+     * @brief 节点内力组件（用于显式动力学）
+     * @details 附加到 Node 实体，存储单元应力产生的内力在三个方向的分量
+     * 由 InternalForceSystem 从单元应力计算得到
+     */
+    struct InternalForce {
+        double fx, fy, fz;
+    };
+
+    /**
+     * @brief 初始位置组件（用于显式动力学）
+     * @details 附加到 Node 实体，存储节点的初始位置，用于计算位移增量
+     * 在求解器初始化时从 Position 复制得到
+     */
+    struct InitialPosition {
+        double x0, y0, z0;
+    };
+
 } // namespace Component
 
