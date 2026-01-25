@@ -190,5 +190,17 @@ private:
         const std::unordered_map<int, entt::entity>& boundary_id_map,
         const std::unordered_map<int, entt::entity>& nodeset_id_map
     );
+
+    /**
+     * @brief 步骤 11: 解析 Analysis 实体
+     * @param j JSON 根对象
+     * @param registry EnTT registry
+     * @param analysis_id_map [out] aid -> entity 映射表
+     */
+    static void parse_analysis(
+        const nlohmann::json& j,
+        entt::registry& registry,
+        std::unordered_map<int, entt::entity>& analysis_id_map
+    );
 };
 

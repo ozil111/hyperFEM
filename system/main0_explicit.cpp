@@ -4,6 +4,7 @@
 #include "spdlog/spdlog.h"
 #include "DataContext.h"
 #include "components/mesh_components.h"
+#include "components/analysis_component.h"
 #include "dof/DofNumberingSystem.h"
 #include "mass/MassSystem.h"
 #include "force/InternalForceSystem.h"
@@ -53,11 +54,18 @@ void run_explicit_solver(DataContext& data_context) {
         }
     }
     
-    // 6. Time step loop
+    // 6. Time step loop (dt, total_time from analysis entity when present)
     double t = 0.0;
-    double dt = 1e-6;  // Fixed time step (for quick validation)
-    double total_time = 1e-3;  // Total simulation time (can be read from JSON in future)
-    
+    double dt = 1e-6;
+    double total_time = 1e-3;
+    if (data_context.analysis_entity != entt::null && data_context.registry.valid(data_context.analysis_entity)) {
+        if (data_context.registry.all_of<Component::FixedTimeStep>(data_context.analysis_entity)) {
+            dt = data_context.registry.get<Component::FixedTimeStep>(data_context.analysis_entity).value;
+        }
+        if (data_context.registry.all_of<Component::EndTime>(data_context.analysis_entity)) {
+            total_time = data_context.registry.get<Component::EndTime>(data_context.analysis_entity).value;
+        }
+    }
     spdlog::info("Starting time integration. dt = {:.2e}, total_time = {:.2e}", dt, total_time);
     
     int step_count = 0;

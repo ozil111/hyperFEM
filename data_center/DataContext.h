@@ -18,17 +18,18 @@ struct DataContext {
     entt::registry registry;
     
     /**
-     * @brief Analysis type from input file (e.g., "static", "explicit")
-     * @details Set by the parser based on the "analysis" field in JSON input
+     * @brief Current analysis entity (first analysis in input)
+     * @details Set by the parser from the "analysis" field in JSON input.
+     * Use registry.get<Component::AnalysisType>(analysis_entity).value etc. to read fields.
      */
-    std::string analysis_type = "static";  // Default to static analysis
+    entt::entity analysis_entity = entt::null;
 
     /**
      * @brief Clears all entities, components, and context data from the registry
      */
     void clear() {
         registry.clear();
-        analysis_type = "static";
+        analysis_entity = entt::null;
     }
 };
 

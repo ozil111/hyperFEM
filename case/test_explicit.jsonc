@@ -41,6 +41,6 @@
         {"cid":1,"type":"linear","x":[0.0,1.0],"y":[0.0,1.0]}
     ],
     "analysis": [
-        {"analysis_type":"explicit"}
+        {"aid":1,"analysis_type":"explicit","endtime":1.0,"fixed_time_step":0.001}
     ]
 }

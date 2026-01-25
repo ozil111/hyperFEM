@@ -4,10 +4,12 @@
 #include "components/material_components.h"
 #include "components/property_components.h"
 #include "components/load_components.h"
+#include "components/analysis_component.h"
 #include "nlohmann/json.hpp"
 #include "spdlog/spdlog.h"
 #include <fstream>
 #include <stdexcept>
+#include "JsonParser.h"
 
 using json = nlohmann::json;
 
@@ -48,6 +50,7 @@ bool JsonParser::parse(const std::string& filepath, DataContext& data_context) {
     std::unordered_map<int, entt::entity> load_id_map;
     std::unordered_map<int, entt::entity> boundary_id_map;
     std::unordered_map<int, entt::entity> curve_id_map;
+    std::unordered_map<int, entt::entity> analysis_id_map;
 
     // 4. 按照严格的依赖顺序执行 N-Step 解析
     try {
@@ -108,13 +111,16 @@ bool JsonParser::parse(const std::string& filepath, DataContext& data_context) {
 
         // 步骤 11: 解析 Analysis (无依赖，但应在最后解析)
         if (j.contains("analysis") && j["analysis"].is_array() && !j["analysis"].empty()) {
-            // 取第一个分析配置的 analysis_type
+            parse_analysis(j, registry, analysis_id_map);
+            // 取第一个分析配置对应的 entity 同步到 DataContext
             const auto& analysis_config = j["analysis"][0];
-            if (analysis_config.contains("analysis_type") && analysis_config["analysis_type"].is_string()) {
-                data_context.analysis_type = analysis_config["analysis_type"].get<std::string>();
-                spdlog::info("Analysis type set to: {}", data_context.analysis_type);
-            } else {
-                spdlog::warn("Analysis array found but 'analysis_type' not specified, defaulting to 'static'");
+            if (analysis_config.contains("aid") && analysis_config["aid"].is_number_integer()) {
+                int first_aid = analysis_config["aid"].get<int>();
+                auto it = analysis_id_map.find(first_aid);
+                if (it != analysis_id_map.end()) {
+                    data_context.analysis_entity = it->second;
+                    spdlog::info("Analysis entity set (aid={}).", first_aid);
+                }
             }
         } else {
             spdlog::debug("No 'analysis' field found, defaulting to 'static' analysis");
@@ -708,3 +714,37 @@ void JsonParser::apply_boundaries(
     spdlog::debug("<-- Boundary application complete.");
 }
 
+// ============================================================================
+// 步骤 11: 解析 Analysis 实体
+// ============================================================================
+void JsonParser::parse_analysis(const nlohmann::json& j, entt::registry& registry, std::unordered_map<int, entt::entity>& analysis_id_map)
+{
+    spdlog::debug("--> Parsing Analysis...");
+
+    for (const auto& a : j["analysis"]) {
+        int aid = a["aid"];
+        if (analysis_id_map.count(aid)) {
+            spdlog::warn("Duplicate analysis ID {}. Skipping.", aid);
+            continue;
+        }
+
+        entt::entity e = registry.create();
+        registry.emplace<Component::AnalysisID>(e, aid);
+
+        std::string analysis_type_str = a.contains("analysis_type") && a["analysis_type"].is_string()
+            ? a["analysis_type"].get<std::string>() : "static";
+        registry.emplace<Component::AnalysisType>(e, analysis_type_str);
+
+        if (a.contains("endtime") && a["endtime"].is_number()) {
+            registry.emplace<Component::EndTime>(e, a["endtime"].get<double>());
+        }
+        if (a.contains("fixed_time_step") && a["fixed_time_step"].is_number()) {
+            registry.emplace<Component::FixedTimeStep>(e, a["fixed_time_step"].get<double>());
+        }
+
+        analysis_id_map[aid] = e;
+        spdlog::debug("  Created Analysis {}: type={}", aid, analysis_type_str);
+    }
+
+    spdlog::debug("<-- Analysis parsed: {} entities created.", analysis_id_map.size());
+}

@@ -6,6 +6,7 @@
 #include "exporter_base/exporterBase.h"
 #include "DataContext.h"                  // 引入ECS数据中心
 #include "components/mesh_components.h"   // 引入组件定义
+#include "components/analysis_component.h"
 #include "TopologyData.h"                 // 引入拓扑数据结构
 #include "mesh/TopologySystems.h"         // 引入拓扑逻辑系统
 #include "AppSession.h"                   // 引入会话状态机
@@ -379,7 +380,10 @@ int main(int argc, char* argv[]) {
             spdlog::info("Total sets loaded: {}", set_count);
             
             // --- Step 5: Run solver if analysis type is specified ---
-            if (data_context.analysis_type == "explicit") {
+            if (data_context.analysis_entity != entt::null
+                && data_context.registry.valid(data_context.analysis_entity)
+                && data_context.registry.all_of<Component::AnalysisType>(data_context.analysis_entity)
+                && data_context.registry.get<Component::AnalysisType>(data_context.analysis_entity).value == "explicit") {
                 run_explicit_solver(data_context);
             }
             
