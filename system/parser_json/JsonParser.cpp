@@ -1,4 +1,11 @@
 // system/parser_json/JsonParser.cpp
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. 
+ * If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * Copyright (c) 2025 hyperFEM. All rights reserved.
+ * Author: Xiaotong Wang (or hyperFEM Team)
+ */
 #include "parser_json/JsonParser.h"
 #include "components/mesh_components.h"
 #include "components/material_components.h"
@@ -51,6 +58,7 @@ bool JsonParser::parse(const std::string& filepath, DataContext& data_context) {
     std::unordered_map<int, entt::entity> boundary_id_map;
     std::unordered_map<int, entt::entity> curve_id_map;
     std::unordered_map<int, entt::entity> analysis_id_map;
+    std::unordered_map<int, entt::entity> output_id_map;
 
     // 4. 按照严格的依赖顺序执行 N-Step 解析
     try {
@@ -124,6 +132,16 @@ bool JsonParser::parse(const std::string& filepath, DataContext& data_context) {
             }
         } else {
             spdlog::debug("No 'analysis' field found, defaulting to 'static' analysis");
+        }
+
+        // 步骤 12: 解析 Output (无依赖，但应在最后解析)
+        if (j.contains("output")) {
+            parse_output(j, registry, output_id_map);
+            auto it = output_id_map.find(0);
+            if (it != output_id_map.end()) {
+                data_context.output_entity = it->second;
+                spdlog::info("Output entity set.");
+            }
         }
 
     } catch (const std::exception& e) {
@@ -660,9 +678,9 @@ void JsonParser::apply_loads(
 
         // 4. 将 Load 引用附加到每个 Node 实体上（核心！）
         for (entt::entity node_e : members.members) {
-            // 注意：如果需要一个节点应用多个载荷，需要修改此逻辑
-            // 这里简单起见，直接 emplace（会覆盖已有的载荷）
-            registry.emplace_or_replace<Component::AppliedLoadRef>(node_e, load_it->second);
+            // 允许一个节点应用多个载荷（1-to-Many）
+            auto& applied = registry.get_or_emplace<Component::AppliedLoadRef>(node_e);
+            applied.load_entities.push_back(load_it->second);
         }
 
         spdlog::debug("  Applied Load {} to {} nodes.", lid, members.members.size());
@@ -705,7 +723,8 @@ void JsonParser::apply_boundaries(
 
         // 4. 将 Boundary 引用附加到每个 Node 实体上（核心！）
         for (entt::entity node_e : members.members) {
-            registry.emplace_or_replace<Component::AppliedBoundaryRef>(node_e, bnd_it->second);
+            auto& applied = registry.get_or_emplace<Component::AppliedBoundaryRef>(node_e);
+            applied.boundary_entities.push_back(bnd_it->second);
         }
 
         spdlog::debug("  Applied Boundary {} to {} nodes.", bid, members.members.size());
@@ -747,4 +766,36 @@ void JsonParser::parse_analysis(const nlohmann::json& j, entt::registry& registr
     }
 
     spdlog::debug("<-- Analysis parsed: {} entities created.", analysis_id_map.size());
+}
+
+void JsonParser::parse_output(const nlohmann::json &j, entt::registry &registry, std::unordered_map<int, entt::entity> &output_id_map)
+{
+    spdlog::debug("--> Parsing Output...");
+
+    const auto& o = j["output"];
+    entt::entity e = registry.create();
+
+    if (o.contains("node_output") && o["node_output"].is_array()) {
+        std::vector<std::string> node_out;
+        for (const auto& s : o["node_output"]) {
+            if (s.is_string())
+                node_out.push_back(s.get<std::string>());
+        }
+        registry.emplace<Component::NodeOutput>(e, Component::NodeOutput{std::move(node_out)});
+    }
+    if (o.contains("element_output") && o["element_output"].is_array()) {
+        std::vector<std::string> elem_out;
+        for (const auto& s : o["element_output"]) {
+            if (s.is_string())
+                elem_out.push_back(s.get<std::string>());
+        }
+        registry.emplace<Component::ElementOutput>(e, Component::ElementOutput{std::move(elem_out)});
+    }
+    if (o.contains("interval_time") && o["interval_time"].is_number()) {
+        registry.emplace<Component::OutputIntervalTime>(e, o["interval_time"].get<double>());
+    }
+
+    output_id_map[0] = e;
+    spdlog::debug("  Created Output (single global)");
+    spdlog::debug("<-- Output parsed: 1 entity created.");
 }

@@ -1,4 +1,11 @@
 // data_center/components/load_components.h
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. 
+ * If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * Copyright (c) 2025 hyperFEM. All rights reserved.
+ * Author: Xiaotong Wang (or hyperFEM Team)
+ */
 #pragma once
 
 #include <string>
@@ -92,33 +99,32 @@ namespace Component {
     // ===================================================================
 
     /**
-     * @brief [新] 附加到 Node 实体，指向应用于该节点的 Load 实体
-     * @details 这是 Plan B 的核心：通过引用实现"多对一"关系
+     * @brief [新] 附加到 Node 实体，包含应用于该节点的所有 Load 实体引用
+     * @details 这是 Plan B 的核心：通过引用实现"多对一"关系。
+     *          使用 vector 允许单个节点引用多个载荷定义（例如 ForceX 与 ForceY 同时存在）。
      * 
      * 使用示例：
      *   // 在求解器中遍历所有受载节点
      *   auto view = registry.view<Component::AppliedLoadRef, Component::Position>();
      *   for(auto [node_entity, load_ref, pos] : view.each()) {
-     *       // 获取载荷定义
-     *       const auto& load = registry.get<Component::NodalLoad>(load_ref.load_entity);
-     *       // 应用载荷到节点
-     *       apply_force(node_entity, load.dof, load.value);
+     *       for(const auto load_entity : load_ref.load_entities) {
+     *           // 获取载荷定义
+     *           const auto& load = registry.get<Component::NodalLoad>(load_entity);
+     *           // 应用载荷到节点
+     *           apply_force(node_entity, load.dof, load.value);
+     *       }
      *   }
-     * 
-     * 注意：如果一个节点需要应用多个载荷，可以考虑：
-     *   1. 使用 std::vector<entt::entity> 存储多个 Load 实体
-     *   2. 或者为每个载荷类型创建不同的组件（如 AppliedForceRef, AppliedPressureRef）
      */
     struct AppliedLoadRef {
-        entt::entity load_entity;
+        std::vector<entt::entity> load_entities;
     };
 
     /**
-     * @brief [新] 附加到 Node 实体，指向应用于该节点的 Boundary 实体
+     * @brief [新] 附加到 Node 实体，包含应用于该节点的所有 Boundary 实体引用
      * @details 与 AppliedLoadRef 类似，但用于边界条件
      */
     struct AppliedBoundaryRef {
-        entt::entity boundary_entity;
+        std::vector<entt::entity> boundary_entities;
     };
 
     // 未来扩展: 可以添加其他类型的载荷和边界条件

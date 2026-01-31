@@ -1,0 +1,3587 @@
+{
+    "Global": {
+        "Version": 5.0,
+        "Solver": "StructureExplicit",
+        "Dimension": 3
+    },
+    "AnalysisControl": {
+        "TimeStepControl": {
+            "EndTime": 0.02,
+            "Dtmin": 1e-7,
+            "DtScale": 0.9,
+            "InitMassScalRatio": 0.0,
+            "DtControlType": "MassScaling",
+            "StopEnergyErr": 0.9,
+			"ConstantT":false
+        }
+    },
+    "Output": {
+        "Format": "Binary",
+        "OutFields": [
+            "S",
+            "E",
+            "PEEQ",
+            "Acceleration",
+            "Displacement",
+            "Mises",
+            "Velocity"
+        ],
+        "AnimOutTimeInterval": 0.001
+    },
+    "History": {
+        "Format": "ASCII",
+        "GlobalFields": [
+            "Time",
+            "Cycle",
+            "Time-Step",
+            "Error",
+            "I-Energy",
+            "K-Energy-TOT",
+            "Mass-Err",
+            "HG-Energy",
+            "TOT-Energy",
+            "Ext-Work"
+        ],
+        "HistoryOutTimeInterval": 0.0001
+    },
+    "Material": {
+        "Al_M": {
+            "Label": "Al_M",
+            "MID": 1,
+            "MaterialType": "IsotropicElastic",
+            "Density": 2.7e-9,
+            "MaterialConstants": {
+                "ElasticModulus": 69000.0,
+                "PoissonRatio": 0.29
+            }
+        },
+        "biaoka_sanreqi_M": {
+            "Label": "biaoka_sanreqi_M",
+            "MID": 2,
+            "MaterialType": "IsotropicElastic",
+            "Density": 4.2e-9,
+            "MaterialConstants": {
+                "ElasticModulus": 69000.0,
+                "PoissonRatio": 0.29
+            }
+        },
+        "BOLT_M": {
+            "Label": "BOLT_M",
+            "MID": 3,
+            "MaterialType": "IsotropicElastic",
+            "Density": 7.85e-9,
+            "MaterialConstants": {
+                "ElasticModulus": 213000.0,
+                "PoissonRatio": 0.28
+            }
+        },
+        "dianyuan_M": {
+            "Label": "dianyuan_M",
+            "MID": 4,
+            "MaterialType": "IsotropicElastic",
+            "Density": 1.78e-9,
+            "MaterialConstants": {
+                "ElasticModulus": 69000.0,
+                "PoissonRatio": 0.33
+            }
+        },
+        "DIMM_M": {
+            "Label": "DIMM_M",
+            "MID": 5,
+            "MaterialType": "IsotropicElastic",
+            "Density": 3.3e-10,
+            "MaterialConstants": {
+                "ElasticModulus": 13000.0,
+                "PoissonRatio": 0.28
+            }
+        },
+        "EPO-1d2pcf-N_M": {
+            "Label": "EPO-1d2pcf-N_M",
+            "MID": 6,
+            "MaterialType": "RateDependentPlastic",
+            "Density": 1.9234e-11,
+            "MaterialConstants": {
+                "ElasticModulus": 2.45790163,
+                "PoissonRatio": 0.3,
+                "StrainAndStrainRateYieldCurve": [
+                    "EPO-1d2pcf-N_M_Mises_YS_0.000000",
+                    "EPO-1d2pcf-N_M_Mises_YS_10.000000",
+                    "EPO-1d2pcf-N_M_Mises_YS_20.000000",
+                    "EPO-1d2pcf-N_M_Mises_YS_30.000000",
+                    "EPO-1d2pcf-N_M_Mises_YS_50.000000",
+                    "EPO-1d2pcf-N_M_Mises_YS_100.000000",
+                    "EPO-1d2pcf-N_M_Mises_YS_150.000000"
+                ],
+                "FailurePlasticStrain": 0,
+                "FailBeginTensileStrain": 0,
+                "FailEndTensileStrain": 0,
+                "HardeningMode": 0,
+                "ElemDelTensileStrain": 0,
+                "StrainRateType": "TotalStrain",
+                "StrainRate": [
+                    0.0,
+                    10.0,
+                    20.0,
+                    30.0,
+                    50.0,
+                    100.0,
+                    150.0
+                ]
+            }
+        },
+        "Fe_M": {
+            "Label": "Fe_M",
+            "MID": 7,
+            "MaterialType": "IsotropicElastic",
+            "Density": 7.85e-9,
+            "MaterialConstants": {
+                "ElasticModulus": 213000.0,
+                "PoissonRatio": 0.28
+            }
+        },
+        "Fengshan_M": {
+            "Label": "Fengshan_M",
+            "MID": 8,
+            "MaterialType": "IsotropicElastic",
+            "Density": 7.22e-10,
+            "MaterialConstants": {
+                "ElasticModulus": 69000.0,
+                "PoissonRatio": 0.33
+            }
+        },
+        "FR4_M": {
+            "Label": "FR4_M",
+            "MID": 9,
+            "MaterialType": "IsotropicElastic",
+            "Density": 1.89e-9,
+            "MaterialConstants": {
+                "ElasticModulus": 22000.0,
+                "PoissonRatio": 0.28
+            }
+        },
+        "Mat_Bga_lid_General_M": {
+            "Label": "Mat_Bga_lid_General_M",
+            "MID": 10,
+            "MaterialType": "IsotropicElastic",
+            "Density": 8.9e-9,
+            "MaterialConstants": {
+                "ElasticModulus": 110000.0,
+                "PoissonRatio": 0.34
+            }
+        },
+        "Mat_Bga_Substrate_General_M": {
+            "Label": "Mat_Bga_Substrate_General_M",
+            "MID": 11,
+            "MaterialType": "IsotropicElastic",
+            "Density": 1.89e-9,
+            "MaterialConstants": {
+                "ElasticModulus": 26000.0,
+                "PoissonRatio": 0.28
+            }
+        },
+        "Mat_Solder_305_M": {
+            "Label": "Mat_Solder_305_M",
+            "MID": 12,
+            "MaterialType": "IsotropicElastic",
+            "Density": 7.376e-9,
+            "MaterialConstants": {
+                "ElasticModulus": 40500.0,
+                "PoissonRatio": 0.4
+            }
+        },
+        "Mat_Zhixiang_General_M": {
+            "Label": "Mat_Zhixiang_General_M",
+            "MID": 13,
+            "MaterialType": "IsotropicElastic",
+            "Density": 1.7e-10,
+            "MaterialConstants": {
+                "ElasticModulus": 500.0,
+                "PoissonRatio": 0.35
+            }
+        },
+        "SANREQI_M": {
+            "Label": "SANREQI_M",
+            "MID": 14,
+            "MaterialType": "IsotropicElastic",
+            "Density": 1.09e-9,
+            "MaterialConstants": {
+                "ElasticModulus": 69000.0,
+                "PoissonRatio": 0.33
+            }
+        },
+        "Shuzhi_M": {
+            "Label": "Shuzhi_M",
+            "MID": 15,
+            "MaterialType": "IsotropicElastic",
+            "Density": 1e-9,
+            "MaterialConstants": {
+                "ElasticModulus": 13000.0,
+                "PoissonRatio": 0.28
+            }
+        },
+        "Yingpan_M": {
+            "Label": "Yingpan_M",
+            "MID": 16,
+            "MaterialType": "IsotropicElastic",
+            "Density": 2.11e-9,
+            "MaterialConstants": {
+                "ElasticModulus": 69000.0,
+                "PoissonRatio": 0.33
+            }
+        },
+        "ground_R3D4_M": {
+            "Label": "ground_R3D4_M",
+            "MID": 17,
+            "MaterialType": "Empty",
+            "Density": 9.89e-9,
+            "MaterialConstants": {
+                "ElasticModulus": 210000.0,
+                "PoissonRatio": 0.0
+            }
+        }
+    },
+    "CrossSection": {
+        "1601biaoka_Component_1_PCB-1": {
+            "Type": "Solid",
+            "CrossSectID": 1,
+            "Formulation": [
+                "Hex8RPH"
+            ],
+            "SmallStrain": "Tdtmin",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.1,
+            "LinearViscosity": 0.05,
+            "hm": 0.1,
+            "dtmin": 0
+        },
+        "Banjinjian_Component_2_DKBA80702274": {
+            "Type": "Solid",
+            "CrossSectID": 2,
+            "Formulation": [
+                "Tet4VL"
+            ],
+            "SmallStrain": "T0TE",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.1,
+            "LinearViscosity": 0.05,
+            "hm": 0.1,
+            "dtmin": 0
+        },
+        "Banjinjian_Component_3_DKBA80832772": {
+            "Type": "Solid",
+            "CrossSectID": 3,
+            "Formulation": [
+                "Hex8RPH"
+            ],
+            "SmallStrain": "Tdtmin",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.1,
+            "LinearViscosity": 0.05,
+            "hm": 0.1,
+            "dtmin": 0
+        },
+        "Banjinjian_Component_4_lashoutiao": {
+            "Type": "Solid",
+            "CrossSectID": 4,
+            "Formulation": [
+                "Tet4VL"
+            ],
+            "SmallStrain": "T0TE",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.1,
+            "LinearViscosity": 0.05,
+            "hm": 0.1,
+            "dtmin": 0
+        },
+        "Banjinjian_Component_5_lashoutiao_1": {
+            "Type": "Solid",
+            "CrossSectID": 5,
+            "Formulation": [
+                "Tet4"
+            ],
+            "SmallStrain": "Tdtmin",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.1,
+            "LinearViscosity": 0.05,
+            "hm": 0.1,
+            "dtmin": 0
+        },
+        "Banjinjian_Component_6_Main_PCB": {
+            "Type": "Solid",
+            "CrossSectID": 6,
+            "Formulation": [
+                "Hex8RPH"
+            ],
+            "SmallStrain": "Tdtmin",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.1,
+            "LinearViscosity": 0.05,
+            "hm": 0.1,
+            "dtmin": 0
+        },
+        "Banjinjian_Component_7_riser_PCB": {
+            "Type": "Solid",
+            "CrossSectID": 7,
+            "Formulation": [
+                "Hex8RPH"
+            ],
+            "SmallStrain": "Tdtmin",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.1,
+            "LinearViscosity": 0.05,
+            "hm": 0.1,
+            "dtmin": 0
+        },
+        "Banjinjian_Component_8_riser_PCB2": {
+            "Type": "Solid",
+            "CrossSectID": 8,
+            "Formulation": [
+                "Hex8RPH"
+            ],
+            "SmallStrain": "Tdtmin",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.1,
+            "LinearViscosity": 0.05,
+            "hm": 0.1,
+            "dtmin": 0
+        },
+        "connector_Component_9_lianjieqi": {
+            "Type": "Solid",
+            "CrossSectID": 9,
+            "Formulation": [
+                "Hex8RPH"
+            ],
+            "SmallStrain": "Tdtmin",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.1,
+            "LinearViscosity": 0.05,
+            "hm": 0.1,
+            "dtmin": 0
+        },
+        "connector_Component_10_lianjieqi2": {
+            "Type": "Solid",
+            "CrossSectID": 10,
+            "Formulation": [
+                "Hex8RPH"
+            ],
+            "SmallStrain": "Tdtmin",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.1,
+            "LinearViscosity": 0.05,
+            "hm": 0.1,
+            "dtmin": 0
+        },
+        "connector_Component_11_X14100245": {
+            "Type": "Solid",
+            "CrossSectID": 11,
+            "Formulation": [
+                "Hex8RPH"
+            ],
+            "SmallStrain": "Tdtmin",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.1,
+            "LinearViscosity": 0.05,
+            "hm": 0.1,
+            "dtmin": 0
+        },
+        "connector_Component_12_X14100377": {
+            "Type": "Solid",
+            "CrossSectID": 12,
+            "Formulation": [
+                "Hex8RPH"
+            ],
+            "SmallStrain": "Tdtmin",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.1,
+            "LinearViscosity": 0.05,
+            "hm": 0.1,
+            "dtmin": 0
+        },
+        "connector_Component_13_X14191432SMHONGFUJIN": {
+            "Type": "Solid",
+            "CrossSectID": 13,
+            "Formulation": [
+                "Hex8RPH"
+            ],
+            "SmallStrain": "Tdtmin",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.1,
+            "LinearViscosity": 0.05,
+            "hm": 0.1,
+            "dtmin": 0
+        },
+        "connector_Component_14_X280CIRCUIT_HOUSING_1": {
+            "Type": "Solid",
+            "CrossSectID": 14,
+            "Formulation": [
+                "Hex8RPH"
+            ],
+            "SmallStrain": "Tdtmin",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.1,
+            "LinearViscosity": 0.05,
+            "hm": 0.1,
+            "dtmin": 0
+        },
+        "dianyuan_Component_15_CST550AP_8_0804_ASM": {
+            "Type": "Solid",
+            "CrossSectID": 15,
+            "Formulation": [
+                "Hex8RPH"
+            ],
+            "SmallStrain": "Tdtmin",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.1,
+            "LinearViscosity": 0.05,
+            "hm": 0.1,
+            "dtmin": 0
+        },
+        "DIMM_Component_16_DIMM": {
+            "Type": "Solid",
+            "CrossSectID": 16,
+            "Formulation": [
+                "Hex8RPH"
+            ],
+            "SmallStrain": "Tdtmin",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.1,
+            "LinearViscosity": 0.05,
+            "hm": 0.1,
+            "dtmin": 0
+        },
+        "Fengshan_Component_17_X21203766_DRAEN": {
+            "Type": "Solid",
+            "CrossSectID": 17,
+            "Formulation": [
+                "Hex8RPH"
+            ],
+            "SmallStrain": "Tdtmin",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.1,
+            "LinearViscosity": 0.05,
+            "hm": 0.1,
+            "dtmin": 0
+        },
+        "huiliutiao_Component_18_HUILIUTIAO_03": {
+            "Type": "Solid",
+            "CrossSectID": 18,
+            "Formulation": [
+                "Hex8RPH"
+            ],
+            "SmallStrain": "Tdtmin",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.1,
+            "LinearViscosity": 0.05,
+            "hm": 0.1,
+            "dtmin": 0
+        },
+        "huiliutiao_Component_19_HUILIUTIAO_05": {
+            "Type": "Solid",
+            "CrossSectID": 19,
+            "Formulation": [
+                "Hex8RPH"
+            ],
+            "SmallStrain": "Tdtmin",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.1,
+            "LinearViscosity": 0.05,
+            "hm": 0.1,
+            "dtmin": 0
+        },
+        "M20_Component_20_DRAEN-0050HPL": {
+            "Type": "Solid",
+            "CrossSectID": 20,
+            "Formulation": [
+                "Hex8CR"
+            ],
+            "SmallStrain": "Tdtmin",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.1,
+            "LinearViscosity": 0.05,
+            "hm": 0.1,
+            "dtmin": 0
+        },
+        "M20_Component_21_DRAEN-30050HPN": {
+            "Type": "Solid",
+            "CrossSectID": 21,
+            "Formulation": [
+                "Hex8CR"
+            ],
+            "SmallStrain": "Tdtmin",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.1,
+            "LinearViscosity": 0.05,
+            "hm": 0.1,
+            "dtmin": 0
+        },
+        "M20_Component_22_DRAEN-30050HPP": {
+            "Type": "Solid",
+            "CrossSectID": 22,
+            "Formulation": [
+                "Hex8CR"
+            ],
+            "SmallStrain": "Tdtmin",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.1,
+            "LinearViscosity": 0.05,
+            "hm": 0.1,
+            "dtmin": 0
+        },
+        "M20_Component_23_DRAEN-30059337": {
+            "Type": "Solid",
+            "CrossSectID": 23,
+            "Formulation": [
+                "Hex8CR"
+            ],
+            "SmallStrain": "Tdtmin",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.1,
+            "LinearViscosity": 0.05,
+            "hm": 0.1,
+            "dtmin": 0
+        },
+        "M20_Component_24_HPM_DRAEN30050": {
+            "Type": "Solid",
+            "CrossSectID": 24,
+            "Formulation": [
+                "Hex8CR"
+            ],
+            "SmallStrain": "Tdtmin",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.1,
+            "LinearViscosity": 0.05,
+            "hm": 0.1,
+            "dtmin": 0
+        },
+        "sanreqi_biaoka_Component_25_sanreqi": {
+            "Type": "Solid",
+            "CrossSectID": 25,
+            "Formulation": [
+                "Tet4"
+            ],
+            "SmallStrain": "Tdtmin",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.1,
+            "LinearViscosity": 0.05,
+            "hm": 0.1,
+            "dtmin": 0
+        },
+        "Sanreqi_chiye_Component_26_DKBA82700306": {
+            "Type": "Solid",
+            "CrossSectID": 26,
+            "Formulation": [
+                "Hex8RPH"
+            ],
+            "SmallStrain": "Tdtmin",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.1,
+            "LinearViscosity": 0.05,
+            "hm": 0.1,
+            "dtmin": 0
+        },
+        "Sanreqi_diban_Component_27_DKBA80283975": {
+            "Type": "Solid",
+            "CrossSectID": 27,
+            "Formulation": [
+                "Tet4"
+            ],
+            "SmallStrain": "Tdtmin",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.1,
+            "LinearViscosity": 0.05,
+            "hm": 0.1,
+            "dtmin": 0
+        },
+        "Yingpan_Component_28_substrate": {
+            "Type": "Solid",
+            "CrossSectID": 28,
+            "Formulation": [
+                "Hex8RPH"
+            ],
+            "SmallStrain": "Tdtmin",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.1,
+            "LinearViscosity": 0.05,
+            "hm": 0.1,
+            "dtmin": 0
+        },
+        "Yingpan_Component_29_X3_5_HDD_01": {
+            "Type": "Solid",
+            "CrossSectID": 29,
+            "Formulation": [
+                "Hex8RPH"
+            ],
+            "SmallStrain": "Tdtmin",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.1,
+            "LinearViscosity": 0.05,
+            "hm": 0.1,
+            "dtmin": 0
+        },
+        "Yingpan_Component_30_X3_5_hdd_02": {
+            "Type": "Solid",
+            "CrossSectID": 30,
+            "Formulation": [
+                "Hex8RPH"
+            ],
+            "SmallStrain": "Tdtmin",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.1,
+            "LinearViscosity": 0.05,
+            "hm": 0.1,
+            "dtmin": 0
+        },
+        "Yingpan_Component_31_xinpian-1": {
+            "Type": "Solid",
+            "CrossSectID": 31,
+            "Formulation": [
+                "Hex8RPH"
+            ],
+            "SmallStrain": "Tdtmin",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.1,
+            "LinearViscosity": 0.05,
+            "hm": 0.1,
+            "dtmin": 0
+        },
+        "Section1": {
+            "Type": "Shell",
+            "CrossSectID": 32,
+            "Formulation": [
+                "Shell4"
+            ],
+            "SmallStrain": "Tdtmin",
+            "Thickness": [
+                0.0356,
+                0.0356,
+                0.0356,
+                0.0356
+            ],
+            "InpNum": 5
+        },
+        "Section2": {
+            "Type": "Shell",
+            "CrossSectID": 33,
+            "Formulation": [
+                "Shell4"
+            ],
+            "SmallStrain": "Tdtmin",
+            "Thickness": [
+                0.0356,
+                0.0356,
+                0.0356,
+                0.0356
+            ],
+            "InpNum": 5
+        },
+        "Section3": {
+            "Type": "Shell",
+            "CrossSectID": 34,
+            "Formulation": [
+                "Shell4",
+                "Shell3"
+            ],
+            "SmallStrain": "Tdtmin",
+            "Thickness": [
+                0.0356,
+                0.0356,
+                0.0356,
+                0.0356
+            ],
+            "InpNum": 5
+        },
+        "Section4": {
+            "Type": "Shell",
+            "CrossSectID": 35,
+            "Formulation": [
+                "Shell4"
+            ],
+            "SmallStrain": "Tdtmin",
+            "Thickness": [
+                2.0,
+                2.0,
+                2.0,
+                2.0
+            ],
+            "InpNum": 5
+        },
+        "Section5": {
+            "Type": "Shell",
+            "CrossSectID": 36,
+            "Formulation": [
+                "Shell4",
+                "Shell3"
+            ],
+            "SmallStrain": "Tdtmin",
+            "Thickness": [
+                0.8,
+                0.8,
+                0.8,
+                0.8
+            ],
+            "InpNum": 5
+        },
+        "Section6": {
+            "Type": "Shell",
+            "CrossSectID": 37,
+            "Formulation": [
+                "Shell4"
+            ],
+            "SmallStrain": "Tdtmin",
+            "Thickness": [
+                0.8,
+                0.8,
+                0.8,
+                0.8
+            ],
+            "InpNum": 5
+        },
+        "Section7": {
+            "Type": "Shell",
+            "CrossSectID": 38,
+            "Formulation": [
+                "Shell4",
+                "Shell3"
+            ],
+            "SmallStrain": "Tdtmin",
+            "Thickness": [
+                0.8,
+                0.8,
+                0.8,
+                0.8
+            ],
+            "InpNum": 5
+        },
+        "Section8": {
+            "Type": "Shell",
+            "CrossSectID": 39,
+            "Formulation": [
+                "Shell4",
+                "Shell3"
+            ],
+            "SmallStrain": "Tdtmin",
+            "Thickness": [
+                0.8,
+                0.8,
+                0.8,
+                0.8
+            ],
+            "InpNum": 5
+        },
+        "Section9": {
+            "Type": "Shell",
+            "CrossSectID": 40,
+            "Formulation": [
+                "Shell4",
+                "Shell3"
+            ],
+            "SmallStrain": "Tdtmin",
+            "Thickness": [
+                0.8,
+                0.8,
+                0.8,
+                0.8
+            ],
+            "InpNum": 5
+        },
+        "Section10": {
+            "Type": "Shell",
+            "CrossSectID": 41,
+            "Formulation": [
+                "Shell4",
+                "Shell3"
+            ],
+            "SmallStrain": "Tdtmin",
+            "Thickness": [
+                0.8,
+                0.8,
+                0.8,
+                0.8
+            ],
+            "InpNum": 5
+        },
+        "Section11": {
+            "Type": "Shell",
+            "CrossSectID": 42,
+            "Formulation": [
+                "Shell4"
+            ],
+            "SmallStrain": "Tdtmin",
+            "Thickness": [
+                0.8,
+                0.8,
+                0.8,
+                0.8
+            ],
+            "InpNum": 5
+        },
+        "Section12": {
+            "Type": "Shell",
+            "CrossSectID": 43,
+            "Formulation": [
+                "Shell4",
+                "Shell3"
+            ],
+            "SmallStrain": "Tdtmin",
+            "Thickness": [
+                0.8,
+                0.8,
+                0.8,
+                0.8
+            ],
+            "InpNum": 5
+        },
+        "Section13": {
+            "Type": "Shell",
+            "CrossSectID": 44,
+            "Formulation": [
+                "Shell4",
+                "Shell3"
+            ],
+            "SmallStrain": "Tdtmin",
+            "Thickness": [
+                0.8,
+                0.8,
+                0.8,
+                0.8
+            ],
+            "InpNum": 5
+        },
+        "Section14": {
+            "Type": "Shell",
+            "CrossSectID": 45,
+            "Formulation": [
+                "Shell4",
+                "Shell3"
+            ],
+            "SmallStrain": "Tdtmin",
+            "Thickness": [
+                0.8,
+                0.8,
+                0.8,
+                0.8
+            ],
+            "InpNum": 5
+        },
+        "Section15": {
+            "Type": "Shell",
+            "CrossSectID": 46,
+            "Formulation": [
+                "Shell3"
+            ],
+            "SmallStrain": "Tdtmin",
+            "Thickness": [
+                0.8,
+                0.8,
+                0.8,
+                0.8
+            ],
+            "InpNum": 5
+        },
+        "Section16": {
+            "Type": "Shell",
+            "CrossSectID": 47,
+            "Formulation": [
+                "Shell3"
+            ],
+            "SmallStrain": "Tdtmin",
+            "Thickness": [
+                0.8,
+                0.8,
+                0.8,
+                0.8
+            ],
+            "InpNum": 5
+        },
+        "Section17": {
+            "Type": "Shell",
+            "CrossSectID": 48,
+            "Formulation": [
+                "Shell4"
+            ],
+            "SmallStrain": "Tdtmin",
+            "Thickness": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+            ],
+            "InpNum": 5
+        },
+        "Section18": {
+            "Type": "Shell",
+            "CrossSectID": 49,
+            "Formulation": [
+                "Shell4",
+                "Shell3"
+            ],
+            "SmallStrain": "Tdtmin",
+            "Thickness": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+            ],
+            "InpNum": 5
+        },
+        "Section19": {
+            "Type": "Shell",
+            "CrossSectID": 50,
+            "Formulation": [
+                "Shell4",
+                "Shell3"
+            ],
+            "SmallStrain": "Tdtmin",
+            "Thickness": [
+                1.2,
+                1.2,
+                1.2,
+                1.2
+            ],
+            "InpNum": 5
+        },
+        "Section20": {
+            "Type": "Shell",
+            "CrossSectID": 51,
+            "Formulation": [
+                "Shell4",
+                "Shell3"
+            ],
+            "SmallStrain": "Tdtmin",
+            "Thickness": [
+                2.0,
+                2.0,
+                2.0,
+                2.0
+            ],
+            "InpNum": 5
+        },
+        "Section21": {
+            "Type": "Shell",
+            "CrossSectID": 52,
+            "Formulation": [
+                "Shell4",
+                "Shell3"
+            ],
+            "SmallStrain": "Tdtmin",
+            "Thickness": [
+                2.0,
+                2.0,
+                2.0,
+                2.0
+            ],
+            "InpNum": 5
+        },
+        "Section22": {
+            "Type": "Shell",
+            "CrossSectID": 53,
+            "Formulation": [
+                "Shell4"
+            ],
+            "SmallStrain": "Tdtmin",
+            "Thickness": [
+                2.4,
+                2.4,
+                2.4,
+                2.4
+            ],
+            "InpNum": 5
+        },
+        "Section23": {
+            "Type": "SolidShell",
+            "CrossSectID": 54,
+            "Formulation": [
+                "TShellRPH"
+            ],
+            "SmallStrain": "Tnone",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.1,
+            "LinearViscosity": 0.05,
+            "hm": 0.1,
+            "dtmin": 0,
+            "InpNum": [
+                0,
+                5,
+                0
+            ]
+        },
+        "Section24": {
+            "Type": "GeneralBeam",
+            "CrossSectID": 55,
+            "ShearFlag": false,
+            "SmallStrain": "Tnone",
+            "Izz": 0.0063617251233374998,
+            "Iyy": 0.0063617251233374998,
+            "Ixx": 0.012723450246674999,
+            "Area": 0.28274333881499999
+        },
+        "Section25": {
+            "Type": "GeneralBeam",
+            "CrossSectID": 56,
+            "ShearFlag": false,
+            "SmallStrain": "Tnone",
+            "Izz": 0.0063617251233374998,
+            "Iyy": 0.0063617251233374998,
+            "Ixx": 0.012723450246674999,
+            "Area": 0.28274333881499999
+        },
+        "Section26": {
+            "Type": "Shell",
+            "CrossSectID": 57,
+            "DrillDof": false,
+            "Formulation": [
+                "Shell4"
+            ],
+            "SmallStrain": "Tdtmin",
+            "Thickness": [
+                0.0001,
+                0.0001,
+                0.0001,
+                0.0001
+            ],
+            "InpNum": 5
+        }
+    },
+    "Constraint": {
+        "Boundary": {
+            "BOUNDARY_N_fix_1": {
+                "NodeSet": "N_fix",
+                "Dofs": [
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1
+                ],
+                "CoordSys": ""
+            }
+        },
+        "RigidBody": {
+            "ground": {
+                "MasterNodeSet": "847740_Node_Set",
+                "SlaveNodeSet": "ground_Node",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "HM_coupkin_3523102": {
+                "MasterNodeSet": "847735_Node_Set",
+                "SlaveNodeSet": "HM_coupkin_surface_3523102_Node",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "HM_coupkin_3523103": {
+                "MasterNodeSet": "847736_Node_Set",
+                "SlaveNodeSet": "HM_coupkin_surface_3523103_Node",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "HM_coupkin_3523106": {
+                "MasterNodeSet": "847738_Node_Set",
+                "SlaveNodeSet": "HM_coupkin_surface_3523106_Node",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "HM_coupkin_3523107": {
+                "MasterNodeSet": "847739_Node_Set",
+                "SlaveNodeSet": "HM_coupkin_surface_3523107_Node",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "HM_coupkin_1866402": {
+                "MasterNodeSet": "893049_Node_Set",
+                "SlaveNodeSet": "HM_coupkin_surface_1866402_Node",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1025210_Node_Set": {
+                "MasterNodeSet": "1025210_Node_Set",
+                "SlaveNodeSet": "Beam_1025210_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1025211_Node_Set": {
+                "MasterNodeSet": "1025211_Node_Set",
+                "SlaveNodeSet": "Beam_1025211_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1025212_Node_Set": {
+                "MasterNodeSet": "1025212_Node_Set",
+                "SlaveNodeSet": "Beam_1025212_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1025213_Node_Set": {
+                "MasterNodeSet": "1025213_Node_Set",
+                "SlaveNodeSet": "Beam_1025213_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1025214_Node_Set": {
+                "MasterNodeSet": "1025214_Node_Set",
+                "SlaveNodeSet": "Beam_1025214_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1025215_Node_Set": {
+                "MasterNodeSet": "1025215_Node_Set",
+                "SlaveNodeSet": "Beam_1025215_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1025216_Node_Set": {
+                "MasterNodeSet": "1025216_Node_Set",
+                "SlaveNodeSet": "Beam_1025216_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1106476_Node_Set": {
+                "MasterNodeSet": "1106476_Node_Set",
+                "SlaveNodeSet": "Beam_1106476_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1288251_Node_Set": {
+                "MasterNodeSet": "1288251_Node_Set",
+                "SlaveNodeSet": "Beam_1288251_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1288252_Node_Set": {
+                "MasterNodeSet": "1288252_Node_Set",
+                "SlaveNodeSet": "Beam_1288252_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1288253_Node_Set": {
+                "MasterNodeSet": "1288253_Node_Set",
+                "SlaveNodeSet": "Beam_1288253_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1288254_Node_Set": {
+                "MasterNodeSet": "1288254_Node_Set",
+                "SlaveNodeSet": "Beam_1288254_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1288255_Node_Set": {
+                "MasterNodeSet": "1288255_Node_Set",
+                "SlaveNodeSet": "Beam_1288255_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1288256_Node_Set": {
+                "MasterNodeSet": "1288256_Node_Set",
+                "SlaveNodeSet": "Beam_1288256_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1288257_Node_Set": {
+                "MasterNodeSet": "1288257_Node_Set",
+                "SlaveNodeSet": "Beam_1288257_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1288258_Node_Set": {
+                "MasterNodeSet": "1288258_Node_Set",
+                "SlaveNodeSet": "Beam_1288258_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1288259_Node_Set": {
+                "MasterNodeSet": "1288259_Node_Set",
+                "SlaveNodeSet": "Beam_1288259_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1288262_Node_Set": {
+                "MasterNodeSet": "1288262_Node_Set",
+                "SlaveNodeSet": "Beam_1288262_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1288263_Node_Set": {
+                "MasterNodeSet": "1288263_Node_Set",
+                "SlaveNodeSet": "Beam_1288263_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1288264_Node_Set": {
+                "MasterNodeSet": "1288264_Node_Set",
+                "SlaveNodeSet": "Beam_1288264_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1288265_Node_Set": {
+                "MasterNodeSet": "1288265_Node_Set",
+                "SlaveNodeSet": "Beam_1288265_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1288266_Node_Set": {
+                "MasterNodeSet": "1288266_Node_Set",
+                "SlaveNodeSet": "Beam_1288266_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1288267_Node_Set": {
+                "MasterNodeSet": "1288267_Node_Set",
+                "SlaveNodeSet": "Beam_1288267_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1288268_Node_Set": {
+                "MasterNodeSet": "1288268_Node_Set",
+                "SlaveNodeSet": "Beam_1288268_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1288269_Node_Set": {
+                "MasterNodeSet": "1288269_Node_Set",
+                "SlaveNodeSet": "Beam_1288269_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1288270_Node_Set": {
+                "MasterNodeSet": "1288270_Node_Set",
+                "SlaveNodeSet": "Beam_1288270_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1288271_Node_Set": {
+                "MasterNodeSet": "1288271_Node_Set",
+                "SlaveNodeSet": "Beam_1288271_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1288272_Node_Set": {
+                "MasterNodeSet": "1288272_Node_Set",
+                "SlaveNodeSet": "Beam_1288272_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1288273_Node_Set": {
+                "MasterNodeSet": "1288273_Node_Set",
+                "SlaveNodeSet": "Beam_1288273_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1288274_Node_Set": {
+                "MasterNodeSet": "1288274_Node_Set",
+                "SlaveNodeSet": "Beam_1288274_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1288276_Node_Set": {
+                "MasterNodeSet": "1288276_Node_Set",
+                "SlaveNodeSet": "Beam_1288276_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1288277_Node_Set": {
+                "MasterNodeSet": "1288277_Node_Set",
+                "SlaveNodeSet": "Beam_1288277_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1288278_Node_Set": {
+                "MasterNodeSet": "1288278_Node_Set",
+                "SlaveNodeSet": "Beam_1288278_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1288280_Node_Set": {
+                "MasterNodeSet": "1288280_Node_Set",
+                "SlaveNodeSet": "Beam_1288280_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1288281_Node_Set": {
+                "MasterNodeSet": "1288281_Node_Set",
+                "SlaveNodeSet": "Beam_1288281_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1288282_Node_Set": {
+                "MasterNodeSet": "1288282_Node_Set",
+                "SlaveNodeSet": "Beam_1288282_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1324884_Node_Set": {
+                "MasterNodeSet": "1324884_Node_Set",
+                "SlaveNodeSet": "Beam_1324884_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1324885_Node_Set": {
+                "MasterNodeSet": "1324885_Node_Set",
+                "SlaveNodeSet": "Beam_1324885_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1341576_Node_Set": {
+                "MasterNodeSet": "1341576_Node_Set",
+                "SlaveNodeSet": "Beam_1341576_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1341577_Node_Set": {
+                "MasterNodeSet": "1341577_Node_Set",
+                "SlaveNodeSet": "Beam_1341577_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1341579_Node_Set": {
+                "MasterNodeSet": "1341579_Node_Set",
+                "SlaveNodeSet": "Beam_1341579_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_1341580_Node_Set": {
+                "MasterNodeSet": "1341580_Node_Set",
+                "SlaveNodeSet": "Beam_1341580_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_137971_Node_Set": {
+                "MasterNodeSet": "137971_Node_Set",
+                "SlaveNodeSet": "Beam_137971_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_200164_Node_Set": {
+                "MasterNodeSet": "200164_Node_Set",
+                "SlaveNodeSet": "Beam_200164_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_200165_Node_Set": {
+                "MasterNodeSet": "200165_Node_Set",
+                "SlaveNodeSet": "Beam_200165_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_200166_Node_Set": {
+                "MasterNodeSet": "200166_Node_Set",
+                "SlaveNodeSet": "Beam_200166_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_200167_Node_Set": {
+                "MasterNodeSet": "200167_Node_Set",
+                "SlaveNodeSet": "Beam_200167_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_200169_Node_Set": {
+                "MasterNodeSet": "200169_Node_Set",
+                "SlaveNodeSet": "Beam_200169_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_200170_Node_Set": {
+                "MasterNodeSet": "200170_Node_Set",
+                "SlaveNodeSet": "Beam_200170_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_200171_Node_Set": {
+                "MasterNodeSet": "200171_Node_Set",
+                "SlaveNodeSet": "Beam_200171_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_834111_Node_Set": {
+                "MasterNodeSet": "834111_Node_Set",
+                "SlaveNodeSet": "Beam_834111_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_834112_Node_Set": {
+                "MasterNodeSet": "834112_Node_Set",
+                "SlaveNodeSet": "Beam_834112_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_834113_Node_Set": {
+                "MasterNodeSet": "834113_Node_Set",
+                "SlaveNodeSet": "Beam_834113_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_834114_Node_Set": {
+                "MasterNodeSet": "834114_Node_Set",
+                "SlaveNodeSet": "Beam_834114_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_834115_Node_Set": {
+                "MasterNodeSet": "834115_Node_Set",
+                "SlaveNodeSet": "Beam_834115_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_834116_Node_Set": {
+                "MasterNodeSet": "834116_Node_Set",
+                "SlaveNodeSet": "Beam_834116_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_834117_Node_Set": {
+                "MasterNodeSet": "834117_Node_Set",
+                "SlaveNodeSet": "Beam_834117_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_834119_Node_Set": {
+                "MasterNodeSet": "834119_Node_Set",
+                "SlaveNodeSet": "Beam_834119_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_834120_Node_Set": {
+                "MasterNodeSet": "834120_Node_Set",
+                "SlaveNodeSet": "Beam_834120_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_834121_Node_Set": {
+                "MasterNodeSet": "834121_Node_Set",
+                "SlaveNodeSet": "Beam_834121_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_834122_Node_Set": {
+                "MasterNodeSet": "834122_Node_Set",
+                "SlaveNodeSet": "Beam_834122_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_834123_Node_Set": {
+                "MasterNodeSet": "834123_Node_Set",
+                "SlaveNodeSet": "Beam_834123_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_834124_Node_Set": {
+                "MasterNodeSet": "834124_Node_Set",
+                "SlaveNodeSet": "Beam_834124_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_834125_Node_Set": {
+                "MasterNodeSet": "834125_Node_Set",
+                "SlaveNodeSet": "Beam_834125_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_834126_Node_Set": {
+                "MasterNodeSet": "834126_Node_Set",
+                "SlaveNodeSet": "Beam_834126_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_844374_Node_Set": {
+                "MasterNodeSet": "844374_Node_Set",
+                "SlaveNodeSet": "Beam_844374_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893050_Node_Set": {
+                "MasterNodeSet": "893050_Node_Set",
+                "SlaveNodeSet": "Beam_893050_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893051_Node_Set": {
+                "MasterNodeSet": "893051_Node_Set",
+                "SlaveNodeSet": "Beam_893051_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893052_Node_Set": {
+                "MasterNodeSet": "893052_Node_Set",
+                "SlaveNodeSet": "Beam_893052_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893053_Node_Set": {
+                "MasterNodeSet": "893053_Node_Set",
+                "SlaveNodeSet": "Beam_893053_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893054_Node_Set": {
+                "MasterNodeSet": "893054_Node_Set",
+                "SlaveNodeSet": "Beam_893054_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893055_Node_Set": {
+                "MasterNodeSet": "893055_Node_Set",
+                "SlaveNodeSet": "Beam_893055_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893056_Node_Set": {
+                "MasterNodeSet": "893056_Node_Set",
+                "SlaveNodeSet": "Beam_893056_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893057_Node_Set": {
+                "MasterNodeSet": "893057_Node_Set",
+                "SlaveNodeSet": "Beam_893057_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893058_Node_Set": {
+                "MasterNodeSet": "893058_Node_Set",
+                "SlaveNodeSet": "Beam_893058_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893059_Node_Set": {
+                "MasterNodeSet": "893059_Node_Set",
+                "SlaveNodeSet": "Beam_893059_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893061_Node_Set": {
+                "MasterNodeSet": "893061_Node_Set",
+                "SlaveNodeSet": "Beam_893061_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893062_Node_Set": {
+                "MasterNodeSet": "893062_Node_Set",
+                "SlaveNodeSet": "Beam_893062_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893063_Node_Set": {
+                "MasterNodeSet": "893063_Node_Set",
+                "SlaveNodeSet": "Beam_893063_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893064_Node_Set": {
+                "MasterNodeSet": "893064_Node_Set",
+                "SlaveNodeSet": "Beam_893064_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893065_Node_Set": {
+                "MasterNodeSet": "893065_Node_Set",
+                "SlaveNodeSet": "Beam_893065_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893066_Node_Set": {
+                "MasterNodeSet": "893066_Node_Set",
+                "SlaveNodeSet": "Beam_893066_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893067_Node_Set": {
+                "MasterNodeSet": "893067_Node_Set",
+                "SlaveNodeSet": "Beam_893067_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893068_Node_Set": {
+                "MasterNodeSet": "893068_Node_Set",
+                "SlaveNodeSet": "Beam_893068_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893069_Node_Set": {
+                "MasterNodeSet": "893069_Node_Set",
+                "SlaveNodeSet": "Beam_893069_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893070_Node_Set": {
+                "MasterNodeSet": "893070_Node_Set",
+                "SlaveNodeSet": "Beam_893070_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893071_Node_Set": {
+                "MasterNodeSet": "893071_Node_Set",
+                "SlaveNodeSet": "Beam_893071_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893072_Node_Set": {
+                "MasterNodeSet": "893072_Node_Set",
+                "SlaveNodeSet": "Beam_893072_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893073_Node_Set": {
+                "MasterNodeSet": "893073_Node_Set",
+                "SlaveNodeSet": "Beam_893073_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893074_Node_Set": {
+                "MasterNodeSet": "893074_Node_Set",
+                "SlaveNodeSet": "Beam_893074_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893075_Node_Set": {
+                "MasterNodeSet": "893075_Node_Set",
+                "SlaveNodeSet": "Beam_893075_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893076_Node_Set": {
+                "MasterNodeSet": "893076_Node_Set",
+                "SlaveNodeSet": "Beam_893076_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893077_Node_Set": {
+                "MasterNodeSet": "893077_Node_Set",
+                "SlaveNodeSet": "Beam_893077_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893078_Node_Set": {
+                "MasterNodeSet": "893078_Node_Set",
+                "SlaveNodeSet": "Beam_893078_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893079_Node_Set": {
+                "MasterNodeSet": "893079_Node_Set",
+                "SlaveNodeSet": "Beam_893079_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893080_Node_Set": {
+                "MasterNodeSet": "893080_Node_Set",
+                "SlaveNodeSet": "Beam_893080_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893081_Node_Set": {
+                "MasterNodeSet": "893081_Node_Set",
+                "SlaveNodeSet": "Beam_893081_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893082_Node_Set": {
+                "MasterNodeSet": "893082_Node_Set",
+                "SlaveNodeSet": "Beam_893082_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893083_Node_Set": {
+                "MasterNodeSet": "893083_Node_Set",
+                "SlaveNodeSet": "Beam_893083_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893084_Node_Set": {
+                "MasterNodeSet": "893084_Node_Set",
+                "SlaveNodeSet": "Beam_893084_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893085_Node_Set": {
+                "MasterNodeSet": "893085_Node_Set",
+                "SlaveNodeSet": "Beam_893085_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893086_Node_Set": {
+                "MasterNodeSet": "893086_Node_Set",
+                "SlaveNodeSet": "Beam_893086_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893087_Node_Set": {
+                "MasterNodeSet": "893087_Node_Set",
+                "SlaveNodeSet": "Beam_893087_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893088_Node_Set": {
+                "MasterNodeSet": "893088_Node_Set",
+                "SlaveNodeSet": "Beam_893088_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893089_Node_Set": {
+                "MasterNodeSet": "893089_Node_Set",
+                "SlaveNodeSet": "Beam_893089_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_893090_Node_Set": {
+                "MasterNodeSet": "893090_Node_Set",
+                "SlaveNodeSet": "Beam_893090_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "Beam_975870_Node_Set": {
+                "MasterNodeSet": "975870_Node_Set",
+                "SlaveNodeSet": "Beam_975870_Node_Set_Slave",
+                "CoordSys": "",
+                "InertiaCal": "automatic",
+                "mass": 0,
+                "CoG": 3,
+                "InertiaInput": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            }
+        }
+    },
+    "Contact": {
+        "General_Contact": {
+            "Type": "GeneralContact",
+            "Surf1": "Model_Outside_Surface",
+            "StiffnessForm": 1000,
+            "EdgeCheck": true,
+            "EdgeAngle": 135,
+            "SelfInitPenCheck": false,
+            "InitPenDeactivate": "Ignore",
+            "FrictionCoef": 0.2
+        },
+        "Tie:S:X21203766_DRAEN S:DKBA807019211_1P2MM1": {
+            "Label": "Tie:S:X21203766_DRAEN S:DKBA807019211_1P2MM1",
+            "Type": "NodeToSurfaceTie",
+            "MasterFaces": "S_DKBA807019211_1P2MM",
+            "SlaveNodes": "S_X21203766_DRAEN_Node",
+            "Ignore": "MainThick",
+            "Formulation": "standard",
+            "SearchMethod": "segment",
+            "SearchDistance": 0.4
+        },
+        "Tie:S:DKBA80293229_0P8MM S:DKBA80293230_0P8MM1": {
+            "Label": "Tie:S:DKBA80293229_0P8MM S:DKBA80293230_0P8MM1",
+            "Type": "NodeToSurfaceTie",
+            "MasterFaces": "S_DKBA80293230_0P8MM",
+            "SlaveNodes": "S_DKBA80293229_0P8MM_Node",
+            "Ignore": "MainThick",
+            "Formulation": "standard",
+            "SearchMethod": "segment",
+            "SearchDistance": 0.4
+        },
+        "Tie:S:X14100245 S:DKBA41316563_C1": {
+            "Label": "Tie:S:X14100245 S:DKBA41316563_C1",
+            "Type": "NodeToSurfaceTie",
+            "MasterFaces": "S_DKBA41316563_C",
+            "SlaveNodes": "S_X14100245_Node",
+            "Ignore": "MainThick",
+            "Formulation": "standard",
+            "SearchMethod": "segment",
+            "SearchDistance": 0.4
+        },
+        "Tie:S:X14100377 S:DKBA41316563_C:11": {
+            "Label": "Tie:S:X14100377 S:DKBA41316563_C:11",
+            "Type": "NodeToSurfaceTie",
+            "MasterFaces": "S_DKBA41316563_C_1",
+            "SlaveNodes": "S_X14100377_Node",
+            "Ignore": "MainThick",
+            "Formulation": "standard",
+            "SearchMethod": "segment",
+            "SearchDistance": 0.2
+        },
+        "Tie:S:HUILIUTIAO_03 S:DKBA41316563_C:21": {
+            "Label": "Tie:S:HUILIUTIAO_03 S:DKBA41316563_C:21",
+            "Type": "NodeToSurfaceTie",
+            "MasterFaces": "S_DKBA41316563_C_2",
+            "SlaveNodes": "S_HUILIUTIAO_03_Node",
+            "Ignore": "MainThick",
+            "Formulation": "standard",
+            "SearchMethod": "segment",
+            "SearchDistance": 0.2
+        },
+        "Tie:S:HUILIUTIAO_05 S:DKBA41316563_C:31": {
+            "Label": "Tie:S:HUILIUTIAO_05 S:DKBA41316563_C:31",
+            "Type": "NodeToSurfaceTie",
+            "MasterFaces": "S_DKBA41316563_C_3",
+            "SlaveNodes": "S_HUILIUTIAO_05_Node",
+            "Ignore": "MainThick",
+            "Formulation": "standard",
+            "SearchMethod": "segment",
+            "SearchDistance": 0.0
+        },
+        "Tie:S:DKBA41316563_C:5 S:DIMM_V3_281": {
+            "Label": "Tie:S:DKBA41316563_C:5 S:DIMM_V3_281",
+            "Type": "NodeToSurfaceTie",
+            "MasterFaces": "S_DIMM_V3_28",
+            "SlaveNodes": "S_DKBA41316563_C_5_Node",
+            "Ignore": "MainThick",
+            "Formulation": "standard",
+            "SearchMethod": "segment",
+            "SearchDistance": 0.2
+        },
+        "Tie:S:DKBA80283975 S:DKBA827003061": {
+            "Label": "Tie:S:DKBA80283975 S:DKBA827003061",
+            "Type": "NodeToSurfaceTie",
+            "MasterFaces": "S_DKBA82700306",
+            "SlaveNodes": "S_DKBA80283975_Node",
+            "Ignore": "MainThick",
+            "Formulation": "standard",
+            "SearchMethod": "segment",
+            "SearchDistance": 0.4
+        },
+        "Tie:S:X14191432SMHONGFUJIN S:DKBA41316563_C:61": {
+            "Label": "Tie:S:X14191432SMHONGFUJIN S:DKBA41316563_C:61",
+            "Type": "NodeToSurfaceTie",
+            "MasterFaces": "S_DKBA41316563_C_6",
+            "SlaveNodes": "S_X14191432SMHONGFUJIN_Node",
+            "Ignore": "MainThick",
+            "Formulation": "standard",
+            "SearchMethod": "segment",
+            "SearchDistance": 0.2
+        },
+        "Tie:S:X14191432SMHONGFUJIN:1 S:CST550AP_8_0804_ASM1": {
+            "Label": "Tie:S:X14191432SMHONGFUJIN:1 S:CST550AP_8_0804_ASM1",
+            "Type": "NodeToSurfaceTie",
+            "MasterFaces": "S_CST550AP_8_0804_ASM",
+            "SlaveNodes": "S_X14191432SMHONGFUJIN_1_Node",
+            "Ignore": "MainThick",
+            "Formulation": "standard",
+            "SearchMethod": "segment",
+            "SearchDistance": 0.2
+        },
+        "Tie:S:DKBA80662362_0P8MM S:CST550AP_8_0804_ASM:11": {
+            "Label": "Tie:S:DKBA80662362_0P8MM S:CST550AP_8_0804_ASM:11",
+            "Type": "NodeToSurfaceTie",
+            "MasterFaces": "S_CST550AP_8_0804_ASM_1",
+            "SlaveNodes": "S_DKBA80662362_0P8MM_Node",
+            "Ignore": "MainThick",
+            "Formulation": "standard",
+            "SearchMethod": "segment",
+            "SearchDistance": 0.2
+        },
+        "Tie:S:CST550AP_8_0804_ASM:2 S:DKBA80662364_0P8MM1": {
+            "Label": "Tie:S:CST550AP_8_0804_ASM:2 S:DKBA80662364_0P8MM1",
+            "Type": "NodeToSurfaceTie",
+            "MasterFaces": "S_DKBA80662364_0P8MM",
+            "SlaveNodes": "S_CST550AP_8_0804_ASM_2_Node",
+            "Ignore": "MainThick",
+            "Formulation": "standard",
+            "SearchMethod": "segment",
+            "SearchDistance": 0.4
+        },
+        "HDD1_KUANGJIA1": {
+            "Label": "HDD1_KUANGJIA1",
+            "Type": "NodeToSurfaceTie",
+            "MasterFaces": "S_KUANGJIA2",
+            "SlaveNodes": "s_HDD1_Node",
+            "Ignore": "MainThick",
+            "Formulation": "standard",
+            "SearchMethod": "segment",
+            "SearchDistance": 0.5
+        },
+        "hdd2_KUANGJIA1": {
+            "Label": "hdd2_KUANGJIA1",
+            "Type": "NodeToSurfaceTie",
+            "MasterFaces": "S_KUANGJIA2",
+            "SlaveNodes": "s_HDD2_Node",
+            "Ignore": "MainThick",
+            "Formulation": "standard",
+            "SearchMethod": "segment",
+            "SearchDistance": 0.5
+        },
+        "jinshouzhi_lianjieqi1": {
+            "Label": "jinshouzhi_lianjieqi1",
+            "Type": "NodeToSurfaceTie",
+            "MasterFaces": "HM_ContactSurf_86",
+            "SlaveNodes": "HM_ContactSurf_14_Node",
+            "Ignore": "MainThick",
+            "Formulation": "standard",
+            "SearchMethod": "segment",
+            "SearchDistance": 0.1
+        },
+        "LJQ_PCB1": {
+            "Label": "LJQ_PCB1",
+            "Type": "NodeToSurfaceTie",
+            "MasterFaces": "HM_ContactSurf_77",
+            "SlaveNodes": "HM_ContactSurf_83_Node",
+            "Ignore": "MainThick",
+            "Formulation": "standard",
+            "SearchMethod": "segment",
+            "SearchDistance": 0.5
+        },
+        "lianjieqi2_RISERPCB1": {
+            "Label": "lianjieqi2_RISERPCB1",
+            "Type": "NodeToSurfaceTie",
+            "MasterFaces": "HM_ContactSurf_85",
+            "SlaveNodes": "HM_ContactSurf_86_Node",
+            "Ignore": "MainThick",
+            "Formulation": "standard",
+            "SearchMethod": "segment",
+            "SearchDistance": 0.5
+        },
+        "RISER_LJQ1": {
+            "Label": "RISER_LJQ1",
+            "Type": "NodeToSurfaceTie",
+            "MasterFaces": "HM_ContactSurf_77",
+            "SlaveNodes": "HM_ContactSurf_70_Node",
+            "Ignore": "MainThick",
+            "Formulation": "standard",
+            "SearchMethod": "segment",
+            "SearchDistance": 0.5
+        },
+        "PCB_8c1": {
+            "Label": "PCB_8c1",
+            "Type": "NodeToSurfaceTie",
+            "MasterFaces": "HM_ContactSurf_74",
+            "SlaveNodes": "HM_ContactSurf_70_Node",
+            "Ignore": "MainThick",
+            "Formulation": "standard",
+            "SearchMethod": "segment",
+            "SearchDistance": 0.1
+        },
+        "riser2_lianjieqi1": {
+            "Label": "riser2_lianjieqi1",
+            "Type": "NodeToSurfaceTie",
+            "MasterFaces": "HM_ContactSurf_85",
+            "SlaveNodes": "HM_ContactSurf_70_Node",
+            "Ignore": "MainThick",
+            "Formulation": "standard",
+            "SearchMethod": "segment",
+            "SearchDistance": 0.5
+        },
+        "yingpangai_zhijia1": {
+            "Label": "yingpangai_zhijia1",
+            "Type": "NodeToSurfaceTie",
+            "MasterFaces": "HM_ContactSurf_26",
+            "SlaveNodes": "HM_ContactSurf_25_Node",
+            "Ignore": "MainThick",
+            "Formulation": "standard",
+            "SearchMethod": "segment",
+            "SearchDistance": 0.8
+        }
+    },
+    "InitialCondition": {
+        "Translation": {
+            "set_nodes": {
+                "NodeSet": "set_nodes",
+                "InitialVelocity": [
+                    0.0,
+                    3961.8,
+                    0.0
+                ],
+                "Direction": "",
+                "RotVelocity": 0.0
+            }
+        }
+    },
+    "Function": {
+        "EPO-1d2pcf-N_M_Mises_YS_0.000000": {
+            "Type": "Tabular",
+            "InterpMethod": "Linear"
+        },
+        "EPO-1d2pcf-N_M_Mises_YS_10.000000": {
+            "Type": "Tabular",
+            "InterpMethod": "Linear"
+        },
+        "EPO-1d2pcf-N_M_Mises_YS_20.000000": {
+            "Type": "Tabular",
+            "InterpMethod": "Linear"
+        },
+        "EPO-1d2pcf-N_M_Mises_YS_30.000000": {
+            "Type": "Tabular",
+            "InterpMethod": "Linear"
+        },
+        "EPO-1d2pcf-N_M_Mises_YS_50.000000": {
+            "Type": "Tabular",
+            "InterpMethod": "Linear"
+        },
+        "EPO-1d2pcf-N_M_Mises_YS_100.000000": {
+            "Type": "Tabular",
+            "InterpMethod": "Linear"
+        },
+        "EPO-1d2pcf-N_M_Mises_YS_150.000000": {
+            "Type": "Tabular",
+            "InterpMethod": "Linear"
+        },
+        "Gravity_Curve": {
+            "Type": "Tabular",
+            "InterpMethod": "Linear"
+        }
+    },
+    "Load": {
+        "Body_SET_ELEM": {
+            "Type": "BaseAcceleration",
+            "XValue": 0,
+            "XTimeCurve": "",
+            "YValue": 9810.0,
+            "YTimeCurve": "Gravity_Curve",
+            "ZValue": 0,
+            "ZTimeCurve": "",
+            "NodeSet": "set_elem_Node",
+            "CoordSys": ""
+        }
+    },
+    "PartProperty": {
+        "Part_1": {
+            "PID": 1,
+            "Title": "Component_26_DKBA82700306",
+            "EleSet": "Component_26_DKBA82700306",
+            "Material": "SANREQI_M",
+            "CrossSection": "Sanreqi_chiye_Component_26_DKBA82700306"
+        },
+        "Part_2": {
+            "PID": 2,
+            "Title": "Component_1_PCB-1",
+            "EleSet": "Component_1_PCB-1",
+            "Material": "FR4_M",
+            "CrossSection": "1601biaoka_Component_1_PCB-1"
+        },
+        "Part_3": {
+            "PID": 3,
+            "Title": "Component_7_riser_PCB",
+            "EleSet": "Component_7_riser_PCB",
+            "Material": "Fe_M",
+            "CrossSection": "Banjinjian_Component_7_riser_PCB"
+        },
+        "Part_4": {
+            "PID": 4,
+            "Title": "Component_24_HPM_DRAEN30050",
+            "EleSet": "Component_24_HPM_DRAEN30050",
+            "Material": "EPO-1d2pcf-N_M",
+            "CrossSection": "M20_Component_24_HPM_DRAEN30050"
+        },
+        "Part_5": {
+            "PID": 5,
+            "Title": "Component_2_DKBA80702274",
+            "EleSet": "Component_2_DKBA80702274",
+            "Material": "Fe_M",
+            "CrossSection": "Banjinjian_Component_2_DKBA80702274"
+        },
+        "Part_6": {
+            "PID": 6,
+            "Title": "Component_3_DKBA80832772",
+            "EleSet": "Component_3_DKBA80832772",
+            "Material": "Fe_M",
+            "CrossSection": "Banjinjian_Component_3_DKBA80832772"
+        },
+        "Part_7": {
+            "PID": 7,
+            "Title": "Component_47_riser_ZJ2",
+            "EleSet": "Component_47_riser_ZJ2",
+            "Material": "Fe_M",
+            "CrossSection": "Section16"
+        },
+        "Part_8": {
+            "PID": 8,
+            "Title": "Component_31_xinpian-1",
+            "EleSet": "Component_31_xinpian-1",
+            "Material": "Yingpan_M",
+            "CrossSection": "Yingpan_Component_31_xinpian-1"
+        },
+        "Part_9": {
+            "PID": 9,
+            "Title": "Component_15_CST550AP_8_0804_ASM",
+            "EleSet": "Component_15_CST550AP_8_0804_ASM",
+            "Material": "dianyuan_M",
+            "CrossSection": "dianyuan_Component_15_CST550AP_8_0804_ASM"
+        },
+        "Part_10": {
+            "PID": 10,
+            "Title": "Component_4_lashoutiao",
+            "EleSet": "Component_4_lashoutiao",
+            "Material": "Fe_M",
+            "CrossSection": "Banjinjian_Component_4_lashoutiao"
+        },
+        "Part_11": {
+            "PID": 11,
+            "Title": "Component_16_DIMM",
+            "EleSet": "Component_16_DIMM",
+            "Material": "DIMM_M",
+            "CrossSection": "DIMM_Component_16_DIMM"
+        },
+        "Part_12": {
+            "PID": 12,
+            "Title": "Component_5_lashoutiao_1",
+            "EleSet": "Component_5_lashoutiao_1",
+            "Material": "Fe_M",
+            "CrossSection": "Banjinjian_Component_5_lashoutiao_1"
+        },
+        "Part_13": {
+            "PID": 13,
+            "Title": "Component_6_Main_PCB",
+            "EleSet": "Component_6_Main_PCB",
+            "Material": "Fe_M",
+            "CrossSection": "Banjinjian_Component_6_Main_PCB"
+        },
+        "Part_14": {
+            "PID": 14,
+            "Title": "Component_8_riser_PCB2",
+            "EleSet": "Component_8_riser_PCB2",
+            "Material": "Fe_M",
+            "CrossSection": "Banjinjian_Component_8_riser_PCB2"
+        },
+        "Part_15": {
+            "PID": 15,
+            "Title": "Component_55_solder",
+            "EleSet": "Component_55_solder",
+            "Material": "Mat_Solder_305_M",
+            "CrossSection": "Section24"
+        },
+        "Part_16": {
+            "PID": 16,
+            "Title": "Component_11_X14100245",
+            "EleSet": "Component_11_X14100245",
+            "Material": "Shuzhi_M",
+            "CrossSection": "connector_Component_11_X14100245"
+        },
+        "Part_17": {
+            "PID": 17,
+            "Title": "Component_9_lianjieqi",
+            "EleSet": "Component_9_lianjieqi",
+            "Material": "Shuzhi_M",
+            "CrossSection": "connector_Component_9_lianjieqi"
+        },
+        "Part_18": {
+            "PID": 18,
+            "Title": "Component_10_lianjieqi2",
+            "EleSet": "Component_10_lianjieqi2",
+            "Material": "Shuzhi_M",
+            "CrossSection": "connector_Component_10_lianjieqi2"
+        },
+        "Part_19": {
+            "PID": 19,
+            "Title": "Component_25_sanreqi",
+            "EleSet": "Component_25_sanreqi",
+            "Material": "biaoka_sanreqi_M",
+            "CrossSection": "sanreqi_biaoka_Component_25_sanreqi"
+        },
+        "Part_20": {
+            "PID": 20,
+            "Title": "Component_17_X21203766_DRAEN",
+            "EleSet": "Component_17_X21203766_DRAEN",
+            "Material": "Fengshan_M",
+            "CrossSection": "Fengshan_Component_17_X21203766_DRAEN"
+        },
+        "Part_21": {
+            "PID": 21,
+            "Title": "Component_12_X14100377",
+            "EleSet": "Component_12_X14100377",
+            "Material": "Shuzhi_M",
+            "CrossSection": "connector_Component_12_X14100377"
+        },
+        "Part_22": {
+            "PID": 22,
+            "Title": "Component_13_X14191432SMHONGFUJIN",
+            "EleSet": "Component_13_X14191432SMHONGFUJIN",
+            "Material": "Shuzhi_M",
+            "CrossSection": "connector_Component_13_X14191432SMHONGFUJIN"
+        },
+        "Part_23": {
+            "PID": 23,
+            "Title": "Component_48_DKBA80663472_1MM",
+            "EleSet": "Component_48_DKBA80663472_1MM",
+            "Material": "Fe_M",
+            "CrossSection": "Section17"
+        },
+        "Part_24": {
+            "PID": 24,
+            "Title": "Component_42_DKBA80663426_0P8MM",
+            "EleSet": "Component_42_DKBA80663426_0P8MM",
+            "Material": "Fe_M",
+            "CrossSection": "Section11"
+        },
+        "Part_25": {
+            "PID": 25,
+            "Title": "Component_14_X280CIRCUIT_HOUSING_1",
+            "EleSet": "Component_14_X280CIRCUIT_HOUSING_1",
+            "Material": "Shuzhi_M",
+            "CrossSection": "connector_Component_14_X280CIRCUIT_HOUSING_1"
+        },
+        "Part_26": {
+            "PID": 26,
+            "Title": "Component_18_HUILIUTIAO_03",
+            "EleSet": "Component_18_HUILIUTIAO_03",
+            "Material": "Al_M",
+            "CrossSection": "huiliutiao_Component_18_HUILIUTIAO_03"
+        },
+        "Part_27": {
+            "PID": 27,
+            "Title": "Component_34_face_2",
+            "EleSet": "Component_34_face_2",
+            "Material": "FR4_M",
+            "CrossSection": "Section3"
+        },
+        "Part_28": {
+            "PID": 28,
+            "Title": "Component_22_DRAEN-30050HPP",
+            "EleSet": "Component_22_DRAEN-30050HPP",
+            "Material": "EPO-1d2pcf-N_M",
+            "CrossSection": "M20_Component_22_DRAEN-30050HPP"
+        },
+        "Part_29": {
+            "PID": 29,
+            "Title": "Component_19_HUILIUTIAO_05",
+            "EleSet": "Component_19_HUILIUTIAO_05",
+            "Material": "Al_M",
+            "CrossSection": "huiliutiao_Component_19_HUILIUTIAO_05"
+        },
+        "Part_30": {
+            "PID": 30,
+            "Title": "Component_20_DRAEN-0050HPL",
+            "EleSet": "Component_20_DRAEN-0050HPL",
+            "Material": "EPO-1d2pcf-N_M",
+            "CrossSection": "M20_Component_20_DRAEN-0050HPL"
+        },
+        "Part_31": {
+            "PID": 31,
+            "Title": "Component_53_BC82NHBAJG_VA_2P4MM",
+            "EleSet": "Component_53_BC82NHBAJG_VA_2P4MM",
+            "Material": "Fe_M",
+            "CrossSection": "Section22"
+        },
+        "Part_32": {
+            "PID": 32,
+            "Title": "Component_21_DRAEN-30050HPN",
+            "EleSet": "Component_21_DRAEN-30050HPN",
+            "Material": "EPO-1d2pcf-N_M",
+            "CrossSection": "M20_Component_21_DRAEN-30050HPN"
+        },
+        "Part_33": {
+            "PID": 33,
+            "Title": "Component_23_DRAEN-30059337",
+            "EleSet": "Component_23_DRAEN-30059337",
+            "Material": "EPO-1d2pcf-N_M",
+            "CrossSection": "M20_Component_23_DRAEN-30059337"
+        },
+        "Part_34": {
+            "PID": 34,
+            "Title": "Component_27_DKBA80283975",
+            "EleSet": "Component_27_DKBA80283975",
+            "Material": "SANREQI_M",
+            "CrossSection": "Sanreqi_diban_Component_27_DKBA80283975"
+        },
+        "Part_35": {
+            "PID": 35,
+            "Title": "Component_28_substrate",
+            "EleSet": "Component_28_substrate",
+            "Material": "Yingpan_M",
+            "CrossSection": "Yingpan_Component_28_substrate"
+        },
+        "Part_36": {
+            "PID": 36,
+            "Title": "Component_29_X3_5_HDD_01",
+            "EleSet": "Component_29_X3_5_HDD_01",
+            "Material": "Yingpan_M",
+            "CrossSection": "Yingpan_Component_29_X3_5_HDD_01"
+        },
+        "Part_37": {
+            "PID": 37,
+            "Title": "Component_30_X3_5_hdd_02",
+            "EleSet": "Component_30_X3_5_hdd_02",
+            "Material": "Yingpan_M",
+            "CrossSection": "Yingpan_Component_30_X3_5_hdd_02"
+        },
+        "Part_38": {
+            "PID": 38,
+            "Title": "Component_32_Face_1",
+            "EleSet": "Component_32_Face_1",
+            "Material": "Mat_Bga_Substrate_General_M",
+            "CrossSection": "Section1"
+        },
+        "Part_39": {
+            "PID": 39,
+            "Title": "Component_33_sub_FACE",
+            "EleSet": "Component_33_sub_FACE",
+            "Material": "Mat_Bga_Substrate_General_M",
+            "CrossSection": "Section2"
+        },
+        "Part_40": {
+            "PID": 40,
+            "Title": "Component_49_DKBA80871439_1MM",
+            "EleSet": "Component_49_DKBA80871439_1MM",
+            "Material": "Fe_M",
+            "CrossSection": "Section18"
+        },
+        "Part_41": {
+            "PID": 41,
+            "Title": "Component_35_PCB_FACE",
+            "EleSet": "Component_35_PCB_FACE",
+            "Material": "FR4_M",
+            "CrossSection": "Section4"
+        },
+        "Part_42": {
+            "PID": 42,
+            "Title": "Component_36_DKBA80293229_0P8MM",
+            "EleSet": "Component_36_DKBA80293229_0P8MM",
+            "Material": "Fe_M",
+            "CrossSection": "Section5"
+        },
+        "Part_43": {
+            "PID": 43,
+            "Title": "Component_37_DKBA80293230_0P8MM",
+            "EleSet": "Component_37_DKBA80293230_0P8MM",
+            "Material": "Fe_M",
+            "CrossSection": "Section6"
+        },
+        "Part_44": {
+            "PID": 44,
+            "Title": "Component_38_DKBA80375484_0P8MM",
+            "EleSet": "Component_38_DKBA80375484_0P8MM",
+            "Material": "Fe_M",
+            "CrossSection": "Section7"
+        },
+        "Part_45": {
+            "PID": 45,
+            "Title": "Component_39_DKBA80608098_0P8MM",
+            "EleSet": "Component_39_DKBA80608098_0P8MM",
+            "Material": "Fe_M",
+            "CrossSection": "Section8"
+        },
+        "Part_46": {
+            "PID": 46,
+            "Title": "Component_40_DKBA80662362_0P8MM",
+            "EleSet": "Component_40_DKBA80662362_0P8MM",
+            "Material": "Fe_M",
+            "CrossSection": "Section9"
+        },
+        "Part_47": {
+            "PID": 47,
+            "Title": "Component_41_DKBA80662364_0P8MM",
+            "EleSet": "Component_41_DKBA80662364_0P8MM",
+            "Material": "Fe_M",
+            "CrossSection": "Section10"
+        },
+        "Part_48": {
+            "PID": 48,
+            "Title": "Component_43_DKBA81990051_0P8MM",
+            "EleSet": "Component_43_DKBA81990051_0P8MM",
+            "Material": "Fe_M",
+            "CrossSection": "Section12"
+        },
+        "Part_49": {
+            "PID": 49,
+            "Title": "Component_52_DKBA80973644_TAISHAN_2MM",
+            "EleSet": "Component_52_DKBA80973644_TAISHAN_2MM",
+            "Material": "Fe_M",
+            "CrossSection": "Section21"
+        },
+        "Part_50": {
+            "PID": 50,
+            "Title": "Component_44_DKBA81990055_0P8MM",
+            "EleSet": "Component_44_DKBA81990055_0P8MM",
+            "Material": "Fe_M",
+            "CrossSection": "Section13"
+        },
+        "Part_51": {
+            "PID": 51,
+            "Title": "Component_54_Box",
+            "EleSet": "Component_54_Box",
+            "Material": "Mat_Zhixiang_General_M",
+            "CrossSection": "Section23"
+        },
+        "Part_52": {
+            "PID": 52,
+            "Title": "Component_45_DKBA81992575_0P8MM",
+            "EleSet": "Component_45_DKBA81992575_0P8MM",
+            "Material": "Fe_M",
+            "CrossSection": "Section14"
+        },
+        "Part_53": {
+            "PID": 53,
+            "Title": "Component_46_riser_ZJ",
+            "EleSet": "Component_46_riser_ZJ",
+            "Material": "Fe_M",
+            "CrossSection": "Section15"
+        },
+        "Part_54": {
+            "PID": 54,
+            "Title": "Component_50_DKBA807019211_1P2MM",
+            "EleSet": "Component_50_DKBA807019211_1P2MM",
+            "Material": "Fe_M",
+            "CrossSection": "Section19"
+        },
+        "Part_55": {
+            "PID": 55,
+            "Title": "Component_51_DKBA80973644_TAISHAN2_2MM",
+            "EleSet": "Component_51_DKBA80973644_TAISHAN2_2MM",
+            "Material": "Fe_M",
+            "CrossSection": "Section20"
+        },
+        "Part_56": {
+            "PID": 56,
+            "Title": "Component_56_solder_1",
+            "EleSet": "Component_56_solder_1",
+            "Material": "Mat_Solder_305_M",
+            "CrossSection": "Section25"
+        },
+        "Part_57": {
+            "PID": 57,
+            "Title": "Component_57_ground",
+            "EleSet": "Component_57_ground",
+            "Material": "ground_R3D4_M",
+            "CrossSection": "Section26"
+        }
+    }
+}

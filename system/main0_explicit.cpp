@@ -1,5 +1,12 @@
 // main0_explicit.cpp
 // Extracted explicit solver logic from main.cpp
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. 
+ * If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * Copyright (c) 2025 hyperFEM. All rights reserved.
+ * Author: Xiaotong Wang (or hyperFEM Team)
+ */
 
 #include "spdlog/spdlog.h"
 #include "DataContext.h"
@@ -11,6 +18,10 @@
 #include "load/LoadSystem.h"
 #include "explicit/ExplicitSolver.h"
 #include "material/mat1/LinearElasticMatrixSystem.h"
+#include "output/VtuExporter.h"
+#include <filesystem>
+#include <iomanip>
+#include <sstream>
 
 /**
  * @brief Run explicit dynamics solver
@@ -67,6 +78,23 @@ void run_explicit_solver(DataContext& data_context) {
         }
     }
     spdlog::info("Starting time integration. dt = {:.2e}, total_time = {:.2e}", dt, total_time);
+
+    const bool do_output = (data_context.output_entity != entt::null &&
+                            data_context.registry.valid(data_context.output_entity));
+    double output_interval = (total_time > 0.0 ? total_time / 10.0 : 1.0);
+    if (do_output && data_context.registry.all_of<Component::OutputIntervalTime>(data_context.output_entity)) {
+        output_interval = data_context.registry.get<Component::OutputIntervalTime>(data_context.output_entity).interval_time;
+    }
+    int output_index = 0;
+    double next_output_time = 0.0;
+    if (do_output) {
+        std::filesystem::create_directories("result");
+        std::ostringstream oss;
+        oss << "result/res_" << std::setfill('0') << std::setw(4) << 0 << ".vtu";
+        VtuExporter::save(oss.str(), data_context, data_context.output_entity);
+        output_index = 0;
+        next_output_time = output_interval;
+    }
     
     int step_count = 0;
     while (t < total_time) {
@@ -83,6 +111,15 @@ void run_explicit_solver(DataContext& data_context) {
         
         t += dt;
         step_count++;
+        
+        if (do_output && t >= next_output_time) {
+            output_index++;
+            std::filesystem::create_directories("result");
+            std::ostringstream oss;
+            oss << "result/res_" << std::setfill('0') << std::setw(4) << output_index << ".vtu";
+            VtuExporter::save(oss.str(), data_context, data_context.output_entity);
+            next_output_time += output_interval;
+        }
         
         // Output progress every 100 steps
         if (step_count % 100 == 0) {

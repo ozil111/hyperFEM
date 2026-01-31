@@ -1,4 +1,11 @@
 // TopologyData.h
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. 
+ * If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * Copyright (c) 2025 hyperFEM. All rights reserved.
+ * Author: Xiaotong Wang (or hyperFEM Team)
+ */
 #pragma once
 
 #include <vector>
@@ -57,8 +64,36 @@ struct TopologyData {
     // `body_to_elements[body_id]` -> 获取该连续体包含的所有单元entity
     std::unordered_map<BodyID, std::vector<entt::entity>> body_to_elements;
 
+    // ================= Simdroid 扩展 =================
+
+    // 1. [反向查找] External Element ID -> Part Entity
+    // 能够以 O(1) 速度查询任意单元属于哪个 Part
+    // 下标: ElementID (外部ID)
+    std::vector<entt::entity> element_uid_to_part_map;
+
+    // 2. [反向查找] External Node ID -> List of Part Entities
+    // 能够以 O(1) 速度查询任意节点被哪些 Part 共享（用于接触分析）
+    // 下标: NodeID (外部ID)
+    std::vector<std::vector<entt::entity>> node_uid_to_parts_map;
+
     // --- 构造与清理 ---
     TopologyData() = default;
+
+    // 清理/重置帮助函数
+    void clear_simdroid_maps() {
+        element_uid_to_part_map.clear();
+        node_uid_to_parts_map.clear();
+    }
+
+    // 预分配内存（解析前调用）
+    void reserve_simdroid_maps(size_t max_element_id, size_t max_node_id) {
+        if (max_element_id >= element_uid_to_part_map.size()) {
+            element_uid_to_part_map.resize(max_element_id + 1, entt::null);
+        }
+        if (max_node_id >= node_uid_to_parts_map.size()) {
+            node_uid_to_parts_map.resize(max_node_id + 1);
+        }
+    }
 
     void clear() {
         faces.clear();
@@ -67,5 +102,6 @@ struct TopologyData {
         face_to_elements.clear();
         element_to_body.clear();
         body_to_elements.clear();
+        clear_simdroid_maps();
     }
 };

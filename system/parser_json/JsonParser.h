@@ -1,4 +1,11 @@
 // system/parser_json/JsonParser.h
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. 
+ * If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * Copyright (c) 2025 hyperFEM. All rights reserved.
+ * Author: Xiaotong Wang (or hyperFEM Team)
+ */
 #pragma once
 
 #include "DataContext.h"
@@ -201,6 +208,18 @@ private:
         const nlohmann::json& j,
         entt::registry& registry,
         std::unordered_map<int, entt::entity>& analysis_id_map
+    );
+
+    /**
+     * @brief 步骤 12: 解析 Output 实体（当前仅支持全局唯一一个 output，无需 oid）
+     * @param j JSON 根对象，j["output"] 为单个对象，如 {"node_output":["displacement"],"interval_time":0.01}
+     * @param registry EnTT registry
+     * @param output_id_map [out] 唯一输出的 entity 存于 output_id_map[0]
+     */
+    static void parse_output(
+        const nlohmann::json& j,
+        entt::registry& registry,
+        std::unordered_map<int, entt::entity>& output_id_map
     );
 };
 

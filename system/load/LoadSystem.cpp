@@ -1,4 +1,11 @@
 // LoadSystem.cpp
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. 
+ * If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * Copyright (c) 2025 hyperFEM. All rights reserved.
+ * Author: Xiaotong Wang (or hyperFEM Team)
+ */
 #include "LoadSystem.h"
 #include "../../data_center/components/mesh_components.h"
 #include "../../data_center/components/load_components.h"
@@ -27,63 +34,64 @@ void LoadSystem::apply_nodal_loads(entt::registry& registry, double t) {
 
     for (auto node_entity : node_view) {
         const auto& load_ref = registry.get<Component::AppliedLoadRef>(node_entity);
-        entt::entity load_entity = load_ref.load_entity;
-
-        if (!registry.all_of<Component::NodalLoad>(load_entity)) {
-            spdlog::warn("Load entity missing NodalLoad component. Skipping.");
-            continue;
-        }
-
-        const auto& nodal_load = registry.get<Component::NodalLoad>(load_entity);
-
-        // Calculate scaling factor from curve if available
-        double scale_factor = 1.0;
-        if (registry.all_of<Component::CurveRef>(load_entity)) {
-            const auto& curve_ref = registry.get<Component::CurveRef>(load_entity);
-            scale_factor = CurveSystem::evaluate_curve(registry, curve_ref.curve_entity, t);
-        }
-
-        // Calculate scaled load value
-        double scaled_value = nodal_load.value * scale_factor;
 
         // Ensure ExternalForce component exists
         if (!registry.all_of<Component::ExternalForce>(node_entity)) {
             registry.emplace<Component::ExternalForce>(node_entity, 0.0, 0.0, 0.0);
         }
-
         auto& external_force = registry.get<Component::ExternalForce>(node_entity);
 
-        // Convert dof string to lowercase for comparison
-        std::string dof = nodal_load.dof;
-        std::transform(dof.begin(), dof.end(), dof.begin(), ::tolower);
+        // Apply all loads attached to this node
+        for (const auto load_entity : load_ref.load_entities) {
+            if (!registry.valid(load_entity) || !registry.all_of<Component::NodalLoad>(load_entity)) {
+                spdlog::warn("Load entity missing NodalLoad component. Skipping.");
+                continue;
+            }
 
-        // Apply load based on DOF specification
-        if (dof == "all" || dof == "xyz") {
-            // Apply to all directions
-            external_force.fx += scaled_value;
-            external_force.fy += scaled_value;
-            external_force.fz += scaled_value;
-        } else if (dof == "x") {
-            external_force.fx += scaled_value;
-        } else if (dof == "y") {
-            external_force.fy += scaled_value;
-        } else if (dof == "z") {
-            external_force.fz += scaled_value;
-        } else if (dof == "xy" || dof == "yx") {
-            external_force.fx += scaled_value;
-            external_force.fy += scaled_value;
-        } else if (dof == "xz" || dof == "zx") {
-            external_force.fx += scaled_value;
-            external_force.fz += scaled_value;
-        } else if (dof == "yz" || dof == "zy") {
-            external_force.fy += scaled_value;
-            external_force.fz += scaled_value;
-        } else {
-            spdlog::warn("Unknown DOF specification: '{}'. Skipping load application.", nodal_load.dof);
-            continue;
+            const auto& nodal_load = registry.get<Component::NodalLoad>(load_entity);
+
+            // Calculate scaling factor from curve if available
+            double scale_factor = 1.0;
+            if (registry.all_of<Component::CurveRef>(load_entity)) {
+                const auto& curve_ref = registry.get<Component::CurveRef>(load_entity);
+                scale_factor = CurveSystem::evaluate_curve(registry, curve_ref.curve_entity, t);
+            }
+
+            // Calculate scaled load value
+            const double scaled_value = nodal_load.value * scale_factor;
+
+            // Convert dof string to lowercase for comparison
+            std::string dof = nodal_load.dof;
+            std::transform(dof.begin(), dof.end(), dof.begin(), ::tolower);
+
+            // Apply load based on DOF specification
+            if (dof == "all" || dof == "xyz") {
+                external_force.fx += scaled_value;
+                external_force.fy += scaled_value;
+                external_force.fz += scaled_value;
+            } else if (dof == "x") {
+                external_force.fx += scaled_value;
+            } else if (dof == "y") {
+                external_force.fy += scaled_value;
+            } else if (dof == "z") {
+                external_force.fz += scaled_value;
+            } else if (dof == "xy" || dof == "yx") {
+                external_force.fx += scaled_value;
+                external_force.fy += scaled_value;
+            } else if (dof == "xz" || dof == "zx") {
+                external_force.fx += scaled_value;
+                external_force.fz += scaled_value;
+            } else if (dof == "yz" || dof == "zy") {
+                external_force.fy += scaled_value;
+                external_force.fz += scaled_value;
+            } else {
+                // Current explicit solver applies translational forces only.
+                // Rotational dofs (rx/ry/rz) are ignored here.
+                continue;
+            }
+
+            load_count++;
         }
-
-        load_count++;
     }
 
     if (load_count > 0) {

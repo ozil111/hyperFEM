@@ -1,4 +1,11 @@
 // ExplicitSolver.cpp
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. 
+ * If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * Copyright (c) 2025 hyperFEM. All rights reserved.
+ * Author: Xiaotong Wang (or hyperFEM Team)
+ */
 #include "ExplicitSolver.h"
 #include "../../data_center/components/mesh_components.h"
 #include "../../data_center/components/load_components.h"
@@ -64,45 +71,47 @@ void ExplicitSolver::integrate(entt::registry& registry, double dt) {
     
     for (auto node_entity : boundary_view) {
         const auto& boundary_ref = registry.get<Component::AppliedBoundaryRef>(node_entity);
-        entt::entity boundary_entity = boundary_ref.boundary_entity;
-
-        if (!registry.all_of<Component::BoundarySPC>(boundary_entity)) {
-            continue;
-        }
-
-        const auto& boundary_spc = registry.get<Component::BoundarySPC>(boundary_entity);
 
         // Ensure Acceleration component exists
         if (!registry.all_of<Component::Acceleration>(node_entity)) {
             registry.emplace<Component::Acceleration>(node_entity, 0.0, 0.0, 0.0);
         }
-
         auto& acceleration = registry.get<Component::Acceleration>(node_entity);
 
-        // Convert dof string to lowercase
-        std::string dof = boundary_spc.dof;
-        std::transform(dof.begin(), dof.end(), dof.begin(), ::tolower);
+        // Apply all SPCs attached to this node
+        for (const auto boundary_entity : boundary_ref.boundary_entities) {
+            if (!registry.valid(boundary_entity) || !registry.all_of<Component::BoundarySPC>(boundary_entity)) {
+                continue;
+            }
 
-        // Apply constraints (set acceleration to 0 for constrained DOFs)
-        if (dof == "all" || dof == "xyz") {
-            acceleration.ax = 0.0;
-            acceleration.ay = 0.0;
-            acceleration.az = 0.0;
-        } else if (dof == "x") {
-            acceleration.ax = 0.0;
-        } else if (dof == "y") {
-            acceleration.ay = 0.0;
-        } else if (dof == "z") {
-            acceleration.az = 0.0;
-        } else if (dof == "xy" || dof == "yx") {
-            acceleration.ax = 0.0;
-            acceleration.ay = 0.0;
-        } else if (dof == "xz" || dof == "zx") {
-            acceleration.ax = 0.0;
-            acceleration.az = 0.0;
-        } else if (dof == "yz" || dof == "zy") {
-            acceleration.ay = 0.0;
-            acceleration.az = 0.0;
+            const auto& boundary_spc = registry.get<Component::BoundarySPC>(boundary_entity);
+
+            // Convert dof string to lowercase
+            std::string dof = boundary_spc.dof;
+            std::transform(dof.begin(), dof.end(), dof.begin(), ::tolower);
+
+            // Apply constraints (set acceleration to 0 for constrained DOFs)
+            // Note: current explicit solver only has translational DOFs (x,y,z).
+            if (dof == "all" || dof == "xyz") {
+                acceleration.ax = 0.0;
+                acceleration.ay = 0.0;
+                acceleration.az = 0.0;
+            } else if (dof == "x") {
+                acceleration.ax = 0.0;
+            } else if (dof == "y") {
+                acceleration.ay = 0.0;
+            } else if (dof == "z") {
+                acceleration.az = 0.0;
+            } else if (dof == "xy" || dof == "yx") {
+                acceleration.ax = 0.0;
+                acceleration.ay = 0.0;
+            } else if (dof == "xz" || dof == "zx") {
+                acceleration.ax = 0.0;
+                acceleration.az = 0.0;
+            } else if (dof == "yz" || dof == "zy") {
+                acceleration.ay = 0.0;
+                acceleration.az = 0.0;
+            }
         }
     }
 
@@ -126,6 +135,15 @@ void ExplicitSolver::integrate(entt::registry& registry, double dt) {
         velocity.vx += acceleration.ax * dt;
         velocity.vy += acceleration.ay * dt;
         velocity.vz += acceleration.az * dt;
+
+        // Update displacement (before position)
+        if (!registry.all_of<Component::Displacement>(node_entity)) {
+            registry.emplace<Component::Displacement>(node_entity, 0.0, 0.0, 0.0);
+        }
+        auto& displacement = registry.get<Component::Displacement>(node_entity);
+        displacement.dx += velocity.vx * dt;
+        displacement.dy += velocity.vy * dt;
+        displacement.dz += velocity.vz * dt;
 
         // Update position
         auto& position = registry.get<Component::Position>(node_entity);

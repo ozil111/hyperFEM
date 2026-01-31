@@ -42,5 +42,6 @@
     ],
     "analysis": [
         {"aid":1,"analysis_type":"explicit","endtime":1.0,"fixed_time_step":0.001}
-    ]
+    ],
+    "output": {"node_output":["Displacement"],"interval_time":0.5}
 }

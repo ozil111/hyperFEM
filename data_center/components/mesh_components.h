@@ -1,4 +1,11 @@
 // mesh_components.h
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. 
+ * If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * Copyright (c) 2025 hyperFEM. All rights reserved.
+ * Author: Xiaotong Wang (or hyperFEM Team)
+ */
 #pragma once
 
 #include <vector>
@@ -171,6 +178,14 @@ namespace Component {
      */
     struct Acceleration {
         double ax, ay, az;
+    };
+
+    /**
+     * @brief 节点位移组件（用于显式动力学）
+     * @details 附加到 Node 实体，存储节点在三个方向的位移分量
+     */
+    struct Displacement {
+        double dx, dy, dz;
     };
 
     /**

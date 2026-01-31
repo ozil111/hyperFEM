@@ -66,6 +66,7 @@ find_package(eigen3 CONFIG REQUIRED)
 find_package(gtest CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(entt CONFIG REQUIRED)
+find_package(tinyxml2 CONFIG REQUIRED)
 
 # 添加编译定义以使用header-only模式
 add_compile_definitions(
@@ -99,6 +100,7 @@ target_link_libraries(hyperFEM_app
     Eigen3::Eigen
     nlohmann_json::nlohmann_json
     EnTT::EnTT
+    tinyxml2::tinyxml2
 )
 
 # 设置主程序的工作目录
@@ -127,10 +129,12 @@ if(WIN32)
             set(VCPKG_BIN_DIR "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-mingw-dynamic/debug/bin")
             set(SPDLOG_DLL "libspdlogd.dll")
             set(FMT_DLL "libfmtd.dll")
+            set(TINYXML2_DLL "libtinyxml2.dll")
         else()
             set(VCPKG_BIN_DIR "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-mingw-dynamic/bin")
             set(SPDLOG_DLL "libspdlog.dll")
             set(FMT_DLL "libfmt.dll")
+            set(TINYXML2_DLL "libtinyxml2.dll")
         endif()
         
         add_custom_command(TARGET hyperFEM_app POST_BUILD
@@ -154,7 +158,9 @@ if(WIN32)
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 "${MINGW_BIN_DIR}/libwinpthread-1.dll"
                 "$<TARGET_FILE_DIR:hyperFEM_app>"
-            
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${VCPKG_BIN_DIR}/${TINYXML2_DLL}"
+                "$<TARGET_FILE_DIR:hyperFEM_app>"
             COMMENT "Copying runtime DLLs for MinGW build"
         )
     endif()

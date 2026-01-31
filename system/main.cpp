@@ -1,3 +1,10 @@
+/**
+ * This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0. 
+ * If a copy of the MPL was not distributed with this file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * Copyright (c) 2025 hyperFEM. All rights reserved.
+ * Author: Xiaotong Wang (or hyperFEM Team)
+ */
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/basic_file_sink.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
@@ -16,6 +23,10 @@
 #include "load/LoadSystem.h"             // 载荷系统
 #include "explicit/ExplicitSolver.h"     // 显式求解器
 #include "material/mat1/LinearElasticMatrixSystem.h"  // 材料矩阵系统
+#include "parser_simdroid/SimdroidParser.h" // Simdroid 解析器
+#include "exporter_simdroid/SimdroidExporter.h" // Simdroid 导出器
+#include "analysis/GraphBuilder.h"
+#include "analysis/MermaidReporter.h"
 #include "main0_explicit.h"              // 显式求解器逻辑
 #include <iostream>
 #include <string>
@@ -23,6 +34,7 @@
 #include <vector>
 #include <filesystem>
 #include <sstream>
+#include <cstdlib>
 
 // Function to print the startup banner
 void print_banner() {
@@ -73,7 +85,7 @@ void process_command(const std::string& command_line, AppSession& session) {
         spdlog::info("Exiting hyperFEM. Goodbye!");
     }
     else if (command == "help") {
-        spdlog::info("Available commands: import, info, build_topology, list_bodies, save, help, quit");
+        spdlog::info("Available commands: import, import_simdroid, export_simdroid, info, build_topology, list_bodies, show_body, list_parts, graph, node, elem, save, help, quit");
     }
     else if (command == "import") {
         std::string file_path;
@@ -116,6 +128,118 @@ void process_command(const std::string& command_line, AppSession& session) {
             spdlog::info("Successfully imported mesh. {} nodes, {} elements.", node_count, element_count);
         } else {
             spdlog::error("Failed to import mesh from: {}", file_path);
+        }
+    }
+    // =======================================================
+    // 新增: Simdroid 导入命令
+    // =======================================================
+    else if (command == "import_simdroid") {
+        std::string control_path_str;
+        ss >> control_path_str;
+        if (control_path_str.empty()) {
+            spdlog::error("Usage: import_simdroid <path_to_control.json>");
+            return;
+        }
+
+        std::filesystem::path control_path(control_path_str);
+        if (!std::filesystem::exists(control_path)) {
+            spdlog::error("Control file not found: {}", control_path_str);
+            return;
+        }
+
+        // 自动推导 mesh.dat 路径 (假设在同级目录)
+        std::filesystem::path mesh_path = control_path.parent_path() / "mesh.dat";
+        if (!std::filesystem::exists(mesh_path)) {
+            spdlog::error("Mesh file not found at expected location: {}", mesh_path.string());
+            spdlog::info("Tip: mesh.dat must be in the same directory as control.json");
+            return;
+        }
+
+        spdlog::info("Importing Simdroid model...");
+        spdlog::info("  Control: {}", control_path.string());
+        spdlog::info("  Mesh:    {}", mesh_path.string());
+
+        session.clear_data();
+
+        // 调用 Parser
+        try {
+            if (SimdroidParser::parse(mesh_path.string(), control_path.string(), session.data)) {
+                session.mesh_loaded = true;
+
+                // 核心步骤：导入成功后，立即构建 Inspector 索引
+                session.inspector.build(session.data.registry);
+
+                spdlog::info("Simdroid import successful. Entered Simdroid Interactive Mode.");
+            } else {
+                spdlog::error("Simdroid import failed.");
+            }
+        } catch (const std::exception& e) {
+            spdlog::error("Exception during import: {}", e.what());
+        }
+    }
+    // =======================================================
+    // 新增: Simdroid 导出命令 (Blueprint Strategy)
+    // =======================================================
+    else if (command == "export_simdroid") {
+        if (!session.mesh_loaded) {
+            spdlog::error("No mesh loaded. Please 'import' or 'import_simdroid' first.");
+            return;
+        }
+
+        std::string arg1;
+        std::string arg2;
+        ss >> arg1 >> arg2;
+
+        if (arg1.empty()) {
+            spdlog::error("Usage: export_simdroid <output_dir | mesh.dat | control.json> [control.json]");
+            return;
+        }
+
+        try {
+            std::filesystem::path mesh_path;
+            std::filesystem::path control_path;
+
+            if (!arg2.empty()) {
+                // 显式指定两个路径: export_simdroid <mesh.dat> <control.json>
+                mesh_path = std::filesystem::path(arg1);
+                control_path = std::filesystem::path(arg2);
+            } else {
+                // 只给一个参数时，按扩展名推导
+                std::filesystem::path out(arg1);
+                const std::string ext = out.extension().string();
+
+                if (ext == ".json" || ext == ".jsonc") {
+                    control_path = out;
+                    mesh_path = out.parent_path() / "mesh.dat";
+                } else if (ext == ".dat") {
+                    mesh_path = out;
+                    control_path = out.parent_path() / "control.json";
+                } else {
+                    // 当作输出目录
+                    mesh_path = out / "mesh.dat";
+                    control_path = out / "control.json";
+                }
+            }
+
+            if (!mesh_path.parent_path().empty()) {
+                std::filesystem::create_directories(mesh_path.parent_path());
+            }
+            if (!control_path.parent_path().empty()) {
+                std::filesystem::create_directories(control_path.parent_path());
+            }
+
+            spdlog::info("Exporting Simdroid project...");
+            spdlog::info("  Mesh:    {}", mesh_path.string());
+            spdlog::info("  Control: {}", control_path.string());
+
+            if (SimdroidExporter::save(mesh_path.string(), control_path.string(), session.data)) {
+                spdlog::info("Simdroid export successful.");
+            } else {
+                spdlog::error("Simdroid export failed.");
+            }
+
+        } catch (const std::exception& e) {
+            spdlog::error("Exception during export: {}", e.what());
         }
     }
     else if (command == "build_topology") {
@@ -220,6 +344,60 @@ void process_command(const std::string& command_line, AppSession& session) {
             } else {
                 spdlog::info("Topology not built yet.");
             }
+        }
+    }
+    // =======================================================
+    // 新增: Simdroid 交互式调试面板
+    // =======================================================
+    else if (command == "list_parts") {
+        if (!session.mesh_loaded) { spdlog::warn("No mesh loaded."); return; }
+        session.inspector.list_parts(session.data.registry);
+    }
+    else if (command == "graph") {
+        if (!session.mesh_loaded) {
+            spdlog::warn("No mesh loaded.");
+            return;
+        }
+
+        std::string output_filename;
+        ss >> output_filename;
+        if (output_filename.empty()) output_filename = "connectivity.html";
+
+        spdlog::info("Analyzing connectivity...");
+
+        // 1. 构建图
+        PartGraph graph = GraphBuilder::build(session.data.registry, session.inspector);
+
+        // 2. (可选) 进行一些统计分析，比如打印孤立节点
+        int isolated_count = 0;
+        for (const auto& [n, node] : graph.nodes) {
+            if (node.edges.empty()) isolated_count++;
+        }
+        spdlog::info("Analysis complete. Parts: {}, Isolated: {}", graph.nodes.size(), isolated_count);
+
+        // 3. 生成报告
+        MermaidReporter::generate_interactive_html(graph, output_filename);
+
+        // 4. (可选) 尝试自动打开浏览器 (Windows/Linux/Mac)
+#ifdef _WIN32
+        std::string cmd = "start " + output_filename;
+        system(cmd.c_str());
+#endif
+    }
+    else if (command == "node") {
+        int nid;
+        if (ss >> nid) {
+            session.inspector.inspect_node(session.data.registry, nid);
+        } else {
+            spdlog::error("Usage: node <node_id>");
+        }
+    }
+    else if (command == "elem" || command == "element") {
+        int eid;
+        if (ss >> eid) {
+            session.inspector.inspect_element(session.data.registry, eid);
+        } else {
+            spdlog::error("Usage: elem <element_id>");
         }
     }
     else {
