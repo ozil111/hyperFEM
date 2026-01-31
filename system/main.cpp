@@ -85,7 +85,7 @@ void process_command(const std::string& command_line, AppSession& session) {
         spdlog::info("Exiting hyperFEM. Goodbye!");
     }
     else if (command == "help") {
-        spdlog::info("Available commands: import, import_simdroid, export_simdroid, info, build_topology, list_bodies, show_body, list_parts, graph, node, elem, save, help, quit");
+        spdlog::info("Available commands: import, import_simdroid, export_simdroid, info, build_topology, list_bodies, show_body, list_parts, delete_part, graph, node, elem, save, help, quit");
     }
     else if (command == "import") {
         std::string file_path;
@@ -352,6 +352,32 @@ void process_command(const std::string& command_line, AppSession& session) {
     else if (command == "list_parts") {
         if (!session.mesh_loaded) { spdlog::warn("No mesh loaded."); return; }
         session.inspector.list_parts(session.data.registry);
+    }
+    else if (command == "delete_part") {
+        std::string part_name;
+        ss >> part_name;
+        if (part_name.empty()) {
+            spdlog::error("Usage: delete_part <part_name>");
+            return;
+        }
+
+        if (!session.mesh_loaded) {
+            spdlog::error("No mesh loaded. Please 'import_simdroid' first.");
+            return;
+        }
+
+        if (session.inspector.delete_part(session.data.registry, part_name)) {
+            spdlog::info("Part '{}' deleted successfully.", part_name);
+            // 重要：删除后必须重建索引，否则 eid_to_part 等映射会失效导致 Crash
+            session.inspector.build(session.data.registry);
+            // 拓扑数据会因实体删除而失效，清理以避免后续误用
+            if (session.data.registry.ctx().contains<std::unique_ptr<TopologyData>>()) {
+                session.data.registry.ctx().erase<std::unique_ptr<TopologyData>>();
+            }
+            session.topology_built = false;
+        } else {
+            spdlog::error("Failed to delete part '{}'. Part not found or index not built?", part_name);
+        }
     }
     else if (command == "graph") {
         if (!session.mesh_loaded) {

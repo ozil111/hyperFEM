@@ -26,14 +26,23 @@ void save_node_sets(std::ofstream& file, const entt::registry& registry) {
         
         if (members.members.empty()) continue; // Don't write empty sets
         
+        // Filter invalid members (can happen after entity deletion)
+        std::vector<int> ids;
+        ids.reserve(members.members.size());
+        for (auto node_entity : members.members) {
+            if (!registry.valid(node_entity)) continue;
+            if (!registry.all_of<Component::OriginalID>(node_entity)) continue;
+            ids.push_back(registry.get<Component::OriginalID>(node_entity).value);
+        }
+        if (ids.empty()) continue;
+
         // 新格式: set_id, set_name, [member_ids]
         file << set_id << ", " << set_name.value << ", [";
         
         // Write member node IDs inside brackets
-        for (size_t i = 0; i < members.members.size(); ++i) {
-            const auto& node_id = registry.get<Component::OriginalID>(members.members[i]);
-            file << node_id.value;
-            if (i < members.members.size() - 1) {
+        for (size_t i = 0; i < ids.size(); ++i) {
+            file << ids[i];
+            if (i < ids.size() - 1) {
                 file << ", ";
             }
         }
@@ -61,14 +70,23 @@ void save_element_sets(std::ofstream& file, const entt::registry& registry) {
         
         if (members.members.empty()) continue; // Don't write empty sets
         
+        // Filter invalid members (can happen after entity deletion)
+        std::vector<int> ids;
+        ids.reserve(members.members.size());
+        for (auto elem_entity : members.members) {
+            if (!registry.valid(elem_entity)) continue;
+            if (!registry.all_of<Component::OriginalID>(elem_entity)) continue;
+            ids.push_back(registry.get<Component::OriginalID>(elem_entity).value);
+        }
+        if (ids.empty()) continue;
+
         // 新格式: set_id, set_name, [member_ids]
         file << set_id << ", " << set_name.value << ", [";
         
         // Write member element IDs inside brackets
-        for (size_t i = 0; i < members.members.size(); ++i) {
-            const auto& elem_id = registry.get<Component::OriginalID>(members.members[i]);
-            file << elem_id.value;
-            if (i < members.members.size() - 1) {
+        for (size_t i = 0; i < ids.size(); ++i) {
+            file << ids[i];
+            if (i < ids.size() - 1) {
                 file << ", ";
             }
         }

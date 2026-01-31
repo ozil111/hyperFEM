@@ -13,6 +13,7 @@
 #include <vector>
 #include <algorithm>
 #include <map>
+#include <unordered_map>
 #include <memory>
 
 
@@ -339,6 +340,60 @@ void SimdroidExporter::save_control_json(const std::string& path, DataContext& c
 
     entt::registry& registry = ctx.registry;
 
+    // --- Helpers for Blueprint pruning (deleted/empty sets) ---
+    // Build a quick lookup: SetName -> entity (prefer entities that actually have members).
+    std::unordered_map<std::string, entt::entity> set_name_to_entity;
+    {
+        auto set_view = registry.view<const Component::SetName>();
+        for (auto e : set_view) {
+            const std::string& n = set_view.get<const Component::SetName>(e).value;
+            if (n.empty()) continue;
+
+            const bool is_set_like =
+                registry.all_of<Component::NodeSetMembers>(e) || registry.all_of<Component::ElementSetMembers>(e);
+            auto it = set_name_to_entity.find(n);
+            if (it == set_name_to_entity.end()) {
+                set_name_to_entity.emplace(n, e);
+            } else if (is_set_like) {
+                // Prefer a set-like entity over non-set entities (e.g. materials also use SetName)
+                const bool old_is_set_like =
+                    registry.all_of<Component::NodeSetMembers>(it->second) || registry.all_of<Component::ElementSetMembers>(it->second);
+                if (!old_is_set_like) it->second = e;
+            }
+        }
+    }
+
+    auto find_set_entity_by_name = [&](const std::string& set_name) -> entt::entity {
+        if (set_name.empty()) return entt::null;
+        auto it = set_name_to_entity.find(set_name);
+        return (it == set_name_to_entity.end()) ? entt::null : it->second;
+    };
+
+    auto set_has_any_valid_member = [&](entt::entity set_entity) -> bool {
+        if (!registry.valid(set_entity)) return false;
+
+        if (registry.all_of<Component::NodeSetMembers>(set_entity)) {
+            const auto& mem = registry.get<Component::NodeSetMembers>(set_entity).members;
+            for (auto e : mem) if (registry.valid(e)) return true;
+            return false;
+        }
+
+        if (registry.all_of<Component::ElementSetMembers>(set_entity)) {
+            const auto& mem = registry.get<Component::ElementSetMembers>(set_entity).members;
+            for (auto e : mem) if (registry.valid(e)) return true;
+            return false;
+        }
+
+        // Set exists but has no member component -> treat as empty (would not be exported in mesh.dat)
+        return false;
+    };
+
+    auto set_name_exists_and_nonempty = [&](const std::string& set_name) -> bool {
+        const entt::entity e = find_set_entity_by_name(set_name);
+        if (e == entt::null) return false;
+        return set_has_any_valid_member(e);
+    };
+
     // --- Sync Materials ---
     // 策略：遍历 ECS 中的材料，更新或创建 JSON 条目
     auto mat_view = registry.view<const Component::SetName, const Component::LinearElasticParams>();
@@ -395,6 +450,38 @@ void SimdroidExporter::save_control_json(const std::string& path, DataContext& c
     }
 
     auto& part_prop = output["PartProperty"];
+
+    // 0) Prune PartProperty entries that no longer exist in ECS
+    auto part_exists_in_ecs = [&](const std::string& title, const std::string& ele_set_name) -> bool {
+        for (auto e : part_view) {
+            const auto& part = part_view.get<const Component::SimdroidPart>(e);
+            if (!title.empty() && part.name == title) return true;
+
+            if (!ele_set_name.empty()
+                && registry.valid(part.element_set)
+                && registry.all_of<Component::SetName>(part.element_set)
+                && registry.get<Component::SetName>(part.element_set).value == ele_set_name) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    {
+        std::vector<std::string> keys_to_remove;
+        for (auto it = part_prop.begin(); it != part_prop.end(); ++it) {
+            if (!it.value().is_object()) continue;
+            const std::string title = it.value().value("Title", "");
+            const std::string ele_set = it.value().value("EleSet", "");
+            if (!part_exists_in_ecs(title, ele_set)) {
+                keys_to_remove.push_back(it.key());
+            }
+        }
+        for (const auto& k : keys_to_remove) part_prop.erase(k);
+        if (!keys_to_remove.empty()) {
+            spdlog::info("Pruned {} stale PartProperty entries from blueprint.", keys_to_remove.size());
+        }
+    }
 
     auto find_partprop_entry = [&](const std::string& title, const std::string& ele_set_name) -> nlohmann::json* {
         // 1) 优先按 Title 匹配（典型：key=Part_1, Title=Component_XX）
@@ -462,6 +549,121 @@ void SimdroidExporter::save_control_json(const std::string& path, DataContext& c
         if (!ele_set_name.empty()) (*prop_node)["EleSet"] = ele_set_name;
         if (!mat_name.empty()) (*prop_node)["Material"] = mat_name;
         if (!section_name.empty()) (*prop_node)["CrossSection"] = section_name;
+    }
+
+    // --- Prune blueprint blocks that reference deleted/empty sets ---
+    // 1) Load
+    if (output.contains("Load") && output["Load"].is_object()) {
+        auto& load_block = output["Load"];
+        std::vector<std::string> keys_to_remove;
+        for (auto it = load_block.begin(); it != load_block.end(); ++it) {
+            if (!it.value().is_object()) continue;
+            const auto& v = it.value();
+
+            std::string node_set = v.value("NodeSet", "");
+            if (node_set.empty()) node_set = v.value("Set", "");
+            const std::string ele_set = v.value("EleSet", "");
+
+            bool ok = true;
+            if (!node_set.empty()) ok = set_name_exists_and_nonempty(node_set);
+            if (ok && !ele_set.empty()) ok = set_name_exists_and_nonempty(ele_set);
+
+            if (!ok) keys_to_remove.push_back(it.key());
+        }
+        for (const auto& k : keys_to_remove) load_block.erase(k);
+        if (!keys_to_remove.empty()) {
+            spdlog::info("Pruned {} invalid Load entries from blueprint.", keys_to_remove.size());
+        }
+    }
+
+    // 2) Constraint (Boundary, RigidBody/MPC, RigidWall...)
+    if (output.contains("Constraint") && output["Constraint"].is_object()) {
+        auto& cons = output["Constraint"];
+
+        // Boundary
+        if (cons.contains("Boundary") && cons["Boundary"].is_object()) {
+            auto& bcs = cons["Boundary"];
+            std::vector<std::string> keys_to_remove;
+            for (auto it = bcs.begin(); it != bcs.end(); ++it) {
+                if (!it.value().is_object()) continue;
+                std::string set_name = it.value().value("NodeSet", "");
+                if (set_name.empty()) set_name = it.value().value("Set", "");
+                if (!set_name.empty() && !set_name_exists_and_nonempty(set_name)) {
+                    keys_to_remove.push_back(it.key());
+                }
+            }
+            for (const auto& k : keys_to_remove) bcs.erase(k);
+            if (!keys_to_remove.empty()) {
+                spdlog::info("Pruned {} invalid Boundary entries from blueprint.", keys_to_remove.size());
+            }
+        }
+
+        // Rigid body style blocks (support multiple naming variants)
+        auto prune_rigid_block = [&](const char* block_name) {
+            if (!cons.contains(block_name) || !cons[block_name].is_object()) return;
+            auto& rb = cons[block_name];
+            std::vector<std::string> keys_to_remove;
+            for (auto it = rb.begin(); it != rb.end(); ++it) {
+                if (!it.value().is_object()) continue;
+                const std::string master = it.value().value("MasterNodeSet", "");
+                const std::string slave = it.value().value("SlaveNodeSet", "");
+                bool ok = true;
+                if (!master.empty()) ok = set_name_exists_and_nonempty(master);
+                if (ok && !slave.empty()) ok = set_name_exists_and_nonempty(slave);
+                // If either is missing or invalid, remove (keeps JSON clean after part/node deletion)
+                if (!ok || master.empty() || slave.empty()) keys_to_remove.push_back(it.key());
+            }
+            for (const auto& k : keys_to_remove) rb.erase(k);
+            if (!keys_to_remove.empty()) {
+                spdlog::info("Pruned {} invalid '{}' entries from blueprint.", keys_to_remove.size(), block_name);
+            }
+        };
+        prune_rigid_block("RigidBody");
+        prune_rigid_block("NodalRigidBody");
+        prune_rigid_block("DistributingCoupling");
+
+        // Rigid wall (optional SecondaryNodes/SlaveNodes set)
+        if (cons.contains("RigidWall") && cons["RigidWall"].is_object()) {
+            auto& rw = cons["RigidWall"];
+            std::vector<std::string> keys_to_remove;
+            for (auto it = rw.begin(); it != rw.end(); ++it) {
+                if (!it.value().is_object()) continue;
+                std::string sec = it.value().value("SecondaryNodes", "");
+                if (sec.empty()) sec = it.value().value("SlaveNodes", "");
+                if (!sec.empty() && !set_name_exists_and_nonempty(sec)) {
+                    keys_to_remove.push_back(it.key());
+                }
+            }
+            for (const auto& k : keys_to_remove) rw.erase(k);
+            if (!keys_to_remove.empty()) {
+                spdlog::info("Pruned {} invalid RigidWall entries from blueprint.", keys_to_remove.size());
+            }
+        }
+    }
+
+    // 3) Contact: remove ties that reference deleted/empty sets
+    if (output.contains("Contact") && output["Contact"].is_object()) {
+        auto& contact = output["Contact"];
+        std::vector<std::string> keys_to_remove;
+        for (auto it = contact.begin(); it != contact.end(); ++it) {
+            if (!it.value().is_object()) continue;
+            const auto& v = it.value();
+
+            const std::string master_faces = v.value("MasterFaces", "");
+            const std::string slave_faces = v.value("SlaveFaces", "");
+            const std::string slave_nodes = v.value("SlaveNodes", "");
+
+            bool ok = true;
+            if (!master_faces.empty()) ok = set_name_exists_and_nonempty(master_faces);
+            if (ok && !slave_faces.empty()) ok = set_name_exists_and_nonempty(slave_faces);
+            if (ok && !slave_nodes.empty()) ok = set_name_exists_and_nonempty(slave_nodes);
+
+            if (!ok) keys_to_remove.push_back(it.key());
+        }
+        for (const auto& k : keys_to_remove) contact.erase(k);
+        if (!keys_to_remove.empty()) {
+            spdlog::info("Pruned {} invalid Contact entries from blueprint.", keys_to_remove.size());
+        }
     }
 
     // 注意：

@@ -3,7 +3,9 @@
 #include "entt/entt.hpp"
 #include "../data_center/components/mesh_components.h"
 #include "../data_center/components/simdroid_components.h"
+#include "spdlog/spdlog.h"
 #include <unordered_map>
+#include <unordered_set>
 #include <string>
 #include <vector>
 #include <algorithm>
@@ -43,7 +45,7 @@ struct SimdroidInspector {
             // 建立 Node -> Elements 的反向关联
             const auto& conn = view_elems.get<const Component::Connectivity>(entity);
             for (auto node_entity : conn.nodes) {
-                if(registry.all_of<Component::NodeID>(node_entity)) {
+                if(registry.valid(node_entity) && registry.all_of<Component::NodeID>(node_entity)) {
                     int nid = registry.get<Component::NodeID>(node_entity).value;
                     nid_to_elems[nid].push_back(eid);
                 }
@@ -60,7 +62,7 @@ struct SimdroidInspector {
             if (registry.valid(set_entity) && registry.all_of<Component::ElementSetMembers>(set_entity)) {
                 const auto& members = registry.get<Component::ElementSetMembers>(set_entity);
                 for (auto elem_entity : members.members) {
-                    if (registry.all_of<Component::ElementID>(elem_entity)) {
+                    if (registry.valid(elem_entity) && registry.all_of<Component::ElementID>(elem_entity)) {
                         int eid = registry.get<Component::ElementID>(elem_entity).value;
                         eid_to_part[eid] = part.name;
                     }
@@ -81,6 +83,154 @@ struct SimdroidInspector {
     }
 
     // --- 交互式查询功能 ---
+
+    /**
+     * @brief 删除指定 Part 及其关联的单元、独有节点和相关定义
+     */
+    bool delete_part(entt::registry& registry, const std::string& target_part_name) {
+        if (!is_built) {
+            spdlog::error("Index not built. Cannot delete part safely.");
+            return false;
+        }
+
+        // 1. 找到 Part 实体
+        entt::entity part_entity = entt::null;
+        auto part_view = registry.view<const Component::SimdroidPart>();
+        for (auto entity : part_view) {
+            if (part_view.get<const Component::SimdroidPart>(entity).name == target_part_name) {
+                part_entity = entity;
+                break;
+            }
+        }
+
+        if (part_entity == entt::null) {
+            return false; // Part 不存在
+        }
+
+        spdlog::info("Deleting Part: {}", target_part_name);
+
+        // 2. 收集所有待删除的单元 (Elements)
+        std::vector<entt::entity> elements_to_delete;
+        std::vector<int> element_ids_to_delete;
+        elements_to_delete.reserve(eid_to_part.size());
+        element_ids_to_delete.reserve(eid_to_part.size());
+
+        for (const auto& [eid, part_name] : eid_to_part) {
+            if (part_name != target_part_name) continue;
+            auto it = eid_to_entity.find(eid);
+            if (it == eid_to_entity.end()) continue;
+            if (!registry.valid(it->second)) continue;
+            elements_to_delete.push_back(it->second);
+            element_ids_to_delete.push_back(eid);
+        }
+        spdlog::info(" -> Found {} elements to delete.", elements_to_delete.size());
+
+        // 3. 标记待删除的节点 (孤儿节点检测)
+        std::vector<entt::entity> nodes_to_delete;
+        nodes_to_delete.reserve(elements_to_delete.size() * 4);
+
+        std::unordered_set<int> deleted_eids_set(element_ids_to_delete.begin(), element_ids_to_delete.end());
+
+        for (auto elem_entity : elements_to_delete) {
+            if (!registry.valid(elem_entity) || !registry.all_of<Component::Connectivity>(elem_entity)) continue;
+            const auto& conn = registry.get<Component::Connectivity>(elem_entity);
+            for (auto node_entity : conn.nodes) {
+                if (!registry.valid(node_entity) || !registry.all_of<Component::NodeID>(node_entity)) continue;
+                const int nid = registry.get<Component::NodeID>(node_entity).value;
+
+                auto it = nid_to_elems.find(nid);
+                const std::vector<int>* using_elements = (it == nid_to_elems.end()) ? nullptr : &it->second;
+                bool is_shared = false;
+
+                if (using_elements != nullptr) {
+                    for (int user_eid : *using_elements) {
+                        if (deleted_eids_set.find(user_eid) == deleted_eids_set.end()) {
+                            is_shared = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!is_shared) {
+                    nodes_to_delete.push_back(node_entity);
+                }
+            }
+        }
+
+        std::sort(nodes_to_delete.begin(), nodes_to_delete.end());
+        nodes_to_delete.erase(std::unique(nodes_to_delete.begin(), nodes_to_delete.end()), nodes_to_delete.end());
+        spdlog::info(" -> Found {} orphan nodes to delete (shared nodes preserved).", nodes_to_delete.size());
+
+        // 4. 删除 Part 关联的主 ElementSet（减少悬空句柄）
+        const auto& part_comp = registry.get<Component::SimdroidPart>(part_entity);
+        if (registry.valid(part_comp.element_set)) {
+            registry.destroy(part_comp.element_set);
+        }
+
+        // 5. 执行物理删除
+        for (auto entity : nodes_to_delete) {
+            if (registry.valid(entity)) registry.destroy(entity);
+        }
+        for (auto entity : elements_to_delete) {
+            if (registry.valid(entity)) registry.destroy(entity);
+        }
+        if (registry.valid(part_entity)) {
+            registry.destroy(part_entity);
+        }
+
+        // 6. 清理失效的交互定义 (Contact, Constraints)
+        {
+            auto set_has_any_valid_member = [&](entt::entity set_entity) -> bool {
+                if (!registry.valid(set_entity)) return false;
+                if (registry.all_of<Component::NodeSetMembers>(set_entity)) {
+                    const auto& mem = registry.get<Component::NodeSetMembers>(set_entity).members;
+                    for (auto e : mem) if (registry.valid(e)) return true;
+                    return false;
+                }
+                if (registry.all_of<Component::ElementSetMembers>(set_entity)) {
+                    const auto& mem = registry.get<Component::ElementSetMembers>(set_entity).members;
+                    for (auto e : mem) if (registry.valid(e)) return true;
+                    return false;
+                }
+                // 不是 Set 类型（例如 Surface），只要实体还在就认为有效
+                return true;
+            };
+
+            // Contacts
+            auto view_contacts = registry.view<const Component::ContactDefinition>();
+            std::vector<entt::entity> contacts_to_remove;
+            for (auto entity : view_contacts) {
+                const auto& contact = view_contacts.get<const Component::ContactDefinition>(entity);
+                if (!registry.valid(contact.master_entity) || !registry.valid(contact.slave_entity)
+                    || !set_has_any_valid_member(contact.master_entity) || !set_has_any_valid_member(contact.slave_entity)) {
+                    contacts_to_remove.push_back(entity);
+                }
+            }
+            for (auto e : contacts_to_remove) if (registry.valid(e)) registry.destroy(e);
+            if (!contacts_to_remove.empty()) {
+                spdlog::info(" -> Removed {} invalidated contact definitions.", contacts_to_remove.size());
+            }
+
+            // Rigid body / MPC constraints
+            auto view_rb = registry.view<const Component::RigidBodyConstraint>();
+            std::vector<entt::entity> rb_to_remove;
+            for (auto entity : view_rb) {
+                const auto& rb = view_rb.get<const Component::RigidBodyConstraint>(entity);
+                if (!registry.valid(rb.master_node_set) || !registry.valid(rb.slave_node_set)
+                    || !set_has_any_valid_member(rb.master_node_set) || !set_has_any_valid_member(rb.slave_node_set)) {
+                    rb_to_remove.push_back(entity);
+                }
+            }
+            for (auto e : rb_to_remove) if (registry.valid(e)) registry.destroy(e);
+            if (!rb_to_remove.empty()) {
+                spdlog::info(" -> Removed {} invalidated rigid body constraints.", rb_to_remove.size());
+            }
+        }
+
+        // 7. 删除后索引失效：清空，等待外部重建
+        clear();
+        return true;
+    }
 
     void inspect_node(entt::registry& registry, int nid) {
         if (!is_built) { std::cout << "Error: Index not built." << std::endl; return; }
