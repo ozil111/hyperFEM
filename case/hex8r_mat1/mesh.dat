@@ -1,0 +1,49 @@
+Stat {
+    Nodes 8
+    Elements 1
+    Surfaces 6
+ }
+Node {
+    0 [1,1,1]
+    1 [1,0,1]
+    2 [1,1,0]
+    3 [1,0,0]
+    4 [0,1,1]
+    5 [0,0,1]
+    6 [0,1,0]
+    7 [0,0,0]
+ }
+Element {
+    Hex8 {
+        0 [4,5,7,6,0,1,3,2]
+     }
+ }
+Surface {
+    Quad4 {
+        1 [4,6,7,5,0]
+        2 [5,7,3,1,0]
+        3 [0,1,3,2,0]
+        4 [4,0,2,6,0]
+        5 [4,5,1,0,0]
+        6 [7,6,2,3,0]
+     }
+ }
+Set {
+    Node {
+        Part-1-1_Set-1_NE [0:7:1]
+        Set-1 [2,3,6,7]
+        Set-2 [0,1,4,5]
+        NodeValueSet_1 [2,3,6,7]
+     }
+    Element {
+        HMprop_Part-1-1_Set-1 [0]
+        Component_1_HMprop_Part-1-1_Set-1 [0]
+        Part-1-1_Set-1 [0]
+     }
+    Surface {
+        Model_Outside_Surface [1:6:1]
+     }
+ }
+Part {
+    Part_1_HMprop_Part-1-1_Set-1 [0]
+ }

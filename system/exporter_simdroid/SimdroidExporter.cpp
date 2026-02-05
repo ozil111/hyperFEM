@@ -12,6 +12,9 @@
 #include <sstream>
 #include <vector>
 #include <algorithm>
+#include <cctype>
+#include <array>
+#include <tuple>
 #include <map>
 #include <unordered_map>
 #include <memory>
@@ -19,42 +22,134 @@
 
 namespace {
     // 将离散的 ID 列表转换为 Simdroid 的 Range 格式字符串 (start:end:step)
+    // 支持 step > 1 的压缩，例如 [1,3,5,7,9] -> "1:9:2"
+    // 注意：Simdroid 要求至少 3 个元素才能用 range 格式，2 个元素写成单独值
     std::string compress_ids_to_ranges(std::vector<int>& ids) {
         if (ids.empty()) return "";
         
         // 必须先排序
         std::sort(ids.begin(), ids.end());
         
-        std::stringstream ss;
-        int start = ids[0];
-        int prev = ids[0];
+        // 去重（防止重复 set 定义导致重复成员）
+        ids.erase(std::unique(ids.begin(), ids.end()), ids.end());
         
-        // Lambda 用于写入当前缓冲的 range
-        auto flush_range = [&](int end_val) {
-            if (ss.tellp() > 0) ss << ", ";
-            if (start == end_val) {
-                ss << start;
-            } else {
-                // Simdroid 格式: start:end:step (step 默认为 1)
-                ss << start << ":" << end_val << ":1";
-            }
+        if (ids.size() == 1) return std::to_string(ids[0]);
+        
+        std::stringstream ss;
+        
+        // Lambda 用于写入单个值
+        auto write_single = [&](int val) {
+            if (ss.tellp() > 0) ss << ",";
+            ss << val;
         };
-
-        for (size_t i = 1; i < ids.size(); ++i) {
-            if (ids[i] == prev + 1) {
-                // 连续，继续积累
-                prev = ids[i];
+        
+        // Lambda 用于写入一个 range (仅当 count >= 3 时调用)
+        auto write_range = [&](int start_val, int end_val, int step) {
+            if (ss.tellp() > 0) ss << ",";
+            ss << start_val << ":" << end_val << ":" << step;
+        };
+        
+        size_t i = 0;
+        while (i < ids.size()) {
+            int start = ids[i];
+            
+            if (i + 1 >= ids.size()) {
+                // 只剩一个元素
+                write_single(start);
+                break;
+            }
+            
+            int step = ids[i + 1] - ids[i];
+            if (step <= 0) {
+                // 不应该发生（已排序去重），但保险起见
+                write_single(start);
+                ++i;
+                continue;
+            }
+            
+            // 尝试用当前 step 延伸 range
+            int end = start;
+            size_t j = i + 1;
+            while (j < ids.size() && ids[j] == end + step) {
+                end = ids[j];
+                ++j;
+            }
+            
+            // 计算 range 内元素个数
+            int count = (end - start) / step + 1;
+            
+            if (count >= 3) {
+                // 至少 3 个元素才用 range 格式 (Simdroid 要求)
+                write_range(start, end, step);
+                i = j;
             } else {
-                // 不连续，写入上一段
-                flush_range(prev);
-                start = ids[i];
-                prev = ids[i];
+                // 1 或 2 个元素，写成单独的值
+                write_single(start);
+                ++i;
             }
         }
-        // 写入最后一段
-        flush_range(prev);
         
         return ss.str();
+    }
+
+    // Simdroid mesh.dat: each line must have <= N commas.
+    // This helper wraps comma-separated lists by inserting '\n' when comma count exceeds the limit.
+    // Notes:
+    // - Newlines are inserted only between tokens (after writing a comma).
+    // - `continuation_prefix` is written at the beginning of wrapped lines for readability.
+    std::string wrap_csv_tokens_with_comma_limit(const std::string& first_prefix,
+                                                 const std::string& continuation_prefix,
+                                                 const std::vector<std::string>& tokens,
+                                                 int max_commas_per_line,
+                                                 const std::string& suffix) {
+        std::ostringstream oss;
+        oss << first_prefix;
+        int comma_count = 0;
+        for (size_t i = 0; i < tokens.size(); ++i) {
+            if (i > 0) {
+                oss << ",";
+                ++comma_count;
+                if (comma_count >= max_commas_per_line) {
+                    oss << "\n" << continuation_prefix;
+                    comma_count = 0;
+                }
+            }
+            oss << tokens[i];
+        }
+        oss << suffix;
+        return oss.str();
+    }
+
+    std::vector<std::string> split_csv_tokens(const std::string& s) {
+        std::vector<std::string> out;
+        std::string cur;
+        cur.reserve(s.size());
+        for (char c : s) {
+            if (c == ',') {
+                // trim spaces
+                size_t b = 0;
+                while (b < cur.size() && std::isspace(static_cast<unsigned char>(cur[b]))) ++b;
+                size_t e = cur.size();
+                while (e > b && std::isspace(static_cast<unsigned char>(cur[e - 1]))) --e;
+                if (e > b) out.emplace_back(cur.substr(b, e - b));
+                else out.emplace_back(std::string{});
+                cur.clear();
+            } else {
+                cur.push_back(c);
+            }
+        }
+        // last
+        {
+            size_t b = 0;
+            while (b < cur.size() && std::isspace(static_cast<unsigned char>(cur[b]))) ++b;
+            size_t e = cur.size();
+            while (e > b && std::isspace(static_cast<unsigned char>(cur[e - 1]))) --e;
+            if (e > b) out.emplace_back(cur.substr(b, e - b));
+            else if (!s.empty()) out.emplace_back(std::string{});
+        }
+        // remove empty tokens (defensive)
+        out.erase(std::remove_if(out.begin(), out.end(), [](const std::string& t) { return t.empty(); }), out.end());
+        return out;
     }
 }
 
@@ -85,14 +180,62 @@ void SimdroidExporter::save_mesh_dat(const std::string& path, entt::registry& re
     // --- 0. 先统计数量，用于写 Stat 块 ---
     // 用单组件 view 取 size（多组件 view 某些 EnTT 版本没有 size()）
     size_t node_count = registry.view<Component::Position>().size();
-    size_t element_count = registry.view<Component::Connectivity>().size();
+    auto elem_view = registry.view<const Component::ElementType, const Component::OriginalID, const Component::Connectivity>();
+    size_t element_count = 0;
+    for (auto e : elem_view) { (void)e; ++element_count; }
+
+    // Simdroid 对 Element/Surface 的“ID”严格来说是 index：
+    // - Element 必须从 0 开始连续编号
+    // - Surface 必须与 Element 使用同一套全局编号空间（通常紧接 Element 编号）
+    //
+    // 因此这里建立 OriginalID -> index 的映射，用于导出与所有 Set/Surface 引用。
+    std::unordered_map<int, int> element_id_to_index;
+    // 显式 Surface 实体（来自 simdroid 导入）重编号后的映射：old SurfaceID -> new global index
+    // 仅在 surf_id_view 分支有意义；若无显式 Surface，则保持为空。
+    std::unordered_map<int, int> surface_old_to_new;
+    {
+        std::vector<std::pair<int, entt::entity>> elems;
+        elems.reserve(element_count);
+        for (auto e : elem_view) {
+            elems.emplace_back(elem_view.get<const Component::OriginalID>(e).value, e);
+        }
+        std::sort(elems.begin(), elems.end(), [](const auto& a, const auto& b) {
+            if (a.first != b.first) return a.first < b.first;
+            return a.second < b.second;
+        });
+
+        element_id_to_index.reserve(elems.size());
+        for (int i = 0; i < static_cast<int>(elems.size()); ++i) {
+            element_id_to_index.emplace(elems[i].first, i);
+        }
+    }
     
     auto node_view = registry.view<const Component::Position, const Component::OriginalID>();
-    // Surfaces 数量: 如果 TopologyData 可用则取 faces.size()，否则先写 0
+    // Surfaces 数量:
+    // - 优先使用已存在的 Surface 实体（来自 Simdroid mesh.dat 解析），以保证 SurfaceID 与 SurfaceSet 对齐。
+    //   这里仅统计 parent element 仍然有效的 surface，避免导出脏数据。
+    // - 否则如果 TopologyData 可用则统计边界面数量（face_to_elements.size()==1）。
     size_t surface_count = 0;
+    {
+        auto surf_view = registry.view<const Component::SurfaceID, const Component::SurfaceParentElement>();
+        for (auto se : surf_view) {
+            const auto parent = surf_view.get<const Component::SurfaceParentElement>(se).element;
+            // 需要 parent element 可导出（至少有 OriginalID），否则 Surface 会在写出阶段被过滤掉
+            if (registry.valid(parent) && registry.all_of<Component::OriginalID>(parent)) {
+                const int parent_old_eid = registry.get<Component::OriginalID>(parent).value;
+                if (element_id_to_index.find(parent_old_eid) != element_id_to_index.end()) ++surface_count;
+            }
+        }
+    }
     if (registry.ctx().contains<std::unique_ptr<TopologyData>>()) {
         auto& topo = *registry.ctx().get<std::unique_ptr<TopologyData>>();
-        surface_count = topo.faces.size();
+        if (surface_count == 0) {
+            for (size_t face_id = 0; face_id < topo.faces.size(); ++face_id) {
+                if (face_id < topo.face_to_elements.size() && topo.face_to_elements[face_id].size() == 1) {
+                    ++surface_count;
+                }
+            }
+        }
     }
 
     // --- Stat 块 (Simdroid mesh.dat 开头) ---
@@ -122,12 +265,12 @@ void SimdroidExporter::save_mesh_dat(const std::string& path, entt::registry& re
     
     // 映射: TypeName -> List of Lines
     std::map<std::string, std::vector<std::string>> elements_by_type;
-    
-    auto elem_view = registry.view<const Component::ElementType, const Component::OriginalID, const Component::Connectivity>();
-    
+
     for (auto entity : elem_view) {
         int type_id = elem_view.get<const Component::ElementType>(entity).type_id;
-        int eid = elem_view.get<const Component::OriginalID>(entity).value;
+        const int old_eid = elem_view.get<const Component::OriginalID>(entity).value;
+        auto it_eid = element_id_to_index.find(old_eid);
+        const int eid = (it_eid == element_id_to_index.end()) ? 0 : it_eid->second;
         const auto& conn = elem_view.get<const Component::Connectivity>(entity);
 
         // 转换节点 Entity -> Original ID
@@ -141,6 +284,7 @@ void SimdroidExporter::save_mesh_dat(const std::string& path, entt::registry& re
         switch(type_id) {
             case 308: type_name = "Hex8"; break;
             case 304: type_name = "Tet4"; break; // 注意: Simdroid 可能区分 Tet4 和 Quad4，需根据逻辑区分
+            case 310: type_name = "Tet10"; break;
             case 204: type_name = "Quad4"; break;
             case 203: type_name = "Tri3"; break;
             case 102: type_name = "Line2"; break;
@@ -148,14 +292,14 @@ void SimdroidExporter::save_mesh_dat(const std::string& path, entt::registry& re
         }
 
         // 构建行: ID [n1,n2,...]  (无逗号分隔 ID 和方括号)
-        std::stringstream ss;
-        ss << "    " << eid << " [";
-        for (size_t i = 0; i < node_ids.size(); ++i) {
-            ss << node_ids[i] << (i < node_ids.size() - 1 ? "," : "");
-        }
-        ss << "]";
+        std::vector<std::string> toks;
+        toks.reserve(node_ids.size());
+        for (int nid : node_ids) toks.emplace_back(std::to_string(nid));
+        const std::string first_prefix = "    " + std::to_string(eid) + " [";
+        // Continuation indentation: keep it simple & stable; Simdroid parser treats whitespace as separators.
+        const std::string line = wrap_csv_tokens_with_comma_limit(first_prefix, "      ", toks, 10, "]");
         
-        elements_by_type[type_name].push_back(ss.str());
+        elements_by_type[type_name].push_back(line);
     }
 
     // 写入分组
@@ -168,17 +312,109 @@ void SimdroidExporter::save_mesh_dat(const std::string& path, entt::registry& re
     }
     file << "}\n\n";
 
-    // --- 2.5 Surface 块 (边界面/边，仅当 TopologyData 可用时输出) ---
-    // Simdroid 格式: Surface { Line2 { ... } Tri3 { ... } Quad4 { ... } }
-    // - 3D 体单元 (Hex8, Tet4) 的边界面: Tri3 (3节点) 或 Quad4 (4节点)
-    // - 2D 面单元 (Quad4, Tri3) 的边界边: Line2 (2节点)
-    if (registry.ctx().contains<std::unique_ptr<TopologyData>>()) {
+    // --- 2.5 Surface 块 (边界面/边) ---
+    // Simdroid 格式: Surface { Line2 { ... } Tri3 { ... } Tri6 { ... } Quad4 { ... } }
+    //
+    // 优先策略：若 registry 中存在 Surface 实体，则按 SurfaceID 原样导出（保证与 SurfaceSet 对齐）。
+    // 否则：从 TopologyData 反算边界面/边并导出。
+    auto surf_id_view = registry.view<const Component::SurfaceID>();
+    auto surf_view = registry.view<const Component::SurfaceID, const Component::SurfaceConnectivity, const Component::SurfaceParentElement>();
+    if (surf_id_view.size() > 0) {
+        // Surface 需要重建为全局连续 index（紧接 Element index），并同步 SurfaceSet 的引用
+        // 为了尽可能“最小惊讶”，我们按旧的 SurfaceID 排序后再重新编号。
+        struct SurfRec {
+            int old_sid;
+            int new_sid;
+            std::vector<int> node_ids;
+            int parent_eidx;
+        };
+        std::vector<SurfRec> surf_recs;
+        surf_recs.reserve(surf_id_view.size());
+
+        std::vector<std::tuple<int, std::vector<int>, int>> line2_surfs;
+        std::vector<std::tuple<int, std::vector<int>, int>> tri3_surfs;
+        std::vector<std::tuple<int, std::vector<int>, int>> tri6_surfs;
+        std::vector<std::tuple<int, std::vector<int>, int>> quad4_surfs;
+        for (auto se : surf_view) {
+            const int old_sid = surf_view.get<const Component::SurfaceID>(se).value;
+            const auto& sc = surf_view.get<const Component::SurfaceConnectivity>(se).nodes;
+            const auto& pe = surf_view.get<const Component::SurfaceParentElement>(se).element;
+
+            // Skip invalid parent (e.g., after delete_part)
+            if (!registry.valid(pe) || !registry.all_of<Component::OriginalID>(pe)) continue;
+            const int parent_old_eid = registry.get<Component::OriginalID>(pe).value;
+            auto it_parent = element_id_to_index.find(parent_old_eid);
+            if (it_parent == element_id_to_index.end()) continue;
+            const int parent_eidx = it_parent->second;
+
+            std::vector<int> node_ids;
+            node_ids.reserve(sc.size());
+            for (auto ne : sc) {
+                if (registry.valid(ne) && registry.all_of<Component::OriginalID>(ne)) {
+                    node_ids.push_back(registry.get<Component::OriginalID>(ne).value);
+                }
+            }
+
+            surf_recs.push_back(SurfRec{old_sid, -1, std::move(node_ids), parent_eidx});
+        }
+
+        std::sort(surf_recs.begin(), surf_recs.end(), [](const SurfRec& a, const SurfRec& b) {
+            return a.old_sid < b.old_sid;
+        });
+
+        int next_sid = static_cast<int>(element_count);
+        surface_old_to_new.reserve(surf_recs.size());
+        for (auto& r : surf_recs) {
+            r.new_sid = next_sid++;
+            surface_old_to_new.emplace(r.old_sid, r.new_sid);
+
+            auto& bucket =
+                (r.node_ids.size() == 2) ? line2_surfs :
+                (r.node_ids.size() == 3) ? tri3_surfs :
+                (r.node_ids.size() == 4) ? quad4_surfs :
+                (r.node_ids.size() == 6) ? tri6_surfs :
+                tri3_surfs; // fallback: treat as Tri3-like for unknown sizes
+
+            bucket.emplace_back(r.new_sid, std::move(r.node_ids), r.parent_eidx);
+        }
+
+        auto by_sid = [](const auto& a, const auto& b) { return std::get<0>(a) < std::get<0>(b); };
+        std::sort(line2_surfs.begin(), line2_surfs.end(), by_sid);
+        std::sort(tri3_surfs.begin(), tri3_surfs.end(), by_sid);
+        std::sort(tri6_surfs.begin(), tri6_surfs.end(), by_sid);
+        std::sort(quad4_surfs.begin(), quad4_surfs.end(), by_sid);
+
+        auto write_surface_bucket = [&](const char* header, const auto& bucket) {
+            if (bucket.empty()) return;
+            file << "  " << header << " {\n";
+            for (const auto& [sid, nodes, parent_eid] : bucket) {
+                std::vector<std::string> toks;
+                toks.reserve(nodes.size() + 1);
+                for (int nid : nodes) toks.emplace_back(std::to_string(nid));
+                toks.emplace_back(std::to_string(parent_eid));
+                const std::string first_prefix = "    " + std::to_string(sid) + " [";
+                file << wrap_csv_tokens_with_comma_limit(first_prefix, "      ", toks, 10, "]") << "\n";
+            }
+            file << "  }\n";
+        };
+
+        if (!line2_surfs.empty() || !tri3_surfs.empty() || !tri6_surfs.empty() || !quad4_surfs.empty()) {
+            file << "Surface {\n";
+            write_surface_bucket("Line2", line2_surfs);
+            write_surface_bucket("Tri3", tri3_surfs);
+            write_surface_bucket("Tri6", tri6_surfs);
+            write_surface_bucket("Quad4", quad4_surfs);
+            file << "}\n\n";
+        }
+
+    } else if (registry.ctx().contains<std::unique_ptr<TopologyData>>()) {
         auto& topo = *registry.ctx().get<std::unique_ptr<TopologyData>>();
         
         // 收集边界面/边（只被一个单元引用）
-        // 按节点数量分类: 2节点=Line2, 3节点=Tri3, 4节点=Quad4
+        // 按节点数量分类: 2节点=Line2, 3节点=Tri3/Tri6(取决于父单元), 4节点=Quad4
         std::vector<std::string> line2_lines;
         std::vector<std::string> tri3_lines;
+        std::vector<std::string> tri6_lines;
         std::vector<std::string> quad4_lines;
         
         int surface_id = static_cast<int>(element_count); // Surface ID 紧接 Element ID
@@ -192,24 +428,89 @@ void SimdroidExporter::save_mesh_dat(const std::string& path, entt::registry& re
             
             // 获取父单元的 OriginalID
             int parent_elem_id = 0;
+            int parent_type_id = 0;
             if (registry.valid(parent_entity) && registry.all_of<Component::OriginalID>(parent_entity)) {
-                parent_elem_id = registry.get<Component::OriginalID>(parent_entity).value;
+                const int parent_old_eid = registry.get<Component::OriginalID>(parent_entity).value;
+                auto it_parent = element_id_to_index.find(parent_old_eid);
+                if (it_parent != element_id_to_index.end()) parent_elem_id = it_parent->second;
+            }
+            if (registry.valid(parent_entity) && registry.all_of<Component::ElementType>(parent_entity)) {
+                parent_type_id = registry.get<Component::ElementType>(parent_entity).type_id;
             }
             
             // 构建行: ID [n1,n2,...,parent_elem_id]
-            std::stringstream ss;
-            ss << "    " << surface_id << " [";
-            for (size_t i = 0; i < face_nodes.size(); ++i) {
-                ss << face_nodes[i] << ",";
-            }
-            ss << parent_elem_id << "]";
+            auto push_surface_line = [&](std::vector<std::string>& out, const std::vector<int>& nodes) {
+                std::vector<std::string> toks;
+                toks.reserve(nodes.size() + 1);
+                for (int nid : nodes) toks.emplace_back(std::to_string(nid));
+                toks.emplace_back(std::to_string(parent_elem_id));
+                const std::string first_prefix = "    " + std::to_string(surface_id) + " [";
+                out.push_back(wrap_csv_tokens_with_comma_limit(first_prefix, "      ", toks, 10, "]"));
+            };
             
             if (face_nodes.size() == 2) {
-                line2_lines.push_back(ss.str());
+                push_surface_line(line2_lines, face_nodes);
             } else if (face_nodes.size() == 3) {
-                tri3_lines.push_back(ss.str());
+                // Tet10 的边界面需要输出为 Tri6（包含中点节点）
+                if (parent_type_id == 310
+                    && registry.valid(parent_entity)
+                    && registry.all_of<Component::Connectivity>(parent_entity)) {
+
+                    // 从父单元连接性中提取 Tet10 的 10 个节点 ID（保持原始顺序）
+                    std::vector<int> parent_node_ids;
+                    const auto& parent_conn = registry.get<Component::Connectivity>(parent_entity);
+                    parent_node_ids.reserve(parent_conn.nodes.size());
+                    for (auto ne : parent_conn.nodes) {
+                        parent_node_ids.push_back(registry.get<Component::OriginalID>(ne).value);
+                    }
+
+                    // 假设 Tet10 顺序: [0..3]=角点, [4]=01, [5]=12, [6]=20, [7]=03, [8]=13, [9]=23
+                    if (parent_node_ids.size() == 10) {
+                        const int n0 = parent_node_ids[0];
+                        const int n1 = parent_node_ids[1];
+                        const int n2 = parent_node_ids[2];
+                        const int n3 = parent_node_ids[3];
+                        const int m01 = parent_node_ids[4];
+                        const int m12 = parent_node_ids[5];
+                        const int m20 = parent_node_ids[6];
+                        const int m03 = parent_node_ids[7];
+                        const int m13 = parent_node_ids[8];
+                        const int m23 = parent_node_ids[9];
+
+                        auto sorted3 = [](int a, int b, int c) {
+                            std::array<int, 3> t{{a, b, c}};
+                            std::sort(t.begin(), t.end());
+                            return t;
+                        };
+
+                        const auto key = sorted3(face_nodes[0], face_nodes[1], face_nodes[2]);
+                        std::vector<int> tri6_nodes;
+
+                        if (key == sorted3(n0, n1, n2)) {
+                            tri6_nodes = {n0, n1, n2, m01, m12, m20};
+                        } else if (key == sorted3(n0, n3, n1)) {
+                            tri6_nodes = {n0, n3, n1, m03, m13, m01};
+                        } else if (key == sorted3(n1, n3, n2)) {
+                            tri6_nodes = {n1, n3, n2, m13, m23, m12};
+                        } else if (key == sorted3(n2, n3, n0)) {
+                            tri6_nodes = {n2, n3, n0, m23, m03, m20};
+                        }
+
+                        if (!tri6_nodes.empty()) {
+                            push_surface_line(tri6_lines, tri6_nodes);
+                        } else {
+                            // 兜底：如果识别失败，则仍按 Tri3 输出角点面
+                            push_surface_line(tri3_lines, face_nodes);
+                        }
+                    } else {
+                        // 兜底：连接性不符合 Tet10 预期，按 Tri3 输出
+                        push_surface_line(tri3_lines, face_nodes);
+                    }
+                } else {
+                    push_surface_line(tri3_lines, face_nodes);
+                }
             } else if (face_nodes.size() == 4) {
-                quad4_lines.push_back(ss.str());
+                push_surface_line(quad4_lines, face_nodes);
             }
             // 其他节点数量暂时忽略
             
@@ -217,7 +518,7 @@ void SimdroidExporter::save_mesh_dat(const std::string& path, entt::registry& re
         }
         
         // 写入 Surface 块
-        if (!line2_lines.empty() || !tri3_lines.empty() || !quad4_lines.empty()) {
+        if (!line2_lines.empty() || !tri3_lines.empty() || !tri6_lines.empty() || !quad4_lines.empty()) {
             file << "Surface {\n";
             if (!line2_lines.empty()) {
                 file << "  Line2 {\n";
@@ -229,6 +530,13 @@ void SimdroidExporter::save_mesh_dat(const std::string& path, entt::registry& re
             if (!tri3_lines.empty()) {
                 file << "  Tri3 {\n";
                 for (const auto& line : tri3_lines) {
+                    file << line << "\n";
+                }
+                file << "  }\n";
+            }
+            if (!tri6_lines.empty()) {
+                file << "  Tri6 {\n";
+                for (const auto& line : tri6_lines) {
                     file << line << "\n";
                 }
                 file << "  }\n";
@@ -265,7 +573,10 @@ void SimdroidExporter::save_mesh_dat(const std::string& path, entt::registry& re
             }
 
             if (!ids.empty()) {
-                file << "    " << name << " [" << compress_ids_to_ranges(ids) << "]\n";
+                const std::string ranges = compress_ids_to_ranges(ids);
+                const auto toks = split_csv_tokens(ranges);
+                const std::string first_prefix = "    " + name + " [";
+                file << wrap_csv_tokens_with_comma_limit(first_prefix, "      ", toks, 10, "]") << "\n";
             }
         }
         file << "  }\n";
@@ -283,15 +594,65 @@ void SimdroidExporter::save_mesh_dat(const std::string& path, entt::registry& re
             
             std::vector<int> ids;
             for(auto ee : members) {
-                if(registry.valid(ee) && registry.all_of<Component::OriginalID>(ee))
-                    ids.push_back(registry.get<Component::OriginalID>(ee).value);
+                if (!registry.valid(ee) || !registry.all_of<Component::OriginalID>(ee)) continue;
+                const int old_id = registry.get<Component::OriginalID>(ee).value;
+                auto it = element_id_to_index.find(old_id);
+                if (it != element_id_to_index.end()) ids.push_back(it->second);
             }
 
             if (!ids.empty()) {
-                file << "    " << name << " [" << compress_ids_to_ranges(ids) << "]\n";
+                const std::string ranges = compress_ids_to_ranges(ids);
+                const auto toks = split_csv_tokens(ranges);
+                const std::string first_prefix = "    " + name + " [";
+                file << wrap_csv_tokens_with_comma_limit(first_prefix, "      ", toks, 10, "]") << "\n";
             }
         }
         file << "  }\n";
+    }
+
+    // 3.3 Surface Sets (Simdroid requires for contact definitions)
+    {
+        std::vector<std::string> lines;
+        auto view = registry.view<const Component::SetName, const Component::SurfaceSetMembers>();
+        for (auto entity : view) {
+            const auto& name = view.get<const Component::SetName>(entity).value;
+            const auto& members = view.get<const Component::SurfaceSetMembers>(entity).members;
+
+            std::vector<int> ids;
+            ids.reserve(members.size());
+            for (auto se : members) {
+                if (!registry.valid(se)) continue;
+                if (registry.all_of<Component::SurfaceID>(se)) {
+                    // 显式 Surface 实体：若发生过重编号，必须使用 new index；
+                    // 若没有成功生成映射（例如全部 surface 都被过滤掉），则跳过以避免脏引用。
+                    const int old_sid = registry.get<Component::SurfaceID>(se).value;
+                    if (surf_id_view.size() > 0) {
+                        auto it = surface_old_to_new.find(old_sid);
+                        if (it != surface_old_to_new.end()) ids.push_back(it->second);
+                        // 找不到映射 => 该 Surface 很可能不会被导出（例如 parent invalid），跳过避免脏引用
+                    } else {
+                        // 非显式 surface（TopologyData 分支）理论上不会走到这里，保留旧行为
+                        ids.push_back(old_sid);
+                    }
+                } else if (registry.all_of<Component::OriginalID>(se)) {
+                    // 兜底：如果 surface 用 OriginalID 存储，保持原行为
+                    ids.push_back(registry.get<Component::OriginalID>(se).value);
+                }
+            }
+
+            if (!ids.empty()) {
+                const std::string ranges = compress_ids_to_ranges(ids);
+                const auto toks = split_csv_tokens(ranges);
+                const std::string first_prefix = "    " + name + " [";
+                lines.push_back(wrap_csv_tokens_with_comma_limit(first_prefix, "      ", toks, 10, "]"));
+            }
+        }
+
+        if (!lines.empty()) {
+            file << "  Surface {\n";
+            for (const auto& l : lines) file << l << "\n";
+            file << "  }\n";
+        }
     }
 
     file << "}\n";
@@ -314,14 +675,18 @@ void SimdroidExporter::save_mesh_dat(const std::string& path, entt::registry& re
             const auto& members = registry.get<Component::ElementSetMembers>(part.element_set).members;
             elem_ids.reserve(members.size());
             for (auto ee : members) {
-                if (registry.valid(ee) && registry.all_of<Component::OriginalID>(ee)) {
-                    elem_ids.push_back(registry.get<Component::OriginalID>(ee).value);
-                }
+                if (!registry.valid(ee) || !registry.all_of<Component::OriginalID>(ee)) continue;
+                const int old_id = registry.get<Component::OriginalID>(ee).value;
+                auto it = element_id_to_index.find(old_id);
+                if (it != element_id_to_index.end()) elem_ids.push_back(it->second);
             }
         }
         
         if (!elem_ids.empty()) {
-            file << "    " << part_key << " [" << compress_ids_to_ranges(elem_ids) << "]\n";
+            const std::string ranges = compress_ids_to_ranges(elem_ids);
+            const auto toks = split_csv_tokens(ranges);
+            const std::string first_prefix = "    " + part_key + " [";
+            file << wrap_csv_tokens_with_comma_limit(first_prefix, "      ", toks, 10, "]") << "\n";
         }
         
         ++part_index;
@@ -350,14 +715,18 @@ void SimdroidExporter::save_control_json(const std::string& path, DataContext& c
             if (n.empty()) continue;
 
             const bool is_set_like =
-                registry.all_of<Component::NodeSetMembers>(e) || registry.all_of<Component::ElementSetMembers>(e);
+                registry.all_of<Component::NodeSetMembers>(e)
+                || registry.all_of<Component::ElementSetMembers>(e)
+                || registry.all_of<Component::SurfaceSetMembers>(e);
             auto it = set_name_to_entity.find(n);
             if (it == set_name_to_entity.end()) {
                 set_name_to_entity.emplace(n, e);
             } else if (is_set_like) {
                 // Prefer a set-like entity over non-set entities (e.g. materials also use SetName)
                 const bool old_is_set_like =
-                    registry.all_of<Component::NodeSetMembers>(it->second) || registry.all_of<Component::ElementSetMembers>(it->second);
+                    registry.all_of<Component::NodeSetMembers>(it->second)
+                    || registry.all_of<Component::ElementSetMembers>(it->second)
+                    || registry.all_of<Component::SurfaceSetMembers>(it->second);
                 if (!old_is_set_like) it->second = e;
             }
         }
@@ -380,6 +749,12 @@ void SimdroidExporter::save_control_json(const std::string& path, DataContext& c
 
         if (registry.all_of<Component::ElementSetMembers>(set_entity)) {
             const auto& mem = registry.get<Component::ElementSetMembers>(set_entity).members;
+            for (auto e : mem) if (registry.valid(e)) return true;
+            return false;
+        }
+
+        if (registry.all_of<Component::SurfaceSetMembers>(set_entity)) {
+            const auto& mem = registry.get<Component::SurfaceSetMembers>(set_entity).members;
             for (auto e : mem) if (registry.valid(e)) return true;
             return false;
         }

@@ -354,10 +354,12 @@ void process_command(const std::string& command_line, AppSession& session) {
         session.inspector.list_parts(session.data.registry);
     }
     else if (command == "delete_part") {
-        std::string part_name;
-        ss >> part_name;
-        if (part_name.empty()) {
-            spdlog::error("Usage: delete_part <part_name>");
+        std::vector<std::string> part_names;
+        for (std::string name; ss >> name;) {
+            part_names.push_back(name);
+        }
+        if (part_names.empty()) {
+            spdlog::error("Usage: delete_part <part_name> [part_name2 ...]");
             return;
         }
 
@@ -366,18 +368,31 @@ void process_command(const std::string& command_line, AppSession& session) {
             return;
         }
 
-        if (session.inspector.delete_part(session.data.registry, part_name)) {
-            spdlog::info("Part '{}' deleted successfully.", part_name);
-            // 重要：删除后必须重建索引，否则 eid_to_part 等映射会失效导致 Crash
+        size_t deleted = 0;
+        size_t failed = 0;
+        for (const auto& part_name : part_names) {
+            // delete_part() 会清空 inspector 索引；为保证多次删除稳定，这里每次都先重建索引
+            session.inspector.build(session.data.registry);
+
+            if (session.inspector.delete_part(session.data.registry, part_name)) {
+                spdlog::info("Part '{}' deleted successfully.", part_name);
+                ++deleted;
+            } else {
+                spdlog::error("Failed to delete part '{}'. Part not found?", part_name);
+                ++failed;
+            }
+        }
+
+        if (deleted > 0) {
+            // 删除后必须重建索引，否则 eid_to_part 等映射会失效导致 Crash
             session.inspector.build(session.data.registry);
             // 拓扑数据会因实体删除而失效，清理以避免后续误用
             if (session.data.registry.ctx().contains<std::unique_ptr<TopologyData>>()) {
                 session.data.registry.ctx().erase<std::unique_ptr<TopologyData>>();
             }
             session.topology_built = false;
-        } else {
-            spdlog::error("Failed to delete part '{}'. Part not found or index not built?", part_name);
         }
+        spdlog::info("delete_part done. Deleted={}, Failed={}", deleted, failed);
     }
     else if (command == "graph") {
         if (!session.mesh_loaded) {

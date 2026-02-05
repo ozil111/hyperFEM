@@ -1,0 +1,150 @@
+{
+    "Global": {
+        "Version": 5.0,
+        "Solver": "StructureExplicit",
+        "Dimension": 3
+    },
+    "AnalysisControl": {
+        "TimeStepControl": {
+            "EndTime": 0.02,
+            "Dtmin": 0.0,
+            "DtScale": 0.4,
+            "InitMassScalRatio": 0.0,
+            "DtControlType": "MassScaling",
+            "StopEnergyErr": 0.9,
+			"ConstantT":false
+        }
+    },
+    "Output": {
+        "OutFields": [
+            "S",
+            "E",
+            "PEEQ",
+            "Acceleration",
+            "Displacement",
+            "Mises",
+            "Velocity"
+        ],
+        "AnimOutTimeInterval": 0.0001
+    },
+    "Material": {
+        "MATERIAL-1_M": {
+            "Label": "MATERIAL-1_M",
+            "MID": 1,
+            "MaterialType": "OrthotropicElasticHillPlastic",
+            "Density": 0.000019234,
+            "MaterialConstants": {
+                "ConstantsType": "DirectConstants",
+                "Constants": [
+                    178000.0,
+                    9000.0,
+                    33000.0,
+                    3000.0,
+                    3000.0,
+                    9000.0,
+                    1200000.0,
+                    6000.0,
+                    12000.0
+                ]
+            }
+        }
+    },
+    "Function": {
+        "Amp-1": {
+            "Analysis": "General",
+            "Type": "Tabular",
+            "InterpMethod": "Linear"
+        }
+    },
+    "CoordSys": {
+        "sys_Ori-1": {
+            "Type": "Cartesian",
+            "Org": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "Label": "Ori-1",
+            "AxisX": [
+                0.7071067811865476,
+                0.7071067811865476,
+                0.0
+            ],
+            "AxisY": [
+                -0.7071067811865476,
+                0.7071067811865476,
+                0.0
+            ],
+            "AxisZ": [
+                0.0,
+                0.0,
+                1.0
+            ]
+        }
+    },
+    "CrossSection": {
+        "Section1": {
+            "Type": "SolidOrthotropic",
+            "CrossSectID": 1,
+            "Formulation": [
+                "Tet4"
+            ],
+            "SmallStrain": "Tdtmin",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.2,
+            "LinearViscosity": 0.06,
+            "hm": 0.1,
+            "dtmin": 0,
+            "CoordSys": "sys_Ori-1"
+        }
+    },
+    "Constraint": {
+        "Boundary": {
+            "BOUNDARY_Set-1_1": {
+                "NodeSet": "Set-1",
+                "Dofs": [
+                    0,
+                    1,
+                    0,
+                    0,
+                    0,
+                    0
+                ],
+                "CoordSys": ""
+            }
+        }
+    },
+	"Load":{
+        "NodeValue_NodeValueSet_4": {
+            "Type": "Displacement",
+            "Dof": "y",
+            "CoordSys": "",
+            "NodeSet": "Set-2",
+            "Value": -400.0,
+            "TimeCurve": "Amp-1",
+            "Tend": 1e30
+        }
+	},
+    "Contact": {
+        "General_Contact": {
+            "Type": "GeneralContact",
+            "Surf1": "Model_Outside_Surface",
+            "StiffnessForm": 1000,
+            "EdgeCheck": false,
+            "EdgeAngle": 135,
+            "SelfInitPenCheck": false,
+            "InitPenDeactivate": "Ignore",
+            "FrictionCoef": 0.17
+        }
+    },
+    "PartProperty": {
+        "Part_1": {
+            "PID": 1,
+            "Title": "Component_1_PART-1-1_Set-1",
+            "EleSet": "Component_1_PART-1-1_Set-1",
+            "Material": "MATERIAL-1_M",
+            "CrossSection": "Section1"
+        }
+    }
+}

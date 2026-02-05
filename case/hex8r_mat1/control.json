@@ -1,0 +1,128 @@
+{
+    "Global": {
+        "Version": 5.0,
+        "Solver": "StructureExplicit",
+        "Dimension": 3
+    },
+    "AnalysisControl": {
+        "TimeStepControl": {
+            "EndTime": 0.02,
+            "Dtmin": 0.0,
+            "DtScale": 0.9,
+            "InitMassScalRatio": 0.0,
+            "DtControlType": "MassScaling",
+            "StopEnergyErr": 0.9,
+            "ConstantT":true
+        }
+    },
+    "Output": {
+        "OutFields": [
+            "S",
+            "E",
+            "PEEQ",
+            "Acceleration",
+            "Displacement",
+            "Mises",
+            "Velocity"
+        ],
+        "AnimOutTimeInterval": 0.001
+    },
+    "History":{
+        "Format":"ASCII",
+        "GlobalFields":[
+            "Time",
+            "I-Energy",
+            "K-Energy-TOT",
+            "Ext-Work",
+            "Total-Mass",
+            "HG-Energy",
+            "TOT-Energy"
+        ],                           
+        "HistoryOutTimeInterval": 0.0
+    },
+    "Material": {
+        "Material-1_M": {
+            "Label": "Material-1_M",
+            "MID": 1,
+            "MaterialType": "IsotropicElastic",
+            "Density": 0.00001,
+            "MaterialConstants": {
+                "ElasticModulus": 2100000000.0,
+                "PoissonRatio": 0.3
+            }
+        }
+    },
+    "CrossSection": {
+        "Section1": {
+            "Type": "Solid",
+            "CrossSectID": 1,
+            "Formulation": [
+                "Hex8RPH"
+            ],
+            "SmallStrain": "Tdtmin",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.2,
+            "LinearViscosity": 0.06,
+            "hm": 0.1,
+            "dtmin": 0
+        }
+    },
+    "Constraint": {
+        "Boundary": {
+            "NodeValueSet_1_1": {
+                "NodeSet": "NodeValueSet_1",
+                "Dofs": [
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1
+                ],
+                "CoordSys": ""
+            }
+        }
+    },
+    "Load": {
+        "NodalForce_1": {
+            "Type": "Force",
+            "Dof": "x",
+            "NodeSet": "Set-2",
+            "Value": 100000.0,
+            "TimeCurve": "curve",
+            "CoordSys": ""
+        },
+        "NodalForce_2": {
+            "Type": "Force",
+            "Dof": "y",
+            "NodeSet": "Set-2",
+            "Value": 100000.0,
+            "TimeCurve": "curve",
+            "CoordSys": ""
+        },
+        "NodalForce_3": {
+            "Type": "Force",
+            "Dof": "z",
+            "NodeSet": "Set-2",
+            "Value": 100000.0,
+            "TimeCurve": "curve",
+            "CoordSys": ""
+        }
+    },
+    "Function": {
+        "curve": {
+            "Type": "TabularMultiVar",
+            "InterpMethod": "Linear"
+        }
+    },
+    "PartProperty": {
+        "Part_1": {
+            "PID": 1,
+            "Title": "Component_1_HMprop_Part-1-1_Set-1",
+            "EleSet": "Component_1_HMprop_Part-1-1_Set-1",
+            "Material": "Material-1_M",
+            "CrossSection": "Section1"
+        }
+    }
+}

@@ -125,6 +125,52 @@ struct SimdroidInspector {
         }
         spdlog::info(" -> Found {} elements to delete.", elements_to_delete.size());
 
+        // 2.5 收集并删除与这些 Elements 关联的 Surface（以及从 SurfaceSet 中移除）
+        // 原因：Surface 的 parent element 被删后会变成悬空引用，导出时会产生 parent_eid=0 等脏数据。
+        std::vector<entt::entity> surfaces_to_delete;
+        surfaces_to_delete.reserve(elements_to_delete.size() * 2);
+        {
+            std::unordered_set<entt::entity> elem_entities_to_delete;
+            elem_entities_to_delete.reserve(elements_to_delete.size() * 2);
+            for (auto ee : elements_to_delete) elem_entities_to_delete.insert(ee);
+
+            auto surf_view = registry.view<const Component::SurfaceParentElement>();
+            for (auto se : surf_view) {
+                const auto& pe = surf_view.get<const Component::SurfaceParentElement>(se).element;
+                if (elem_entities_to_delete.find(pe) != elem_entities_to_delete.end()) {
+                    surfaces_to_delete.push_back(se);
+                }
+            }
+
+            if (!surfaces_to_delete.empty()) {
+                std::sort(surfaces_to_delete.begin(), surfaces_to_delete.end());
+                surfaces_to_delete.erase(std::unique(surfaces_to_delete.begin(), surfaces_to_delete.end()), surfaces_to_delete.end());
+
+                // 从所有 SurfaceSetMembers 中移除这些 surface
+                std::unordered_set<entt::entity> surfaces_to_delete_set;
+                surfaces_to_delete_set.reserve(surfaces_to_delete.size() * 2);
+                for (auto se : surfaces_to_delete) surfaces_to_delete_set.insert(se);
+
+                auto sset_view = registry.view<Component::SurfaceSetMembers>();
+                for (auto set_e : sset_view) {
+                    auto& mem = registry.get<Component::SurfaceSetMembers>(set_e).members;
+                    mem.erase(
+                        std::remove_if(mem.begin(), mem.end(), [&](entt::entity x) {
+                            return !registry.valid(x) || surfaces_to_delete_set.find(x) != surfaces_to_delete_set.end();
+                        }),
+                        mem.end()
+                    );
+                }
+
+                // 删除 surface 实体本身（先删 surface，再删 node/element，避免 surface 悬空）
+                for (auto se : surfaces_to_delete) {
+                    if (registry.valid(se)) registry.destroy(se);
+                }
+
+                spdlog::info(" -> Removed {} surfaces associated with deleted elements.", surfaces_to_delete.size());
+            }
+        }
+
         // 3. 标记待删除的节点 (孤儿节点检测)
         std::vector<entt::entity> nodes_to_delete;
         nodes_to_delete.reserve(elements_to_delete.size() * 4);
@@ -192,8 +238,13 @@ struct SimdroidInspector {
                     for (auto e : mem) if (registry.valid(e)) return true;
                     return false;
                 }
-                // 不是 Set 类型（例如 Surface），只要实体还在就认为有效
-                return true;
+                if (registry.all_of<Component::SurfaceSetMembers>(set_entity)) {
+                    const auto& mem = registry.get<Component::SurfaceSetMembers>(set_entity).members;
+                    for (auto e : mem) if (registry.valid(e)) return true;
+                    return false;
+                }
+                // 不是 Set 类型（例如具体的 Surface/Node/Element 实体），只要实体还在就认为有效
+                return registry.valid(set_entity);
             };
 
             // Contacts

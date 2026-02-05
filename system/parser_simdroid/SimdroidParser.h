@@ -14,6 +14,7 @@ class SimdroidParser {
         // 使用 Vector 作为 O(1) 查找表
         static std::vector<entt::entity> node_lookup;
         static std::vector<entt::entity> element_lookup;
+        static std::vector<entt::entity> surface_lookup;
         
         // 辅助函数
         static void parse_control_json(const std::string& path, DataContext& ctx);

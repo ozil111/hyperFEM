@@ -122,6 +122,47 @@ namespace Component {
         std::vector<entt::entity> members;
     };
 
+    // ===================================================================
+    // Surface (Face) Components (Simdroid)
+    // ===================================================================
+    // Note:
+    // - "Surface" in Simdroid mesh.dat is a list of boundary faces/edges with stable IDs.
+    // - We represent each surface entry as its own ECS entity, using dedicated components
+    //   to avoid mixing them with volume/shell elements (which use Component::Connectivity).
+
+    /**
+     * @brief Surface ID component for surface entities (sid)
+     * @details Attached to surface entities parsed from / exported to Simdroid "Surface {" block.
+     */
+    struct SurfaceID {
+        int value;
+    };
+
+    /**
+     * @brief Surface connectivity (nodes on the face/edge)
+     * @details Uses direct node entity handles; does NOT reuse Component::Connectivity
+     * to avoid being treated as a volume/shell element by other systems.
+     */
+    struct SurfaceConnectivity {
+        std::vector<entt::entity> nodes;
+    };
+
+    /**
+     * @brief Parent element reference for a surface entity
+     * @details Simdroid surface lines append the parent element ID at the end.
+     */
+    struct SurfaceParentElement {
+        entt::entity element;
+    };
+
+    /**
+     * @brief Members of a surface set (SurfaceSet)
+     * @details Attached to set entities representing Simdroid "Set { Surface { ... } }".
+     */
+    struct SurfaceSetMembers {
+        std::vector<entt::entity> members;
+    };
+
     /**
      * @brief [新] 附加到 NodeSet 实体，存储其用户定义的ID (nsid)
      * @details 用于标识NodeSet实体，避免与其他类型实体的ID冲突
