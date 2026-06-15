@@ -16,3 +16,4 @@ test_case/test_report.txt
 /.codebuddy/agents
 /.codebuddy
 /extern/fea_codegen/hex8r_gen
+/case
