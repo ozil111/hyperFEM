@@ -191,6 +191,7 @@ void run_app_tui(AppSession& session) {
                     "  panel set <name>",
                     "  panel material <id_or_name>",
                     "  panel section <id_or_name>",
+                    "  set_material <mid> <component> <param> <value>",
                     "  quit / exit",
                     "",
                     "Note: other commands are supported; they will execute and log to the normal logger.",

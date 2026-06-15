@@ -12,6 +12,7 @@
 #include "exporter_base/exporterBase.h"
 #include "DataContext.h"
 #include "components/mesh_components.h"
+#include "components/material_components.h"
 #include "TopologyData.h"
 #include "mesh/TopologySystems.h"
 #include "parser_simdroid/SimdroidParser.h"
@@ -26,6 +27,7 @@
 #include <vector>
 #include <cstdlib>
 #include <algorithm>
+#include <unordered_map>
 
 namespace {
 
@@ -76,6 +78,16 @@ int allocate_next_element_id(entt::registry& registry) {
         max_id = std::max(max_id, view.get<const Component::ElementID>(e).value);
     }
     return max_id + 1;
+}
+
+entt::entity find_material_by_id(entt::registry& registry, int mid) {
+    auto view = registry.view<const Component::MaterialID>();
+    for (auto e : view) {
+        if (view.get<const Component::MaterialID>(e).value == mid) {
+            return e;
+        }
+    }
+    return entt::null;
 }
 
 entt::entity get_or_create_set_entity(entt::registry& registry, const std::string& name) {
@@ -129,6 +141,7 @@ void process_command(const std::string& command_line, AppSession& session) {
                      "elem, elem_add, elem_delete, "
                      "list_elements, "
                      "list_sets, set_info, set_addnode, set_addelem, set_removenode, set_removeelem, "
+                     "set_material <mid> <component> <param> <value>, "
                      "save, help, quit");
     }
     else if (command == "import") {
@@ -914,6 +927,100 @@ void process_command(const std::string& command_line, AppSession& session) {
             }
         }
         spdlog::info("set_removeelem '{}' : removed {} entries.", set_name, removed);
+    }
+    // =======================================================
+    // Material parameter editing
+    // =======================================================
+    else if (command == "set_material") {
+        int mid;
+        std::string component_name, param_name;
+        double value;
+        if (!(ss >> mid >> component_name >> param_name >> value)) {
+            spdlog::error("Usage: set_material <material_id> <component> <param> <value>");
+            spdlog::info("  Component: LinearElastic | IsotropicPlastic | RateDependentPlastic | HyperelasticMode");
+            spdlog::info("  Params (LinearElastic): rho, E, nu");
+            spdlog::info("  Params (IsotropicPlastic): yield_stress_A, hardening_coef_B, hardening_exp_n, rate_coef_C, hardening_mode, temperature_exp_m, melt_temperature, env_temperature, ref_strain_rate, specific_heat");
+            spdlog::info("  Params (RateDependentPlastic): hardening_mode, failure_plastic_strain, fail_begin_tensile_strain, fail_end_tensile_strain, elem_del_tensile_strain");
+            spdlog::info("  Params (HyperelasticMode): order, nu");
+            return;
+        }
+
+        auto& registry = session.data.registry;
+        entt::entity mat_e = find_material_by_id(registry, mid);
+        if (mat_e == entt::null) {
+            spdlog::error("Material {} not found.", mid);
+            return;
+        }
+
+        auto print_current = [&]() {
+            const auto& model = registry.get<::Component::MaterialModel>(mat_e).value;
+            spdlog::info("Material {} (Model: {}): parameter updated.", mid, model);
+        };
+
+        if (component_name == "LinearElastic") {
+            if (!registry.all_of<::Component::LinearElasticParams>(mat_e)) {
+                spdlog::error("Material {} does not have LinearElasticParams.", mid);
+                return;
+            }
+            auto& p = registry.get<::Component::LinearElasticParams>(mat_e);
+            if (param_name == "rho")      { p.rho = value; }
+            else if (param_name == "E")   { p.E = value; }
+            else if (param_name == "nu")  { p.nu = value; }
+            else { spdlog::error("Unknown LinearElastic param: '{}'. Valid: rho, E, nu", param_name); return; }
+            spdlog::info("Material {} LinearElastic.{} = {}", mid, param_name, value);
+            print_current();
+        }
+        else if (component_name == "IsotropicPlastic") {
+            if (!registry.all_of<::Component::IsotropicPlasticParams>(mat_e)) {
+                spdlog::error("Material {} does not have IsotropicPlasticParams.", mid);
+                return;
+            }
+            auto& p = registry.get<::Component::IsotropicPlasticParams>(mat_e);
+            if (param_name == "yield_stress_A")            p.yield_stress_A = value;
+            else if (param_name == "hardening_coef_B")     p.hardening_coef_B = value;
+            else if (param_name == "hardening_exp_n")      p.hardening_exp_n = value;
+            else if (param_name == "rate_coef_C")          p.rate_coef_C = value;
+            else if (param_name == "hardening_mode")       p.hardening_mode = value;
+            else if (param_name == "temperature_exp_m")    p.temperature_exp_m = value;
+            else if (param_name == "melt_temperature")     p.melt_temperature = value;
+            else if (param_name == "env_temperature")      p.env_temperature = value;
+            else if (param_name == "ref_strain_rate")      p.ref_strain_rate = value;
+            else if (param_name == "specific_heat")        p.specific_heat = value;
+            else { spdlog::error("Unknown IsotropicPlastic param: '{}'.", param_name); return; }
+            spdlog::info("Material {} IsotropicPlastic.{} = {}", mid, param_name, value);
+            print_current();
+        }
+        else if (component_name == "RateDependentPlastic") {
+            if (!registry.all_of<::Component::RateDependentPlasticParams>(mat_e)) {
+                spdlog::error("Material {} does not have RateDependentPlasticParams.", mid);
+                return;
+            }
+            auto& p = registry.get<::Component::RateDependentPlasticParams>(mat_e);
+            if (param_name == "hardening_mode")               p.hardening_mode = value;
+            else if (param_name == "failure_plastic_strain")  p.failure_plastic_strain = value;
+            else if (param_name == "fail_begin_tensile_strain") p.fail_begin_tensile_strain = value;
+            else if (param_name == "fail_end_tensile_strain") p.fail_end_tensile_strain = value;
+            else if (param_name == "elem_del_tensile_strain") p.elem_del_tensile_strain = value;
+            else { spdlog::error("Unknown RateDependentPlastic param: '{}'.", param_name); return; }
+            spdlog::info("Material {} RateDependentPlastic.{} = {}", mid, param_name, value);
+            print_current();
+        }
+        else if (component_name == "HyperelasticMode") {
+            if (!registry.all_of<::Component::HyperelasticMode>(mat_e)) {
+                spdlog::error("Material {} does not have HyperelasticMode.", mid);
+                return;
+            }
+            auto& p = registry.get<::Component::HyperelasticMode>(mat_e);
+            if (param_name == "order")   { p.order = static_cast<int>(value); }
+            else if (param_name == "nu") { p.nu = value; }
+            else { spdlog::error("Unknown HyperelasticMode param: '{}'. Valid: order, nu", param_name); return; }
+            spdlog::info("Material {} HyperelasticMode.{} = {}", mid, param_name, value);
+            print_current();
+        }
+        else {
+            spdlog::error("Unknown component: '{}'. Valid: LinearElastic, IsotropicPlastic, RateDependentPlastic, HyperelasticMode", component_name);
+            return;
+        }
     }
     else if (command == "list_nodes") {
         auto& registry = session.data.registry;
