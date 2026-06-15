@@ -213,6 +213,10 @@ void run_app_tui(AppSession& session) {
                 state.node_selected_row = state.node_rows.empty() ? -1 : 0;
                 sync_nodes_focus(state);
                 state.focus_region = FocusRegion::TopLeftView;
+                spdlog::info("Nodes (total {}):", state.node_rows.size());
+                for (const auto& r : state.node_rows) {
+                    spdlog::info("  NID={}  X={:.6f}  Y={:.6f}  Z={:.6f}", r.nid, r.x, r.y, r.z);
+                }
                 return true;
             }
 
@@ -222,6 +226,10 @@ void run_app_tui(AppSession& session) {
                 state.elem_selected_row = state.elem_rows.empty() ? -1 : 0;
                 sync_elems_focus(state);
                 state.focus_region = FocusRegion::TopLeftView;
+                spdlog::info("Elements (total {}):", state.elem_rows.size());
+                for (const auto& r : state.elem_rows) {
+                    spdlog::info("  EID={}  Type={}  Nodes=[{}]", r.eid, r.type_id, r.nodes);
+                }
                 return true;
             }
 
@@ -231,6 +239,11 @@ void run_app_tui(AppSession& session) {
                 state.part_selected_row = state.part_rows.empty() ? -1 : 0;
                 sync_parts_focus(state);
                 state.focus_region = FocusRegion::TopLeftView;
+                spdlog::info("Parts (total {}):", state.part_rows.size());
+                for (const auto& r : state.part_rows) {
+                    spdlog::info("  {}  ElementSet={}  MatID={}  SecID={}  Elems={}",
+                                 r.name, r.element_set, r.material_id, r.section_id, r.elem_count);
+                }
                 return true;
             }
 
@@ -240,6 +253,10 @@ void run_app_tui(AppSession& session) {
                 state.set_selected_row = state.set_rows.empty() ? -1 : 0;
                 sync_sets_focus(state);
                 state.focus_region = FocusRegion::TopLeftView;
+                spdlog::info("Sets (total {}):", state.set_rows.size());
+                for (const auto& r : state.set_rows) {
+                    spdlog::info("  {}  type={}  members={}", r.name, r.type, r.member_count);
+                }
                 return true;
             }
 
@@ -253,6 +270,7 @@ void run_app_tui(AppSession& session) {
                     spdlog::error("Usage: panel <type> <id_or_name>  (type: node|elem|element|part|set|material|section)");
                     return true;
                 }
+                spdlog::info("Panel opened: {} {}", type, id_or_name);
                 (void)open_panel_in_top_view(session, state, type, id_or_name, true);
                 return true;
             }
