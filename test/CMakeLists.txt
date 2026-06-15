@@ -55,6 +55,11 @@ add_executable(test_json_exporter
     ${SYSTEM_SOURCES}
 )
 
+add_executable(test_connection_preserving_remesher
+    test_connection_preserving_remesher.cpp
+    ${SYSTEM_SOURCES}
+)
+
 # Link libraries (match parent: header-only spdlog/fmt only)
 target_link_libraries(test_assembly_system PRIVATE
     fmt::fmt-header-only
@@ -63,6 +68,7 @@ target_link_libraries(test_assembly_system PRIVATE
     nlohmann_json::nlohmann_json
     EnTT::EnTT
     ftxui::dom
+    ftxui::component
     ftxui::screen
     tinyxml2::tinyxml2
     GTest::gtest
@@ -76,6 +82,21 @@ target_link_libraries(test_json_exporter PRIVATE
     nlohmann_json::nlohmann_json
     EnTT::EnTT
     ftxui::dom
+    ftxui::component
+    ftxui::screen
+    tinyxml2::tinyxml2
+    GTest::gtest
+    GTest::gtest_main
+)
+
+target_link_libraries(test_connection_preserving_remesher PRIVATE
+    fmt::fmt-header-only
+    spdlog::spdlog_header_only
+    Eigen3::Eigen
+    nlohmann_json::nlohmann_json
+    EnTT::EnTT
+    ftxui::dom
+    ftxui::component
     ftxui::screen
     tinyxml2::tinyxml2
     GTest::gtest
@@ -88,14 +109,15 @@ enable_testing()
 # Add tests
 add_test(NAME test_assembly_system COMMAND test_assembly_system)
 add_test(NAME test_json_exporter COMMAND test_json_exporter)
+add_test(NAME test_connection_preserving_remesher COMMAND test_connection_preserving_remesher)
 
 # Set output directory (match parent project structure)
 if(MSVC)
-    set_target_properties(test_assembly_system test_json_exporter PROPERTIES
+    set_target_properties(test_assembly_system test_json_exporter test_connection_preserving_remesher PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/msvc/tests
     )
 else()
-    set_target_properties(test_assembly_system test_json_exporter PROPERTIES
+    set_target_properties(test_assembly_system test_json_exporter test_connection_preserving_remesher PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/${CMAKE_BUILD_TYPE}/tests
     )
 endif()

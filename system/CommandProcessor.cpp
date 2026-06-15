@@ -20,6 +20,7 @@
 #include "exporter_simdroid/SimdroidExporter.h"
 #include "analysis/GraphBuilder.h"
 #include "analysis/MermaidReporter.h"
+#include "remesh/ConnectionPreservingRemesher.h"
 #include "tui/ComponentTUI.h"
 #include <filesystem>
 #include <fstream>
@@ -146,7 +147,7 @@ void process_command(const std::string& command_line, AppSession& session) {
     else if (command == "help") {
         spdlog::info("Available commands: import, import_simdroid, export_simdroid, json_apply, "
                      "info, build_topology, list_bodies, show_body, "
-                     "list_parts, delete_part, graph, validate_constraints, list_constraint_warnings, "
+                     "list_parts, delete_part, graph, remesh_plan, validate_constraints, list_constraint_warnings, "
                      "panel node <nid>, panel elem <eid>, panel part <name>, panel set <name>, "
                      "node, list_nodes, node_add, node_move, node_delete, "
                      "elem, elem_add, elem_delete, "
@@ -532,6 +533,44 @@ void process_command(const std::string& command_line, AppSession& session) {
         std::string cmd = "start " + output_filename;
         system(cmd.c_str());
 #endif
+    }
+    else if (command == "remesh_plan") {
+        if (!session.mesh_loaded) {
+            spdlog::warn("No mesh loaded. Please 'import_simdroid' first.");
+            return;
+        }
+
+        std::string output_filename;
+        ss >> output_filename;
+        if (output_filename.empty()) output_filename = "remesh_plan.json";
+
+        double ratio = 100.0;
+        if (!(ss >> ratio)) {
+            ratio = 100.0;
+        }
+
+        RemeshOptions options;
+        options.target_compression_ratio = ratio;
+
+        spdlog::info("Building connection-preserving remesh plan...");
+        RemeshPlan plan = ConnectionPreservingRemesher::build_plan(
+            session.data.registry, session.inspector, options);
+
+        if (!ConnectionPreservingRemesher::write_plan_json(plan, output_filename)) {
+            spdlog::error("Failed to write remesh plan: {}", output_filename);
+            return;
+        }
+
+        spdlog::info("Remesh plan written: {}", output_filename);
+        spdlog::info("Elements: {} -> {} (estimated ratio {:.2f}x), Parts: {}, Interfaces: {}",
+                     plan.original_element_count,
+                     plan.target_element_count,
+                     plan.target_element_count == 0
+                         ? 0.0
+                         : static_cast<double>(plan.original_element_count) /
+                               static_cast<double>(plan.target_element_count),
+                     plan.parts.size(),
+                     plan.interfaces.size());
     }
     else if (command == "validate_constraints") {
         if (!session.mesh_loaded) {
