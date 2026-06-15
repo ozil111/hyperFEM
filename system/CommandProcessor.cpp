@@ -13,6 +13,7 @@
 #include "DataContext.h"
 #include "components/mesh_components.h"
 #include "components/material_components.h"
+#include "components/property_components.h"
 #include "TopologyData.h"
 #include "mesh/TopologySystems.h"
 #include "parser_simdroid/SimdroidParser.h"
@@ -90,6 +91,16 @@ entt::entity find_material_by_id(entt::registry& registry, int mid) {
     return entt::null;
 }
 
+entt::entity find_property_by_id(entt::registry& registry, int pid) {
+    auto view = registry.view<const Component::PropertyID>();
+    for (auto e : view) {
+        if (view.get<const Component::PropertyID>(e).value == pid) {
+            return e;
+        }
+    }
+    return entt::null;
+}
+
 entt::entity get_or_create_set_entity(entt::registry& registry, const std::string& name) {
     entt::entity e = find_set_by_name(registry, name);
     if (e != entt::null) return e;
@@ -142,6 +153,7 @@ void process_command(const std::string& command_line, AppSession& session) {
                      "list_elements, "
                      "list_sets, set_info, set_addnode, set_addelem, set_removenode, set_removeelem, "
                      "set_material <mid> <component> <param> <value>, "
+                     "set_section <sid> <type> <param> <value>, "
                      "save, help, quit");
     }
     else if (command == "import") {
@@ -1021,6 +1033,254 @@ void process_command(const std::string& command_line, AppSession& session) {
             spdlog::error("Unknown component: '{}'. Valid: LinearElastic, IsotropicPlastic, RateDependentPlastic, HyperelasticMode", component_name);
             return;
         }
+    }
+    // =======================================================
+    // Section property editing
+    // =======================================================
+    else if (command == "set_section") {
+        int sid;
+        std::string section_type, param_name, value_str;
+        if (!(ss >> sid >> section_type >> param_name >> value_str)) {
+            spdlog::error("Usage: set_section <section_id> <section_type> <param> <value>");
+            spdlog::info("  Section types: Solid, Truss, Shell, SolidAdvanced, SolidShell, SolidShComp, Beam, FiberBeam, Cohesive, AxialSpringDamper, BeamSpring");
+            return;
+        }
+
+        auto& registry = session.data.registry;
+        entt::entity prop_e = find_property_by_id(registry, sid);
+        if (prop_e == entt::null) {
+            spdlog::error("Section {} not found.", sid);
+            return;
+        }
+
+        auto parse_bool = [](const std::string& s) -> bool {
+            return s == "true" || s == "1" || s == "yes" || s == "on";
+        };
+
+        if (section_type == "Solid") {
+            if (!registry.all_of<Component::SolidProperty>(prop_e)) {
+                spdlog::error("Section {} does not have SolidProperty.", sid);
+                return;
+            }
+            auto& p = registry.get<Component::SolidProperty>(prop_e);
+            if (param_name == "type_id")                  { p.type_id = std::stoi(value_str); }
+            else if (param_name == "integration_network") { p.integration_network = std::stoi(value_str); }
+            else if (param_name == "hourglass_control")   { p.hourglass_control = value_str; }
+            else {
+                spdlog::error("Unknown Solid param: '{}'. Valid: type_id, integration_network, hourglass_control", param_name);
+                return;
+            }
+        }
+        else if (section_type == "Truss") {
+            if (!registry.all_of<Component::TrussProperty>(prop_e)) {
+                spdlog::error("Section {} does not have TrussProperty.", sid);
+                return;
+            }
+            auto& p = registry.get<Component::TrussProperty>(prop_e);
+            if (param_name == "area") { p.area = std::stod(value_str); }
+            else {
+                spdlog::error("Unknown Truss param: '{}'. Valid: area", param_name);
+                return;
+            }
+        }
+        else if (section_type == "Shell") {
+            if (!registry.all_of<Component::ShellProperty>(prop_e)) {
+                spdlog::error("Section {} does not have ShellProperty.", sid);
+                return;
+            }
+            auto& p = registry.get<Component::ShellProperty>(prop_e);
+            if (param_name == "type_id")              { p.type_id = std::stoi(value_str); }
+            else if (param_name == "thick0")          { p.thickness[0] = std::stod(value_str); }
+            else if (param_name == "thick1")          { p.thickness[1] = std::stod(value_str); }
+            else if (param_name == "thick2")          { p.thickness[2] = std::stod(value_str); }
+            else if (param_name == "thick3")          { p.thickness[3] = std::stod(value_str); }
+            else if (param_name == "thickness_change") { p.thickness_change = parse_bool(value_str); }
+            else if (param_name == "drill_dof")       { p.drill_dof = parse_bool(value_str); }
+            else if (param_name == "shear_factor")    { p.shear_factor = std::stod(value_str); }
+            else if (param_name == "integration_points") { p.integration_points = std::stoi(value_str); }
+            else if (param_name == "inp_rule")        { p.inp_rule = value_str; }
+            else if (param_name == "fail_thick")      { p.fail_thick = std::stod(value_str); }
+            else if (param_name == "hg_hm")           { p.hourglass_coefs[0] = std::stod(value_str); }
+            else if (param_name == "hg_hf")           { p.hourglass_coefs[1] = std::stod(value_str); }
+            else if (param_name == "hg_hr")           { p.hourglass_coefs[2] = std::stod(value_str); }
+            else if (param_name == "plastic_return")  { p.plastic_plane_stress_return = value_str; }
+            else if (param_name == "mid_shell_flag")  { p.mid_shell_flag = value_str; }
+            else {
+                spdlog::error("Unknown Shell param: '{}'.", param_name);
+                return;
+            }
+        }
+        else if (section_type == "SolidAdvanced") {
+            if (!registry.all_of<Component::SolidAdvancedProperty>(prop_e)) {
+                spdlog::error("Section {} does not have SolidAdvancedProperty.", sid);
+                return;
+            }
+            auto& p = registry.get<Component::SolidAdvancedProperty>(prop_e);
+            if (param_name == "formulation")         { p.formulation = value_str; }
+            else if (param_name == "small_strain")   { p.small_strain = value_str; }
+            else if (param_name == "const_pressure") { p.const_pressure = value_str; }
+            else if (param_name == "co_rotation")    { p.co_rotation_flag = value_str; }
+            else if (param_name == "visco_hourglass_k") { p.visco_hourglass_k = std::stod(value_str); }
+            else if (param_name == "qa")             { p.bulk_viscosity.quadratic = std::stod(value_str); }
+            else if (param_name == "qb")             { p.bulk_viscosity.linear = std::stod(value_str); }
+            else if (param_name == "dtmin")          { p.dtmin = std::stod(value_str); }
+            else if (param_name == "numeric_damping") { p.numeric_damping = std::stod(value_str); }
+            else if (param_name == "distortion_control") { p.distortion_control = parse_bool(value_str); }
+            else if (param_name == "dc0")            { p.distortion_coeffs[0] = std::stod(value_str); }
+            else if (param_name == "dc1")            { p.distortion_coeffs[1] = std::stod(value_str); }
+            else if (param_name == "dc2")            { p.distortion_coeffs[2] = std::stod(value_str); }
+            else if (param_name == "disp_hg_factor") { p.disp_hourglass_factor = std::stod(value_str); }
+            else if (param_name == "hourglass_type") { p.hourglass_type = value_str; }
+            else if (param_name == "ele_charac_length") { p.ele_charac_length = parse_bool(value_str); }
+            else {
+                spdlog::error("Unknown SolidAdvanced param: '{}'.", param_name);
+                return;
+            }
+        }
+        else if (section_type == "SolidShell") {
+            if (!registry.all_of<Component::SolidShellProperty>(prop_e)) {
+                spdlog::error("Section {} does not have SolidShellProperty.", sid);
+                return;
+            }
+            auto& p = registry.get<Component::SolidShellProperty>(prop_e);
+            if (param_name == "formulation")         { p.formulation.value = value_str; }
+            else if (param_name == "small_strain")   { p.small_strain.value = value_str; }
+            else if (param_name == "inpts0")         { p.integration_points[0] = std::stoi(value_str); }
+            else if (param_name == "inpts1")         { p.integration_points[1] = std::stoi(value_str); }
+            else if (param_name == "inpts2")         { p.integration_points[2] = std::stoi(value_str); }
+            else if (param_name == "visco_hourglass_k") { p.visco_hourglass_k = std::stod(value_str); }
+            else if (param_name == "qa")             { p.bulk_viscosity.quadratic = std::stod(value_str); }
+            else if (param_name == "qb")             { p.bulk_viscosity.linear = std::stod(value_str); }
+            else if (param_name == "dtmin")          { p.dtmin = std::stod(value_str); }
+            else if (param_name == "thickness_penalty") { p.thickness_penalty = std::stod(value_str); }
+            else if (param_name == "dc0")            { p.distortion_coeffs[0] = std::stod(value_str); }
+            else if (param_name == "dc1")            { p.distortion_coeffs[1] = std::stod(value_str); }
+            else if (param_name == "dc2")            { p.distortion_coeffs[2] = std::stod(value_str); }
+            else {
+                spdlog::error("Unknown SolidShell param: '{}'.", param_name);
+                return;
+            }
+        }
+        else if (section_type == "SolidShComp") {
+            if (!registry.all_of<Component::SolidShCompProperty>(prop_e)) {
+                spdlog::error("Section {} does not have SolidShCompProperty.", sid);
+                return;
+            }
+            auto& p = registry.get<Component::SolidShCompProperty>(prop_e);
+            if (param_name == "formulation")         { p.formulation.value = value_str; }
+            else if (param_name == "small_strain")   { p.small_strain.value = value_str; }
+            else if (param_name == "inpts0")         { p.integration_points[0] = std::stoi(value_str); }
+            else if (param_name == "inpts1")         { p.integration_points[1] = std::stoi(value_str); }
+            else if (param_name == "inpts2")         { p.integration_points[2] = std::stoi(value_str); }
+            else if (param_name == "numeric_damping") { p.numeric_damping = std::stod(value_str); }
+            else if (param_name == "qa")             { p.bulk_viscosity.quadratic = std::stod(value_str); }
+            else if (param_name == "qb")             { p.bulk_viscosity.linear = std::stod(value_str); }
+            else if (param_name == "thickness_penalty") { p.thickness_penalty = std::stod(value_str); }
+            else if (param_name == "coord_sys")      { p.coord_sys.value = value_str; }
+            else {
+                spdlog::error("Unknown SolidShComp param: '{}'.", param_name);
+                return;
+            }
+        }
+        else if (section_type == "Beam") {
+            if (!registry.all_of<Component::BeamProperty>(prop_e)) {
+                spdlog::error("Section {} does not have BeamProperty.", sid);
+                return;
+            }
+            auto& p = registry.get<Component::BeamProperty>(prop_e);
+            if (param_name == "small_strain") { p.small_strain.value = value_str; }
+            else if (param_name == "area")    { p.area = std::stod(value_str); }
+            else if (param_name == "ixx")     { p.ixx = std::stod(value_str); }
+            else if (param_name == "iyy")     { p.iyy = std::stod(value_str); }
+            else if (param_name == "izz")     { p.izz = std::stod(value_str); }
+            else if (param_name == "shear_flag") { p.shear_flag = parse_bool(value_str); }
+            else {
+                spdlog::error("Unknown Beam param: '{}'. Valid: small_strain, area, ixx, iyy, izz, shear_flag", param_name);
+                return;
+            }
+        }
+        else if (section_type == "FiberBeam") {
+            if (!registry.all_of<Component::FiberBeamProperty>(prop_e)) {
+                spdlog::error("Section {} does not have FiberBeamProperty.", sid);
+                return;
+            }
+            auto& p = registry.get<Component::FiberBeamProperty>(prop_e);
+            if (param_name == "pattern")            { p.pattern = value_str; }
+            else if (param_name == "small_strain")  { p.small_strain.value = value_str; }
+            else if (param_name == "integration_points") { p.integration_points = std::stoi(value_str); }
+            else {
+                spdlog::error("Unknown FiberBeam param: '{}'. Valid: pattern, small_strain, integration_points", param_name);
+                return;
+            }
+        }
+        else if (section_type == "Cohesive") {
+            if (!registry.all_of<Component::CohesiveProperty>(prop_e)) {
+                spdlog::error("Section {} does not have CohesiveProperty.", sid);
+                return;
+            }
+            auto& p = registry.get<Component::CohesiveProperty>(prop_e);
+            if (param_name == "small_strain") { p.small_strain.value = value_str; }
+            else if (param_name == "thickness") { p.thickness = std::stod(value_str); }
+            else {
+                spdlog::error("Unknown Cohesive param: '{}'. Valid: small_strain, thickness", param_name);
+                return;
+            }
+        }
+        else if (section_type == "AxialSpringDamper") {
+            if (!registry.all_of<Component::AxialSpringDamperProperty>(prop_e)) {
+                spdlog::error("Section {} does not have AxialSpringDamperProperty.", sid);
+                return;
+            }
+            auto& p = registry.get<Component::AxialSpringDamperProperty>(prop_e);
+            if (param_name == "mass")               { p.mass = std::stod(value_str); }
+            else if (param_name == "stiffness")     { p.stiffness = std::stod(value_str); }
+            else if (param_name == "damping")       { p.damping = std::stod(value_str); }
+            else if (param_name == "hardening_flag") { p.hardening_flag = value_str; }
+            else if (param_name == "nonlinear_spring") { p.nonlinear_spring = parse_bool(value_str); }
+            else if (param_name == "nonlinear_damper") { p.nonlinear_damper = parse_bool(value_str); }
+            else {
+                spdlog::error("Unknown AxialSpringDamper param: '{}'. Valid: mass, stiffness, damping, hardening_flag, nonlinear_spring, nonlinear_damper", param_name);
+                return;
+            }
+        }
+        else if (section_type == "BeamSpring") {
+            if (!registry.all_of<Component::BeamSpringProperty>(prop_e)) {
+                spdlog::error("Section {} does not have BeamSpringProperty.", sid);
+                return;
+            }
+            auto& p = registry.get<Component::BeamSpringProperty>(prop_e);
+            if (param_name == "mass")               { p.mass = std::stod(value_str); }
+            else if (param_name == "inertia")       { p.inertia = std::stod(value_str); }
+            else if (param_name == "coord_sys")     { p.coord_sys.value = value_str; }
+            else if (param_name == "ref_tran_vel")  { p.ref_tran_vel = std::stod(value_str); }
+            else if (param_name == "ref_rot_vel")   { p.ref_rot_vel = std::stod(value_str); }
+            else if (param_name == "smooth_strain_rate") { p.smooth_strain_rate = parse_bool(value_str); }
+            else if (param_name == "failure_criteria")  { p.failure_criteria = value_str; }
+            else if (param_name == "length_flag")       { p.length_flag = value_str; }
+            else if (param_name == "failure_model")     { p.failure_model = value_str; }
+            else if (param_name == "k0") { p.linear_stiffness[0] = std::stod(value_str); }
+            else if (param_name == "k1") { p.linear_stiffness[1] = std::stod(value_str); }
+            else if (param_name == "k2") { p.linear_stiffness[2] = std::stod(value_str); }
+            else if (param_name == "k3") { p.linear_stiffness[3] = std::stod(value_str); }
+            else if (param_name == "k4") { p.linear_stiffness[4] = std::stod(value_str); }
+            else if (param_name == "k5") { p.linear_stiffness[5] = std::stod(value_str); }
+            else if (param_name == "c0") { p.linear_damping[0] = std::stod(value_str); }
+            else if (param_name == "c1") { p.linear_damping[1] = std::stod(value_str); }
+            else if (param_name == "c2") { p.linear_damping[2] = std::stod(value_str); }
+            else if (param_name == "c3") { p.linear_damping[3] = std::stod(value_str); }
+            else if (param_name == "c4") { p.linear_damping[4] = std::stod(value_str); }
+            else if (param_name == "c5") { p.linear_damping[5] = std::stod(value_str); }
+            else {
+                spdlog::error("Unknown BeamSpring param: '{}'.", param_name);
+                return;
+            }
+        }
+        else {
+            spdlog::error("Unknown section type: '{}'. Valid: Solid, Truss, Shell, SolidAdvanced, SolidShell, SolidShComp, Beam, FiberBeam, Cohesive, AxialSpringDamper, BeamSpring", section_type);
+            return;
+        }
+
+        spdlog::info("Section {} {}.{} = {}", sid, section_type, param_name, value_str);
     }
     else if (command == "list_nodes") {
         auto& registry = session.data.registry;
