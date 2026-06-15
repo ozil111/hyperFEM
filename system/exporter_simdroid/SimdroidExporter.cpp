@@ -4,6 +4,7 @@
 #include "SimdroidExporter.h"
 #include "../../data_center/components/mesh_components.h"
 #include "../../data_center/components/material_components.h"
+#include "../../data_center/components/property_components.h"
 #include "../../data_center/components/simdroid_components.h"
 #include "../../data_center/components/analysis_component.h"
 #include "../../data_center/TopologyData.h"
@@ -1073,6 +1074,50 @@ void SimdroidExporter::save_control_json(const std::string& path, DataContext& c
         if (!ele_set_name.empty()) (*prop_node)["EleSet"] = ele_set_name;
         if (!mat_name.empty()) (*prop_node)["Material"] = mat_name;
         if (!section_name.empty()) (*prop_node)["CrossSection"] = section_name;
+    }
+
+    // --- Sync CrossSection properties from ECS ---
+    {
+        if (!output.contains("CrossSection") || !output["CrossSection"].is_object()) {
+            output["CrossSection"] = nlohmann::json::object();
+        }
+        auto& cs_block = output["CrossSection"];
+
+        auto section_view = registry.view<const Component::PropertyID, const Component::SetName>();
+        for (auto entity : section_view) {
+            const auto& name = section_view.get<const Component::SetName>(entity).value;
+            if (name.empty()) continue;
+
+            if (!cs_block.contains(name)) {
+                cs_block[name] = nlohmann::json::object();
+            }
+            auto& cs_node = cs_block[name];
+
+            if (registry.all_of<Component::Type>(entity)) {
+                const std::string type_str = registry.get<Component::Type>(entity).value;
+                std::string type_l = type_str;
+                std::transform(type_l.begin(), type_l.end(), type_l.begin(),
+                    [](unsigned char c) { return std::tolower(c); });
+
+                // Solid / SolidOrthotropic → SolidAdvancedProperty
+                if ((type_l == "solid" || type_l == "solidorthotropic")
+                    && registry.all_of<Component::SolidAdvancedProperty>(entity)) {
+                    const auto& prop = registry.get<Component::SolidAdvancedProperty>(entity);
+
+                    if (!prop.formulation.empty()) {
+                        cs_node["Formulation"] = nlohmann::json::array({prop.formulation});
+                    }
+                    if (!prop.small_strain.empty())    cs_node["SmallStrain"]     = prop.small_strain;
+                    if (!prop.const_pressure.empty())  cs_node["ConstPressure"]    = prop.const_pressure;
+                    if (!prop.co_rotation_flag.empty()) cs_node["CoRotationFlag"]  = prop.co_rotation_flag;
+                    cs_node["QuadraticViscosity"] = prop.bulk_viscosity.quadratic;
+                    cs_node["LinearViscosity"]    = prop.bulk_viscosity.linear;
+                    cs_node["hm"]                 = prop.visco_hourglass_k;
+                    cs_node["dtmin"]              = prop.dtmin;
+                }
+                // TODO: 后续可添加其他 section 类型的同步 (Shell, SolidShell, Beam 等)
+            }
+        }
     }
 
     // --- Prune blueprint blocks that reference deleted/empty sets ---
