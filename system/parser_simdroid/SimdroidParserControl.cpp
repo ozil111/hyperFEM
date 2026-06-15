@@ -105,12 +105,12 @@ void SimdroidParser::parse_cross_sections(
 {
     if (!j.contains("CrossSection") || !j["CrossSection"].is_object()) return;
 
+    int pid_counter = 1; // Auto-incrementing PID
+
     for (auto& [cs_name, cs_val] : j["CrossSection"].items()) {
         const entt::entity cs_entity = registry.create();
         registry.emplace<Component::SetName>(cs_entity, cs_name);
-        
-        int pid_counter = 1; // Auto-incrementing PID (will be corrected by map size later)
-        registry.emplace<Component::PropertyID>(cs_entity, pid_counter++); // Auto-assign PID
+        registry.emplace<Component::PropertyID>(cs_entity, pid_counter++);
         cross_section_map.emplace(cs_name, cs_entity);
 
         const std::string type_str = cs_val.value("Type", "");
