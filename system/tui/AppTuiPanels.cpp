@@ -552,6 +552,26 @@ bool open_panel_in_top_view(AppSession& session, TuiAppState& state,
                 }));
             }
         }
+
+        // Add ElementSet jump button
+        if (session.data.registry.valid(part.element_set)) {
+            std::string set_name;
+            if (session.data.registry.all_of<::Component::SetName>(part.element_set)) {
+                set_name = session.data.registry.get<::Component::SetName>(part.element_set).value;
+            }
+            if (!set_name.empty()) {
+                link_buttons.push_back(ftxui::Button("Element Set: " + set_name, [&session, &state, part]() {
+                    if (session.data.registry.valid(part.element_set)) {
+                        std::string sn;
+                        if (session.data.registry.all_of<::Component::SetName>(part.element_set)) {
+                            sn = session.data.registry.get<::Component::SetName>(part.element_set).value;
+                        }
+                        if (!sn.empty())
+                            (void)open_panel_in_top_view(session, state, "set", sn, true);
+                    }
+                }));
+            }
+        }
     }
 
     const bool has_links = !link_buttons.empty();
