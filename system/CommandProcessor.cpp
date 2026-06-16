@@ -133,6 +133,62 @@ void rebuild_inspector_if_mesh_loaded(AppSession& session) {
     session.inspector.build(session.data.registry);
 }
 
+/**
+ * Parse the next argument from the stringstream.
+ * Supports quoted strings: "path with spaces" or 'path with spaces'.
+ * Unquoted tokens are read until whitespace.
+ */
+std::string parse_next_arg(std::stringstream& ss) {
+    ss >> std::ws;           // skip leading whitespace
+    if (ss.eof()) return {};
+
+    int ch = ss.peek();
+    if (ch == '"' || ch == '\'') {
+        // Quoted string — read until matching closing quote
+        char quote = static_cast<char>(ch);
+        ss.get();            // consume opening quote
+        std::string result;
+        char c;
+        while (ss.get(c)) {
+            if (c == quote) break;
+            result.push_back(c);
+        }
+        return result;
+    } else {
+        // Unquoted — read until whitespace
+        std::string result;
+        ss >> result;
+        return result;
+    }
+}
+
+/**
+ * Read the remainder of the line, trim whitespace, and strip matching
+ * outer quotes (single or double). Suitable for commands with a single
+ * file-path argument (e.g. import, import_simdroid, save).
+ */
+std::string read_rest_of_line(std::stringstream& ss) {
+    std::string rest;
+    std::getline(ss, rest);
+
+    // Trim leading/trailing whitespace
+    const std::string whitespace = " \t\r\n";
+    size_t start = rest.find_first_not_of(whitespace);
+    if (start == std::string::npos) return {};
+    size_t end = rest.find_last_not_of(whitespace);
+    rest = rest.substr(start, end - start + 1);
+
+    // Strip matching outer single or double quotes
+    if (rest.size() >= 2) {
+        char first = rest.front();
+        char last  = rest.back();
+        if ((first == '"' && last == '"') || (first == '\'' && last == '\'')) {
+            rest = rest.substr(1, rest.size() - 2);
+        }
+    }
+    return rest;
+}
+
 } // anonymous namespace
 
 void process_command(const std::string& command_line, AppSession& session) {
@@ -158,8 +214,7 @@ void process_command(const std::string& command_line, AppSession& session) {
                      "save, help, quit");
     }
     else if (command == "import") {
-        std::string file_path;
-        ss >> file_path;
+        std::string file_path = read_rest_of_line(ss);
         if (file_path.empty()) {
             spdlog::error("Usage: import <path_to_file>");
             return;
@@ -202,8 +257,7 @@ void process_command(const std::string& command_line, AppSession& session) {
         }
     }
     else if (command == "json_apply") {
-        std::string file_path;
-        ss >> file_path;
+        std::string file_path = read_rest_of_line(ss);
         if (file_path.empty()) {
             spdlog::error("Usage: json_apply <path_to_fragment.json|.jsonc>");
             spdlog::info("Merges a JSON fragment into the current model using the same keys/schema as import "
@@ -243,8 +297,7 @@ void process_command(const std::string& command_line, AppSession& session) {
     // New: Simdroid import command
     // =======================================================
     else if (command == "import_simdroid") {
-        std::string control_path_str;
-        ss >> control_path_str;
+        std::string control_path_str = read_rest_of_line(ss);
         if (control_path_str.empty()) {
             spdlog::error("Usage: import_simdroid <path_to_control.json>");
             return;
@@ -295,9 +348,8 @@ void process_command(const std::string& command_line, AppSession& session) {
             return;
         }
 
-        std::string arg1;
-        std::string arg2;
-        ss >> arg1 >> arg2;
+        std::string arg1 = parse_next_arg(ss);
+        std::string arg2 = parse_next_arg(ss);
 
         if (arg1.empty()) {
             spdlog::error("Usage: export_simdroid <output_dir | mesh.dat | control.json> [control.json]");
@@ -420,8 +472,7 @@ void process_command(const std::string& command_line, AppSession& session) {
             spdlog::error("No mesh loaded to save. Please 'import' a mesh first.");
             return;
         }
-        std::string file_path;
-        ss >> file_path;
+        std::string file_path = read_rest_of_line(ss);
         if (file_path.empty()) {
             spdlog::error("Usage: save <path_to_output_file.xfem>");
             return;
@@ -509,8 +560,7 @@ void process_command(const std::string& command_line, AppSession& session) {
             return;
         }
 
-        std::string output_filename;
-        ss >> output_filename;
+        std::string output_filename = read_rest_of_line(ss);
         if (output_filename.empty()) output_filename = "connectivity.html";
 
         spdlog::info("Analyzing connectivity...");
@@ -540,8 +590,7 @@ void process_command(const std::string& command_line, AppSession& session) {
             return;
         }
 
-        std::string output_filename;
-        ss >> output_filename;
+        std::string output_filename = parse_next_arg(ss);
         if (output_filename.empty()) output_filename = "remesh_plan.json";
 
         double ratio = 100.0;
