@@ -290,13 +290,17 @@ bool open_panel_in_top_view(AppSession& session, TuiAppState& state,
                             const std::string& type, const std::string& id_or_name,
                             bool push_history)
 {
+    // 拷贝本地副本，防止 state.top_panel 被替换时调用方传入的引用（如 shared_rows 中的 r.type）变成悬挂引用
+    const std::string type_local = type;
+    const std::string id_local   = id_or_name;
+
     if (push_history) {
-        save_view_state(state, "panel " + type + " " + id_or_name);
+        save_view_state(state, "panel " + type_local + " " + id_local);
     }
     PanelEntityKind kind = PanelEntityKind::Unknown;
     std::string display_id;
     entt::entity e = resolve_panel_entity(
-        session.data.registry, &session.inspector, type, id_or_name, &kind, &display_id);
+        session.data.registry, &session.inspector, type_local, id_local, &kind, &display_id);
     if (e == entt::null) {
         spdlog::error("Panel: entity not found. Ensure mesh is loaded and index built.");
         return false;
@@ -363,7 +367,7 @@ bool open_panel_in_top_view(AppSession& session, TuiAppState& state,
             [](const SetMemberRow& a, const SetMemberRow& b) { return a.id < b.id; });
 
         const bool is_node_set = (member_type == "node");
-        const std::string set_title = is_node_set ? "NodeSet: " + id_or_name : "ElementSet: " + id_or_name;
+        const std::string set_title = is_node_set ? "NodeSet: " + id_local : "ElementSet: " + id_local;
 
         auto shared_rows = std::make_shared<std::vector<SetMemberRow>>(std::move(rows));
         auto shared_selected = std::make_shared<int>(shared_rows->empty() ? -1 : 0);
@@ -436,7 +440,7 @@ bool open_panel_in_top_view(AppSession& session, TuiAppState& state,
             });
         });
 
-        const std::string set_id_capture = id_or_name;
+        const std::string set_id_capture = id_local;
         state.top_panel = ftxui::CatchEvent(*state.top_panel, [&session, &state, shared_rows, shared_selected, set_id_capture](ftxui::Event ev) -> bool {
             const int total = static_cast<int>(shared_rows->size());
             if (total == 0) return false;
@@ -470,8 +474,8 @@ bool open_panel_in_top_view(AppSession& session, TuiAppState& state,
         state.left_view_mode = LeftViewMode::StaticElement;
         state.left_focus = 0.0f;
         state.focus_region = FocusRegion::TopLeftView;
-        state.current_panel_type = type;
-        state.current_panel_id = id_or_name;
+        state.current_panel_type = type_local;
+        state.current_panel_id = id_local;
         return true;
     }
 
@@ -614,8 +618,8 @@ bool open_panel_in_top_view(AppSession& session, TuiAppState& state,
     state.left_view_mode = LeftViewMode::StaticElement;
     state.left_focus = 0.0f;
     state.focus_region = FocusRegion::TopLeftView;
-    state.current_panel_type = type;
-    state.current_panel_id = id_or_name;
+    state.current_panel_type = type_local;
+    state.current_panel_id = id_local;
     return true;
 }
 
