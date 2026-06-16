@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 #include <entt/entt.hpp>
+#include <filesystem>
 #include "remesh/ConnectionPreservingRemesher.h"
+#include "parser_simdroid/SimdroidParser.h"
 #include "components/material_components.h"
 #include "components/mesh_components.h"
 #include "components/property_components.h"
@@ -98,4 +100,65 @@ TEST(ConnectionPreservingRemesherTest, BuildsPlanWithSharedNodeInterface) {
         ConnectionPreservingRemesher::validate_preservation(plan, broken);
     EXPECT_FALSE(bad.valid);
     EXPECT_FALSE(bad.errors.empty());
+}
+
+TEST(ConnectionPreservingRemesherTest, BuildsPlanForCantileverBeamCase) {
+    const std::filesystem::path control_path =
+        std::filesystem::path("case") / "cantilever beam" / "cantilever_beam_inp" / "control.json";
+    const std::filesystem::path mesh_path = control_path.parent_path() / "mesh.dat";
+    if (!std::filesystem::exists(control_path) || !std::filesystem::exists(mesh_path)) {
+        GTEST_SKIP() << "cantilever beam Simdroid case is not available";
+    }
+
+    DataContext ctx;
+    ASSERT_TRUE(SimdroidParser::parse(mesh_path.string(), control_path.string(), ctx));
+
+    SimdroidInspector inspector;
+    inspector.build(ctx.registry);
+
+    RemeshOptions options;
+    options.target_compression_ratio = 100.0;
+    RemeshPlan plan = ConnectionPreservingRemesher::build_plan(ctx.registry, inspector, options);
+
+    EXPECT_EQ(plan.original_element_count, 20000);
+    EXPECT_EQ(plan.target_element_count, 200);
+    ASSERT_EQ(plan.parts.size(), 1);
+    EXPECT_EQ(plan.parts[0].part_name, "Component_1_Set-1");
+    EXPECT_EQ(plan.parts[0].original_element_count, 20000);
+    EXPECT_EQ(plan.parts[0].target_element_count, 200);
+    ASSERT_EQ(plan.parts[0].element_type_counts.size(), 1);
+    EXPECT_EQ(plan.parts[0].element_type_counts.at(308), 20000);
+    EXPECT_TRUE(plan.parts[0].has_load);
+    EXPECT_TRUE(plan.parts[0].has_constraint);
+    EXPECT_TRUE(plan.interfaces.empty());
+}
+
+TEST(ConnectionPreservingRemesherTest, StructuredHex8RemeshesCantileverBeamToTargetCount) {
+    const std::filesystem::path control_path =
+        std::filesystem::path("case") / "cantilever beam" / "cantilever_beam_inp" / "control.json";
+    const std::filesystem::path mesh_path = control_path.parent_path() / "mesh.dat";
+    if (!std::filesystem::exists(control_path) || !std::filesystem::exists(mesh_path)) {
+        GTEST_SKIP() << "cantilever beam Simdroid case is not available";
+    }
+
+    DataContext ctx;
+    ASSERT_TRUE(SimdroidParser::parse(mesh_path.string(), control_path.string(), ctx));
+
+    SimdroidInspector inspector;
+    RemeshOptions options;
+    options.target_compression_ratio = 100.0;
+
+    RemeshExecutionResult result =
+        ConnectionPreservingRemesher::remesh_structured_hex8(ctx, inspector, options);
+
+    ASSERT_TRUE(result.success) << result.message;
+    EXPECT_TRUE(result.validation.valid);
+    EXPECT_EQ(result.before.original_element_count, 20000);
+    EXPECT_EQ(result.before.target_element_count, 200);
+    EXPECT_EQ(result.after.original_element_count, 200);
+    ASSERT_EQ(result.after.parts.size(), 1);
+    ASSERT_EQ(result.after.parts[0].element_type_counts.size(), 1);
+    EXPECT_EQ(result.after.parts[0].element_type_counts.at(308), 200);
+    EXPECT_TRUE(result.after.parts[0].has_load);
+    EXPECT_TRUE(result.after.parts[0].has_constraint);
 }

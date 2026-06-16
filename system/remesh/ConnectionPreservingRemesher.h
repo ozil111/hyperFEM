@@ -7,6 +7,7 @@
  */
 #pragma once
 
+#include "DataContext.h"
 #include "PartGraph.h"
 #include "simdroid/SimdroidInspector.h"
 #include <entt/entt.hpp>
@@ -62,6 +63,17 @@ struct RemeshValidationResult {
     nlohmann::json to_json() const;
 };
 
+struct RemeshExecutionResult {
+    bool success = false;
+    std::string message;
+    RemeshPlan before;
+    RemeshPlan after;
+    RemeshValidationResult validation;
+    std::vector<std::string> warnings;
+
+    nlohmann::json to_json() const;
+};
+
 class ConnectionPreservingRemesher {
 public:
     static RemeshPlan build_plan(entt::registry& registry,
@@ -72,6 +84,10 @@ public:
                                                         const RemeshPlan& after);
 
     static bool write_plan_json(const RemeshPlan& plan, const std::string& output_path);
+
+    static RemeshExecutionResult remesh_structured_hex8(DataContext& ctx,
+                                                        SimdroidInspector& inspector,
+                                                        const RemeshOptions& options = {});
 
 private:
     static std::vector<InterfaceSignature> collect_interface_signatures(const PartGraph& graph);

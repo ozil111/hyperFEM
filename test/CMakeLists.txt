@@ -122,3 +122,32 @@ else()
     )
 endif()
 
+if(WIN32 AND NOT MSVC)
+    find_program(MINGW_GXX g++ REQUIRED)
+    get_filename_component(MINGW_BIN_DIR ${MINGW_GXX} DIRECTORY)
+
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        set(VCPKG_BIN_DIR "${CMAKE_SOURCE_DIR}/vcpkg_installed/${NOVAFEA_VCPKG_TRIPLET}/debug/bin")
+    else()
+        set(VCPKG_BIN_DIR "${CMAKE_SOURCE_DIR}/vcpkg_installed/${NOVAFEA_VCPKG_TRIPLET}/bin")
+    endif()
+
+    foreach(TEST_TARGET test_assembly_system test_json_exporter test_connection_preserving_remesher)
+        add_custom_command(TARGET ${TEST_TARGET} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${MINGW_BIN_DIR}/libgcc_s_seh-1.dll"
+                "$<TARGET_FILE_DIR:${TEST_TARGET}>"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${MINGW_BIN_DIR}/libstdc++-6.dll"
+                "$<TARGET_FILE_DIR:${TEST_TARGET}>"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${MINGW_BIN_DIR}/libwinpthread-1.dll"
+                "$<TARGET_FILE_DIR:${TEST_TARGET}>"
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+                "${VCPKG_BIN_DIR}"
+                "$<TARGET_FILE_DIR:${TEST_TARGET}>"
+            COMMENT "Copying runtime DLLs for ${TEST_TARGET}"
+        )
+    endforeach()
+endif()
+

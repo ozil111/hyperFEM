@@ -203,7 +203,7 @@ void process_command(const std::string& command_line, AppSession& session) {
     else if (command == "help") {
         spdlog::info("Available commands: import, import_simdroid, export_simdroid, json_apply, "
                      "info, build_topology, list_bodies, show_body, "
-                     "list_parts, delete_part, graph, remesh_plan, validate_constraints, list_constraint_warnings, "
+                     "list_parts, delete_part, graph, remesh_plan, remesh_generate, validate_constraints, list_constraint_warnings, "
                      "panel node <nid>, panel elem <eid>, panel part <name>, panel set <name>, "
                      "node, list_nodes, node_add, node_move, node_delete, "
                      "elem, elem_add, elem_delete, "
@@ -620,6 +620,74 @@ void process_command(const std::string& command_line, AppSession& session) {
                                static_cast<double>(plan.target_element_count),
                      plan.parts.size(),
                      plan.interfaces.size());
+    }
+    else if (command == "remesh_generate") {
+        if (!session.mesh_loaded) {
+            spdlog::warn("No mesh loaded. Please 'import_simdroid' first.");
+            return;
+        }
+
+        std::string output_dir = parse_next_arg(ss);
+        if (output_dir.empty()) output_dir = "remeshed";
+
+        double ratio = 100.0;
+        if (!(ss >> ratio)) {
+            ratio = 100.0;
+        }
+
+        RemeshOptions options;
+        options.target_compression_ratio = ratio;
+
+        try {
+            std::filesystem::path out_dir(output_dir);
+            std::filesystem::create_directories(out_dir);
+
+            spdlog::info("Generating structured Hex8 remesh...");
+            RemeshExecutionResult result =
+                ConnectionPreservingRemesher::remesh_structured_hex8(
+                    session.data, session.inspector, options);
+
+            const auto before_path = out_dir / "remesh_before.json";
+            const auto after_path = out_dir / "remesh_after.json";
+            const auto validation_path = out_dir / "remesh_validation.json";
+            const auto result_path = out_dir / "remesh_result.json";
+
+            ConnectionPreservingRemesher::write_plan_json(result.before, before_path.string());
+            ConnectionPreservingRemesher::write_plan_json(result.after, after_path.string());
+            {
+                std::ofstream out(validation_path);
+                out << result.validation.to_json().dump(2) << '\n';
+            }
+            {
+                std::ofstream out(result_path);
+                out << result.to_json().dump(2) << '\n';
+            }
+
+            if (!result.success) {
+                spdlog::error("Remesh generation failed: {}", result.message);
+                for (const auto& error : result.validation.errors) {
+                    spdlog::error("  {}", error);
+                }
+                return;
+            }
+
+            session.mesh_loaded = true;
+            session.topology_built = false;
+
+            const auto mesh_path = out_dir / "mesh.dat";
+            const auto control_path = out_dir / "control.json";
+            if (!SimdroidExporter::save(mesh_path.string(), control_path.string(), session.data)) {
+                spdlog::error("Remesh generated, but Simdroid export failed.");
+                return;
+            }
+
+            spdlog::info("Remesh generated: {}", out_dir.string());
+            spdlog::info("Elements: {} -> {}",
+                         result.before.original_element_count,
+                         result.after.original_element_count);
+        } catch (const std::exception& e) {
+            spdlog::error("Exception during remesh generation: {}", e.what());
+        }
     }
     else if (command == "validate_constraints") {
         if (!session.mesh_loaded) {
