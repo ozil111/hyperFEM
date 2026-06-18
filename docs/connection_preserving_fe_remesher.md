@@ -1,84 +1,84 @@
-# Connection-Preserving FE Remesher
+# 连接保持有限元重网格器
 
-Connection-Preserving FE Remesher is a debug-oriented model reduction workflow. Its goal is to produce a much smaller finite element model while preserving solver-relevant connectivity contracts.
+连接保持有限元重网格器（Connection-Preserving FE Remesher）是一个面向调试的模型缩减工作流。其目标是生成一个规模远小于原模型的有限元模型，同时保持与求解器相关的连接约定。
 
-The output is for bug reproduction, solver debugging, regression tests, and development verification only. It is not valid for engineering analysis, design decisions, displacement accuracy, stress accuracy, or frequency accuracy.
+输出**仅**用于 bug 复现、求解器调试、回归测试和开发验证。它不适用于工程分析、设计决策、位移精度、应力精度或频率精度。
 
-## Preserved Contracts
+## 保持的约定
 
-The remesher treats inter-part connectivity as the primary invariant:
+重网格器将部件间连接关系作为首要不变量：
 
-- Part identity is preserved.
-- Element type set per Part is preserved.
-- Property type and material type per Part are preserved.
-- Contact, Tie, MPC, and SharedNode interface identities are preserved.
-- Contact and constraint formulation metadata should remain unchanged when present in the ECS model.
+- 部件（Part）标识保持不变。
+- 每个部件的单元类型集合保持不变。
+- 每个部件的属性类型和材料类型保持不变。
+- 接触（Contact）、绑定（Tie）、多点约束（MPC）和共享节点（SharedNode）接口标识保持不变。
+- 当 ECS 模型中存在接触和约束的格式元数据时，应保持其不变。
 
-Changing any of these contracts is considered a remeshing failure, even if the reduced mesh solves successfully.
+改变以上任何约定都视为重网格失败，即使缩减后的网格能够成功求解。
 
-## Current Implementation
+## 当前实现
 
-The implementation currently has two layers:
+当前实现包含两个层次：
 
-1. A planning and validation layer.
-2. A limited structured Hex8 mesh-generation layer for a single-Part debug case.
+1. 规划与验证层。
+2. 针对单部件调试场景的有限结构化 Hex8 网格生成层。
 
-### Planning and Validation
+### 规划与验证
 
 - `ConnectionPreservingRemesher::build_plan(...)`
-  builds a machine-readable reduction plan from the current ECS registry and `SimdroidInspector`.
+  从当前 ECS 注册表和 `SimdroidInspector` 构建可机器读取的缩减计划。
 - `ConnectionPreservingRemesher::validate_preservation(before, after)`
-  checks whether Part signatures and Interface signatures were preserved.
+  检查部件签名和接口签名是否得到保持。
 - `ConnectionPreservingRemesher::write_plan_json(...)`
-  writes a plan to JSON.
+  将计划写入 JSON 文件。
 - `remesh_plan [output.json] [ratio]`
-  interactive command that writes the plan as JSON.
+  交互式命令，将计划输出为 JSON。
 
-### Structured Hex8 Generation
+### 结构化 Hex8 生成
 
 - `ConnectionPreservingRemesher::remesh_structured_hex8(...)`
-  performs a restricted physical mesh replacement for one structured Hex8 Part.
+  针对一个结构化 Hex8 部件执行受限的物理网格替换。
 - `remesh_generate [output_dir] [ratio]`
-  interactive command that writes the remeshed Simdroid project and validation artifacts.
+  交互式命令，输出重网格后的 Simdroid 项目和验证产物。
 
-This generator is intentionally narrow. It currently supports:
+此生成器刻意保持功能精简，目前支持：
 
-- exactly one `SimdroidPart`;
-- exactly one element type, Hex8 (`ElementType=308`);
-- node coordinates that form a complete 3D structured grid;
-- node-set reconstruction by nearest coarse-grid nodes;
-- element-set reconstruction by assigning the new coarse elements;
-- surface-set reconstruction from the new exterior coarse faces;
-- load and boundary reattachment through the original Simdroid blueprint set names.
+- 恰好一个 `SimdroidPart`；
+- 恰好一种单元类型 Hex8（`ElementType=308`）；
+- 节点坐标构成完整的三维结构化网格；
+- 通过最近粗网格节点重建节点集；
+- 通过分配新的粗单元来重建单元集；
+- 从新的外部粗面重建表面集；
+- 通过原始 Simdroid 蓝图集名称重新附加载荷和边界条件。
 
-It rejects unsupported models instead of silently producing a misleading mesh.
+对于不支持的模型，它会拒绝处理，而非静默生成具有误导性的网格。
 
-## CLI Usage
+## CLI 用法
 
-Generate a plan only:
+仅生成计划：
 
 ```text
 import_simdroid path/to/control.json
 remesh_plan remesh_plan.json 100
 ```
 
-The generated JSON contains:
+生成的 JSON 包含：
 
-- requested compression options
-- original and target element counts
-- Part-level target element counts
-- element type distributions
-- material/property type signatures
-- interface signatures
+- 请求的压缩选项
+- 原始和目标单元数量
+- 部件级别的目标单元数量
+- 单元类型分布
+- 材料/属性类型签名
+- 接口签名
 
-Generate a remeshed debug project:
+生成重网格后的调试项目：
 
 ```text
 import_simdroid path/to/control.json
 remesh_generate output/remeshed_case 100
 ```
 
-The output directory contains:
+输出目录包含：
 
 - `mesh.dat`
 - `control.json`
@@ -87,72 +87,72 @@ The output directory contains:
 - `remesh_validation.json`
 - `remesh_result.json`
 
-`remesh_generate` exports the Simdroid project only after preservation validation succeeds.
+`remesh_generate` 仅在保持性验证通过后才导出 Simdroid 项目。
 
-## Cantilever Beam Example
+## 悬臂梁示例
 
-The first supported generation case is:
+首个支持的生成案例为：
 
 ```text
 case\cantilever beam\cantilever_beam_inp\control.json
 ```
 
-Use:
+使用方法：
 
 ```text
 import_simdroid "case\cantilever beam\cantilever_beam_inp\control.json"
 remesh_generate "result\cantilever_remesh_100x" 100
 ```
 
-The source model is a single-Part structured Hex8 cantilever beam:
+源模型为单部件结构化 Hex8 悬臂梁：
 
-- `24321` nodes
-- `20000` Hex8 elements
-- one Part: `Component_1_Set-1`
-- material: `IsotropicElastic`
-- property type: `SolidAdvancedProperty`
-- nodal force set: `load`
-- boundary node sets: `NodeValueSet_1` through `NodeValueSet_6`
-- exterior surface set: `Model_Outside_Surface`
+- `24321` 个节点
+- `20000` 个 Hex8 单元
+- 一个部件：`Component_1_Set-1`
+- 材料：`IsotropicElastic`
+- 属性类型：`SolidAdvancedProperty`
+- 节点力集：`load`
+- 边界节点集：`NodeValueSet_1` 到 `NodeValueSet_6`
+- 外表面集：`Model_Outside_Surface`
 
-With `ratio=100`, the current structured generator produces:
+当 `ratio=100` 时，当前结构化生成器产生：
 
-- about `459` nodes
-- `200` Hex8 elements
-- non-empty rebuilt node, element, and surface sets
-- preserved Part/material/property/type signatures
-- preserved load/constraint Part classification
-- empty interface list, because this case has no Contact, Tie, MPC, or SharedNode interface between Parts
+- 约 `459` 个节点
+- `200` 个 Hex8 单元
+- 非空的重建节点集、单元集和表面集
+- 保持不变的部件/材料/属性/类型签名
+- 保持不变的载荷/约束部件分类
+- 空接口列表，因为此案例没有部件间的 Contact、Tie、MPC 或 SharedNode 接口
 
-Note: in `remesh_after.json`, `summary.original_element_count` is the generated coarse mesh element count. `target_element_count` is the target that would be computed if the already-remeshed model were compressed again with the same ratio.
+注意：在 `remesh_after.json` 中，`summary.original_element_count` 是生成后的粗网格单元数量，`target_element_count` 是如果对已重网格的模型以相同比例再次压缩时计算得到的目标值。
 
-## Tests
+## 测试
 
-Focused tests are in:
+专项测试位于：
 
 ```text
 test\test_connection_preserving_remesher.cpp
 ```
 
-They cover:
+测试涵盖：
 
-- shared-node interface planning on a synthetic two-Part model;
-- plan generation for the cantilever beam case;
-- structured Hex8 remeshing of the cantilever beam from `20000` to `200` elements.
+- 基于合成双部件模型的共享节点接口规划；
+- 悬臂梁案例的计划生成；
+- 悬臂梁从 `20000` 个单元到 `200` 个单元的结构化 Hex8 重网格。
 
-On Windows MinGW/Clang test builds, the test CMake file now copies runtime DLLs, including GTest DLLs, into the test output directory. After building, the focused test executable can be run directly:
+在 Windows MinGW/Clang 测试构建中，测试 CMake 文件现在将运行时 DLL（包括 GTest DLL）复制到测试输出目录。构建后可直接运行专项测试可执行文件：
 
 ```text
 .\bin\Debug\tests\test_connection_preserving_remesher.exe
 ```
 
-## Planned Mesh Generation Stages
+## 计划中的网格生成阶段
 
-1. Generalize protected boundary/interface extraction for each Part.
-2. Add Part-local replacement mesh strategies beyond structured Hex8.
-3. Reconstruct interface sets for Contact, Tie, MPC, and SharedNode topology.
-4. Reapply loads and constraints through decoupled boundary sets for non-structured meshes.
-5. Extend preservation validation to include protected set presence/count policies.
-6. Add multi-Part regression cases with Contact/Tie/MPC/SharedNode interfaces.
+1. 为每个部件泛化受保护的边界/接口提取。
+2. 添加结构化 Hex8 之外的部件局部替换网格策略。
+3. 为 Contact、Tie、MPC 和 SharedNode 拓扑重建接口集。
+4. 通过解耦边界集为非结构化网格重新施加载荷和约束。
+5. 扩展保持性验证以包含受保护集合的存在性/数量策略。
+6. 添加包含 Contact/Tie/MPC/SharedNode 接口的多部件回归案例。
 
-The implementation should reject output if validation fails.
+如果验证失败，实现应拒绝输出。
