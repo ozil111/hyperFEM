@@ -221,6 +221,28 @@ void append_unique(std::vector<entt::entity>& items, entt::entity value) {
     }
 }
 
+// Collect node entities referenced by a set entity, supporting both NodeSetMembers
+// and SurfaceSetMembers (via SurfaceConnectivity).
+std::vector<entt::entity> collect_nodes_from_set(entt::registry& registry,
+                                                  entt::entity set_entity) {
+    std::vector<entt::entity> nodes;
+    if (!registry.valid(set_entity)) return nodes;
+    if (registry.all_of<Component::NodeSetMembers>(set_entity)) {
+        for (auto n : registry.get<Component::NodeSetMembers>(set_entity).members) {
+            append_unique(nodes, n);
+        }
+    }
+    if (registry.all_of<Component::SurfaceSetMembers>(set_entity)) {
+        for (auto s : registry.get<Component::SurfaceSetMembers>(set_entity).members) {
+            if (!registry.valid(s) || !registry.all_of<Component::SurfaceConnectivity>(s)) continue;
+            for (auto n : registry.get<Component::SurfaceConnectivity>(s).nodes) {
+                append_unique(nodes, n);
+            }
+        }
+    }
+    return nodes;
+}
+
 void reapply_loads_and_boundaries_from_blueprint(DataContext& ctx) {
     auto& registry = ctx.registry;
     if (ctx.simdroid_blueprint.is_null()) return;
@@ -327,6 +349,99 @@ ConnectionPreservingRemesher::collect_interface_signatures(const PartGraph& grap
     return signatures;
 }
 
+std::vector<ProtectedPartInfo>
+ConnectionPreservingRemesher::extract_protected_entities(entt::registry& registry,
+                                                         SimdroidInspector& inspector) {
+    if (!inspector.is_built) {
+        inspector.build(registry);
+    }
+
+    std::map<std::string, ProtectedPartInfo> info_by_part;
+    {
+        auto part_view = registry.view<const Component::SimdroidPart>();
+        for (auto part_entity : part_view) {
+            const auto& part = part_view.get<const Component::SimdroidPart>(part_entity);
+            info_by_part[part.name].part_name = part.name;
+        }
+    }
+
+    // Assign a node entity to every part that references it via its elements.
+    auto assign_node_to_parts = [&](entt::entity node_entity,
+                                    std::vector<entt::entity> ProtectedPartInfo::* field) {
+        if (!registry.valid(node_entity) || !registry.all_of<Component::NodeID>(node_entity)) return;
+        const int nid = registry.get<Component::NodeID>(node_entity).value;
+        auto it = inspector.nid_to_elems.find(nid);
+        if (it == inspector.nid_to_elems.end()) return;
+        for (int eid : it->second) {
+            auto pit = inspector.eid_to_part.find(eid);
+            if (pit == inspector.eid_to_part.end()) continue;
+            auto iit = info_by_part.find(pit->second);
+            if (iit == info_by_part.end()) continue;
+            append_unique(iit->second.*field, node_entity);
+        }
+    };
+
+    // 1. Shared nodes: a node referenced by elements of more than one part.
+    for (const auto& [nid, elem_ids] : inspector.nid_to_elems) {
+        if (elem_ids.empty()) continue;
+        std::set<std::string> parts_for_node;
+        for (int eid : elem_ids) {
+            auto pit = inspector.eid_to_part.find(eid);
+            if (pit != inspector.eid_to_part.end()) {
+                parts_for_node.insert(pit->second);
+            }
+        }
+        if (parts_for_node.size() <= 1) continue;
+
+        auto nid_it = inspector.nid_to_entity.find(nid);
+        if (nid_it == inspector.nid_to_entity.end()) continue;
+        entt::entity node_entity = nid_it->second;
+        for (const auto& part_name : parts_for_node) {
+            auto iit = info_by_part.find(part_name);
+            if (iit != info_by_part.end()) {
+                append_unique(iit->second.shared_nodes, node_entity);
+            }
+        }
+    }
+
+    // 2. Contact nodes: nodes on master/slave surfaces of every ContactBase.
+    {
+        auto view = registry.view<const Component::ContactBase>();
+        for (auto entity : view) {
+            const auto& contact = view.get<const Component::ContactBase>(entity);
+            for (auto node_entity : collect_nodes_from_set(registry, contact.master_entity)) {
+                assign_node_to_parts(node_entity, &ProtectedPartInfo::contact_nodes);
+            }
+            for (auto node_entity : collect_nodes_from_set(registry, contact.slave_entity)) {
+                assign_node_to_parts(node_entity, &ProtectedPartInfo::contact_nodes);
+            }
+        }
+    }
+
+    // 3. Loaded nodes: nodes carrying AppliedLoadRef.
+    {
+        auto view = registry.view<const Component::AppliedLoadRef>();
+        for (auto entity : view) {
+            assign_node_to_parts(entity, &ProtectedPartInfo::loaded_nodes);
+        }
+    }
+
+    // 4. Constrained nodes: nodes carrying AppliedBoundaryRef.
+    {
+        auto view = registry.view<const Component::AppliedBoundaryRef>();
+        for (auto entity : view) {
+            assign_node_to_parts(entity, &ProtectedPartInfo::constrained_nodes);
+        }
+    }
+
+    std::vector<ProtectedPartInfo> result;
+    result.reserve(info_by_part.size());
+    for (auto& [name, info] : info_by_part) {
+        result.push_back(std::move(info));
+    }
+    return result;
+}
+
 RemeshPlan ConnectionPreservingRemesher::build_plan(entt::registry& registry,
                                                     SimdroidInspector& inspector,
                                                     const RemeshOptions& options) {
@@ -347,6 +462,12 @@ RemeshPlan ConnectionPreservingRemesher::build_plan(entt::registry& registry,
     PartGraph graph = GraphBuilder::build(registry, inspector);
     plan.interfaces = collect_interface_signatures(graph);
 
+    auto protected_infos = extract_protected_entities(registry, inspector);
+    std::map<std::string, const ProtectedPartInfo*> protected_by_name;
+    for (const auto& info : protected_infos) {
+        protected_by_name[info.part_name] = &info;
+    }
+
     auto part_view = registry.view<const Component::SimdroidPart>();
     for (auto part_entity : part_view) {
         const auto& part = part_view.get<const Component::SimdroidPart>(part_entity);
@@ -360,6 +481,18 @@ RemeshPlan ConnectionPreservingRemesher::build_plan(entt::registry& registry,
         if (graph_it != graph.nodes.end()) {
             part_plan.has_load = graph_it->second.is_load_part;
             part_plan.has_constraint = graph_it->second.is_constraint_part;
+        }
+
+        auto prot_it = protected_by_name.find(part.name);
+        if (prot_it != protected_by_name.end()) {
+            part_plan.protected_shared_node_count =
+                static_cast<int>(prot_it->second->shared_nodes.size());
+            part_plan.protected_contact_node_count =
+                static_cast<int>(prot_it->second->contact_nodes.size());
+            part_plan.protected_loaded_node_count =
+                static_cast<int>(prot_it->second->loaded_nodes.size());
+            part_plan.protected_constrained_node_count =
+                static_cast<int>(prot_it->second->constrained_nodes.size());
         }
 
         if (registry.valid(part.element_set) &&
@@ -655,7 +788,11 @@ nlohmann::json RemeshPlan::to_json() const {
             {"property_type", part.property_type},
             {"material_type", part.material_type},
             {"has_load", part.has_load},
-            {"has_constraint", part.has_constraint}
+            {"has_constraint", part.has_constraint},
+            {"protected_shared_node_count", part.protected_shared_node_count},
+            {"protected_contact_node_count", part.protected_contact_node_count},
+            {"protected_loaded_node_count", part.protected_loaded_node_count},
+            {"protected_constrained_node_count", part.protected_constrained_node_count}
         });
     }
 

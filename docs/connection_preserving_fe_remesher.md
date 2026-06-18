@@ -144,6 +144,7 @@ test\test_connection_preserving_remesher.cpp
 测试涵盖：
 
 - 基于合成双部件模型的共享节点接口规划；
+- 基于合成双部件模型的每部件受保护实体提取（共享节点、载荷节点、约束节点），并校验计划中的 `protected_*_count` 计数；
 - 悬臂梁案例的计划生成；
 - 悬臂梁从 `20000` 个单元到 `200` 个单元的结构化 Hex8 重网格（包含详细验证）；
 - 详细验证的正常态通过测试（含非空 NodeSet、ElementSet、SurfaceSet、AppliedLoadRef、AppliedBoundaryRef 及匹配的蓝图）；
@@ -161,7 +162,7 @@ test\test_connection_preserving_remesher.cpp
 
 ## 计划中的网格生成阶段
 
-1. 为每个部件泛化受保护的边界/接口提取。
+1. ~~为每个部件泛化受保护的边界/接口提取。~~（已完成，见 `extract_protected_entities` 与 `PartRemeshPlan` 中的 `protected_*_count` 字段）
 2. 添加结构化 Hex8 之外的部件局部替换网格策略。
 3. 为 Contact、Tie、MPC 和 SharedNode 拓扑重建接口集。
 4. 通过解耦边界集为非结构化网格重新施加载荷和约束。

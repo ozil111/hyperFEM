@@ -31,6 +31,21 @@ struct PartRemeshPlan {
     std::string material_type;
     bool has_load = false;
     bool has_constraint = false;
+    int protected_shared_node_count = 0;
+    int protected_contact_node_count = 0;
+    int protected_loaded_node_count = 0;
+    int protected_constrained_node_count = 0;
+};
+
+// Per-part collection of nodes that must be preserved (or explicitly mapped)
+// during remesh because they participate in cross-part interfaces or carry
+// loads/constraints. Populated by extract_protected_entities().
+struct ProtectedPartInfo {
+    std::string part_name;
+    std::vector<entt::entity> shared_nodes;       // shared with other parts
+    std::vector<entt::entity> contact_nodes;      // on contact master/slave surfaces
+    std::vector<entt::entity> loaded_nodes;       // carry AppliedLoadRef
+    std::vector<entt::entity> constrained_nodes;  // carry AppliedBoundaryRef
 };
 
 struct InterfaceSignature {
@@ -79,6 +94,11 @@ public:
     static RemeshPlan build_plan(entt::registry& registry,
                                  SimdroidInspector& inspector,
                                  const RemeshOptions& options = {});
+
+    // Extract per-part protected nodes (shared/contact/loaded/constrained).
+    // The inspector is built on demand if not already built.
+    static std::vector<ProtectedPartInfo>
+    extract_protected_entities(entt::registry& registry, SimdroidInspector& inspector);
 
     static RemeshValidationResult validate_preservation(const RemeshPlan& before,
                                                         const RemeshPlan& after);

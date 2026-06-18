@@ -353,3 +353,94 @@ TEST(ConnectionPreservingRemesherTest, DetailedValidationDetectsMissingAppliedBo
     EXPECT_FALSE(result.valid);
     EXPECT_FALSE(result.errors.empty());
 }
+
+TEST(ConnectionPreservingRemesherTest, ExtractsProtectedEntitiesForSharedNodeModel) {
+    entt::registry registry;
+
+    auto material = registry.create();
+    registry.emplace<Component::MaterialID>(material, 1);
+    registry.emplace<Component::MaterialModel>(material, "IsotropicElastic");
+
+    auto property = registry.create();
+    registry.emplace<Component::PropertyID>(property, 1);
+    registry.emplace<Component::SolidProperty>(property, 304, 1, "none");
+
+    auto n1 = create_node(registry, 1, 0.0, 0.0, 0.0);
+    auto n2 = create_node(registry, 2, 1.0, 0.0, 0.0);
+    auto n3 = create_node(registry, 3, 0.0, 1.0, 0.0);
+    auto n4 = create_node(registry, 4, 0.0, 0.0, 1.0);  // shared node
+    auto n5 = create_node(registry, 5, 1.0, 1.0, 0.0);
+    auto n6 = create_node(registry, 6, 1.0, 0.0, 1.0);
+    auto n7 = create_node(registry, 7, 0.0, 1.0, 1.0);
+
+    auto e1 = create_tet(registry, 10, {n1, n2, n3, n4}, property);
+    auto e2 = create_tet(registry, 20, {n4, n5, n6, n7}, property);
+
+    create_part(registry, "Part_A", e1, material, property);
+    create_part(registry, "Part_B", e2, material, property);
+
+    // Apply a load to n2 (belongs to Part_A) and a boundary to n6 (belongs to Part_B)
+    auto load_def = registry.create();
+    registry.emplace<Component::SetName>(load_def, "cload");
+    registry.emplace<Component::NodalLoad>(load_def, 1, "z", -1000.0);
+    registry.emplace<Component::AppliedLoadRef>(n2, std::vector<entt::entity>{load_def});
+
+    auto bc_def = registry.create();
+    registry.emplace<Component::SetName>(bc_def, "spc");
+    registry.emplace<Component::BoundarySPC>(bc_def, 1, "all", 0.0);
+    registry.emplace<Component::AppliedBoundaryRef>(n6, std::vector<entt::entity>{bc_def});
+
+    SimdroidInspector inspector;
+    inspector.build(registry);
+
+    auto protected_infos =
+        ConnectionPreservingRemesher::extract_protected_entities(registry, inspector);
+
+    ASSERT_EQ(protected_infos.size(), 2u);
+
+    const ProtectedPartInfo* part_a = nullptr;
+    const ProtectedPartInfo* part_b = nullptr;
+    for (const auto& info : protected_infos) {
+        if (info.part_name == "Part_A") part_a = &info;
+        else if (info.part_name == "Part_B") part_b = &info;
+    }
+    ASSERT_NE(part_a, nullptr);
+    ASSERT_NE(part_b, nullptr);
+
+    // n4 is shared between Part_A and Part_B
+    EXPECT_EQ(part_a->shared_nodes.size(), 1u);
+    EXPECT_EQ(part_a->shared_nodes[0], n4);
+    EXPECT_EQ(part_b->shared_nodes.size(), 1u);
+    EXPECT_EQ(part_b->shared_nodes[0], n4);
+
+    // n2 carries a load and belongs to Part_A
+    EXPECT_EQ(part_a->loaded_nodes.size(), 1u);
+    EXPECT_EQ(part_a->loaded_nodes[0], n2);
+    EXPECT_EQ(part_b->loaded_nodes.size(), 0u);
+
+    // n6 carries a boundary and belongs to Part_B
+    EXPECT_EQ(part_b->constrained_nodes.size(), 1u);
+    EXPECT_EQ(part_b->constrained_nodes[0], n6);
+    EXPECT_EQ(part_a->constrained_nodes.size(), 0u);
+
+    // No contacts in this model
+    EXPECT_EQ(part_a->contact_nodes.size(), 0u);
+    EXPECT_EQ(part_b->contact_nodes.size(), 0u);
+
+    // build_plan should also expose the protected counts
+    RemeshOptions options;
+    options.target_compression_ratio = 100.0;
+    RemeshPlan plan = ConnectionPreservingRemesher::build_plan(registry, inspector, options);
+    ASSERT_EQ(plan.parts.size(), 2u);
+    for (const auto& pp : plan.parts) {
+        if (pp.part_name == "Part_A") {
+            EXPECT_EQ(pp.protected_shared_node_count, 1);
+            EXPECT_EQ(pp.protected_loaded_node_count, 1);
+            EXPECT_EQ(pp.protected_constrained_node_count, 0);
+        } else if (pp.part_name == "Part_B") {
+            EXPECT_EQ(pp.protected_shared_node_count, 1);
+            EXPECT_EQ(pp.protected_loaded_node_count, 0);
+            EXPECT_EQ(pp.protected_constrained_node_count, 1);
+        }
+    }
+}
