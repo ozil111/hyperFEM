@@ -462,6 +462,168 @@ ConnectionPreservingRemesher::validate_preservation(const RemeshPlan& before,
     return result;
 }
 
+RemeshValidationResult
+ConnectionPreservingRemesher::validate_preservation_detailed(
+    entt::registry& registry,
+    const nlohmann::json& blueprint,
+    const RemeshPlan& after) {
+    RemeshValidationResult result;
+
+    // 1. Check that all NodeSetMembers are non-empty
+    {
+        auto view = registry.view<Component::NodeSetMembers>();
+        for (auto entity : view) {
+            const auto& members = view.get<Component::NodeSetMembers>(entity).members;
+            if (members.empty()) {
+                std::string name = "unnamed";
+                if (registry.all_of<Component::SetName>(entity)) {
+                    name = registry.get<Component::SetName>(entity).value;
+                }
+                result.errors.push_back("NodeSet is empty after remesh: " + name);
+            }
+        }
+    }
+
+    // 2. Check that all ElementSetMembers are non-empty
+    {
+        auto view = registry.view<Component::ElementSetMembers>();
+        for (auto entity : view) {
+            const auto& members = view.get<Component::ElementSetMembers>(entity).members;
+            if (members.empty()) {
+                std::string name = "unnamed";
+                if (registry.all_of<Component::SetName>(entity)) {
+                    name = registry.get<Component::SetName>(entity).value;
+                }
+                result.errors.push_back("ElementSet is empty after remesh: " + name);
+            }
+        }
+    }
+
+    // 3. Check that all SurfaceSetMembers are non-empty (warning level)
+    {
+        auto view = registry.view<Component::SurfaceSetMembers>();
+        for (auto entity : view) {
+            const auto& members = view.get<Component::SurfaceSetMembers>(entity).members;
+            if (members.empty()) {
+                std::string name = "unnamed";
+                if (registry.all_of<Component::SetName>(entity)) {
+                    name = registry.get<Component::SetName>(entity).value;
+                }
+                result.warnings.push_back("SurfaceSet is empty after remesh: " + name);
+            }
+        }
+    }
+
+    // 4. Check sets referenced by loads in the blueprint
+    if (blueprint.contains("Load") && blueprint["Load"].is_object()) {
+        for (auto it = blueprint["Load"].begin(); it != blueprint["Load"].end(); ++it) {
+            if (!it.value().is_object()) continue;
+            std::string set_name = it.value().value("NodeSet", "");
+            if (set_name.empty()) set_name = it.value().value("Set", "");
+            if (set_name.empty()) continue;
+
+            auto set_entity = find_set_by_name(registry, set_name);
+            if (set_entity == entt::null) {
+                result.errors.push_back("Load target set missing after remesh: " + set_name
+                    + " (referenced by load: " + it.key() + ")");
+            } else if (registry.all_of<Component::NodeSetMembers>(set_entity)) {
+                if (registry.get<Component::NodeSetMembers>(set_entity).members.empty()) {
+                    result.errors.push_back("Load target set is empty after remesh: " + set_name
+                        + " (referenced by load: " + it.key() + ")");
+                }
+            }
+        }
+    }
+
+    // 5. Check sets referenced by boundaries in the blueprint
+    if (blueprint.contains("Constraint") && blueprint["Constraint"].is_object() &&
+        blueprint["Constraint"].contains("Boundary") &&
+        blueprint["Constraint"]["Boundary"].is_object()) {
+        const auto& boundaries = blueprint["Constraint"]["Boundary"];
+        for (auto it = boundaries.begin(); it != boundaries.end(); ++it) {
+            if (!it.value().is_object()) continue;
+            std::string set_name = it.value().value("NodeSet", "");
+            if (set_name.empty()) set_name = it.value().value("Set", "");
+            if (set_name.empty()) continue;
+
+            auto set_entity = find_set_by_name(registry, set_name);
+            if (set_entity == entt::null) {
+                result.errors.push_back("Boundary target set missing after remesh: " + set_name
+                    + " (referenced by boundary: " + it.key() + ")");
+            } else if (registry.all_of<Component::NodeSetMembers>(set_entity)) {
+                if (registry.get<Component::NodeSetMembers>(set_entity).members.empty()) {
+                    result.errors.push_back("Boundary target set is empty after remesh: " + set_name
+                        + " (referenced by boundary: " + it.key() + ")");
+                }
+            }
+        }
+    }
+
+    // 6. Check sets referenced by part properties in the blueprint
+    if (blueprint.contains("PartProperty") && blueprint["PartProperty"].is_object()) {
+        for (auto it = blueprint["PartProperty"].begin();
+             it != blueprint["PartProperty"].end(); ++it) {
+            if (!it.value().is_object()) continue;
+            const std::string ele_set_name = it.value().value("EleSet", "");
+            if (ele_set_name.empty()) continue;
+
+            auto set_entity = find_set_by_name(registry, ele_set_name);
+            if (set_entity == entt::null) {
+                result.errors.push_back("Part property target set missing after remesh: " + ele_set_name
+                    + " (referenced by: " + it.key() + ")");
+            } else if (registry.all_of<Component::ElementSetMembers>(set_entity)) {
+                if (registry.get<Component::ElementSetMembers>(set_entity).members.empty()) {
+                    result.errors.push_back("Part property target set is empty after remesh: " + ele_set_name
+                        + " (referenced by: " + it.key() + ")");
+                }
+            }
+        }
+    }
+
+    // 7. Verify load coverage: if before had loads, after should have AppliedLoadRef nodes
+    bool before_has_load = false;
+    for (const auto& part : after.parts) {
+        if (part.has_load) { before_has_load = true; break; }
+    }
+    if (before_has_load) {
+        auto load_view = registry.view<Component::AppliedLoadRef>();
+        bool has_applied_loads = (load_view.begin() != load_view.end());
+        if (!has_applied_loads) {
+            result.errors.push_back(
+                "Loads were present before remesh but no nodes have AppliedLoadRef after remesh");
+        }
+    }
+
+    // 8. Verify boundary coverage
+    bool before_has_constraint = false;
+    for (const auto& part : after.parts) {
+        if (part.has_constraint) { before_has_constraint = true; break; }
+    }
+    if (before_has_constraint) {
+        auto bc_view = registry.view<Component::AppliedBoundaryRef>();
+        bool has_applied_boundaries = (bc_view.begin() != bc_view.end());
+        if (!has_applied_boundaries) {
+            result.errors.push_back(
+                "Boundaries were present before remesh but no nodes have AppliedBoundaryRef after remesh");
+        }
+    }
+
+    // 9. Verify element count consistency between plan and registry
+    {
+        auto elem_view = registry.view<Component::ElementID>();
+        int actual_count = 0;
+        for (auto e : elem_view) { (void)e; ++actual_count; }
+        if (actual_count != after.original_element_count) {
+            result.errors.push_back(
+                "Element count mismatch: plan reports " + std::to_string(after.original_element_count)
+                + " but registry has " + std::to_string(actual_count));
+        }
+    }
+
+    result.valid = result.errors.empty();
+    return result;
+}
+
 nlohmann::json RemeshPlan::to_json() const {
     nlohmann::json j;
     j["options"] = {
@@ -781,6 +943,14 @@ ConnectionPreservingRemesher::remesh_structured_hex8(DataContext& ctx,
     inspector.build(registry);
     result.after = build_plan(registry, inspector, options);
     result.validation = validate_preservation(result.before, result.after);
+
+    auto detailed = validate_preservation_detailed(registry, ctx.simdroid_blueprint, result.after);
+    result.validation.errors.insert(result.validation.errors.end(),
+                                    detailed.errors.begin(), detailed.errors.end());
+    result.validation.warnings.insert(result.validation.warnings.end(),
+                                      detailed.warnings.begin(), detailed.warnings.end());
+    result.validation.valid = result.validation.valid && detailed.valid;
+
     result.success = result.validation.valid;
     result.message = result.success ? "structured Hex8 remesh completed" : "preservation validation failed";
     result.warnings.push_back("structured Hex8 remesh is debug-only and only preserves coarse connectivity contracts");

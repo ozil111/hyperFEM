@@ -3,6 +3,8 @@
 #include <filesystem>
 #include "remesh/ConnectionPreservingRemesher.h"
 #include "parser_simdroid/SimdroidParser.h"
+#include "DataContext.h"
+#include "components/load_components.h"
 #include "components/material_components.h"
 #include "components/mesh_components.h"
 #include "components/property_components.h"
@@ -161,4 +163,193 @@ TEST(ConnectionPreservingRemesherTest, StructuredHex8RemeshesCantileverBeamToTar
     EXPECT_EQ(result.after.parts[0].element_type_counts.at(308), 200);
     EXPECT_TRUE(result.after.parts[0].has_load);
     EXPECT_TRUE(result.after.parts[0].has_constraint);
+}
+
+TEST(ConnectionPreservingRemesherTest, DetailedValidationPassesWithHealthyRegistry) {
+    entt::registry registry;
+    nlohmann::json blueprint;
+
+    // Create nodes
+    auto n1 = create_node(registry, 1, 0.0, 0.0, 0.0);
+    auto n2 = create_node(registry, 2, 1.0, 0.0, 0.0);
+    (void)n1; (void)n2;
+
+    // Create a node set with members
+    auto ns1 = registry.create();
+    registry.emplace<Component::SetName>(ns1, "load_nodes");
+    registry.emplace<Component::NodeSetMembers>(ns1, std::vector<entt::entity>{n1, n2});
+
+    // Create elements
+    auto prop = registry.create();
+    registry.emplace<Component::PropertyID>(prop, 100);
+    registry.emplace<Component::SolidProperty>(prop, 308, 1, "none");
+
+    auto e1 = registry.create();
+    registry.emplace<Component::ElementID>(e1, 10);
+    registry.emplace<Component::OriginalID>(e1, 10);
+    registry.emplace<Component::ElementType>(e1, 308);
+    registry.emplace<Component::PropertyRef>(e1, prop);
+    registry.emplace<Component::Connectivity>(e1, Component::Connectivity{{n1, n2}});
+
+    // Create an element set with members
+    auto es1 = registry.create();
+    registry.emplace<Component::SetName>(es1, "element_set_1");
+    registry.emplace<Component::ElementSetMembers>(es1, std::vector<entt::entity>{e1});
+
+    // Create a surface set with members
+    auto surf = registry.create();
+    registry.emplace<Component::SurfaceID>(surf, 100);
+    registry.emplace<Component::OriginalID>(surf, 100);
+    registry.emplace<Component::SurfaceConnectivity>(surf, Component::SurfaceConnectivity{{n1}});
+    registry.emplace<Component::SurfaceParentElement>(surf, e1);
+
+    auto ss1 = registry.create();
+    registry.emplace<Component::SetName>(ss1, "surface_set_1");
+    registry.emplace<Component::SurfaceSetMembers>(ss1, std::vector<entt::entity>{surf});
+
+    // Apply loads and boundaries
+    auto load_def = registry.create();
+    registry.emplace<Component::SetName>(load_def, "cload");
+    registry.emplace<Component::NodalLoad>(load_def, 1, "z", -1000.0);
+
+    registry.emplace<Component::AppliedLoadRef>(n2, std::vector<entt::entity>{load_def});
+
+    auto bc_def = registry.create();
+    registry.emplace<Component::SetName>(bc_def, "spc");
+    registry.emplace<Component::BoundarySPC>(bc_def, 1, "all", 0.0);
+
+    registry.emplace<Component::AppliedBoundaryRef>(n1, std::vector<entt::entity>{bc_def});
+
+    // Build a matching blueprint
+    blueprint["Load"] = nlohmann::json::object();
+    blueprint["Load"]["cload"] = {{"NodeSet", "load_nodes"}};
+
+    blueprint["Constraint"] = nlohmann::json::object();
+    blueprint["Constraint"]["Boundary"] = nlohmann::json::object();
+    blueprint["Constraint"]["Boundary"]["spc"] = {{"NodeSet", "load_nodes"}};
+
+    blueprint["PartProperty"] = nlohmann::json::object();
+    blueprint["PartProperty"]["prop_1"] = {{"EleSet", "element_set_1"}};
+
+    // Build a plan with matching metadata
+    RemeshPlan plan;
+    plan.original_element_count = 1;
+    plan.target_element_count = 1;
+    PartRemeshPlan pp;
+    pp.part_name = "TestPart";
+    pp.original_element_count = 1;
+    pp.target_element_count = 1;
+    pp.has_load = true;
+    pp.has_constraint = true;
+    pp.property_type = "SolidProperty";
+    pp.material_type = "None";
+    pp.element_type_counts[308] = 1;
+    plan.parts.push_back(pp);
+
+    auto result = ConnectionPreservingRemesher::validate_preservation_detailed(
+        registry, blueprint, plan);
+    EXPECT_TRUE(result.valid) << "Errors: " << ::testing::PrintToString(result.errors);
+    EXPECT_TRUE(result.errors.empty());
+}
+
+TEST(ConnectionPreservingRemesherTest, DetailedValidationDetectsEmptySets) {
+    entt::registry registry;
+    nlohmann::json blueprint = nlohmann::json::object();
+
+    // Create empty node set
+    auto ns1 = registry.create();
+    registry.emplace<Component::SetName>(ns1, "empty_node_set");
+    registry.emplace<Component::NodeSetMembers>(ns1, std::vector<entt::entity>{});
+
+    // Create empty element set
+    auto es1 = registry.create();
+    registry.emplace<Component::SetName>(es1, "empty_elem_set");
+    registry.emplace<Component::ElementSetMembers>(es1, std::vector<entt::entity>{});
+
+    RemeshPlan plan;
+    plan.original_element_count = 0;
+    plan.target_element_count = 0;
+
+    auto result = ConnectionPreservingRemesher::validate_preservation_detailed(
+        registry, blueprint, plan);
+    EXPECT_FALSE(result.valid);
+    EXPECT_GE(result.errors.size(), 2u);
+}
+
+TEST(ConnectionPreservingRemesherTest, DetailedValidationDetectsMissingLoadSetInBlueprint) {
+    entt::registry registry;
+
+    auto n1 = create_node(registry, 1, 0.0, 0.0, 0.0);
+
+    nlohmann::json blueprint;
+    blueprint["Load"] = nlohmann::json::object();
+    blueprint["Load"]["missing_load"] = {{"NodeSet", "nonexistent_set"}};
+
+    RemeshPlan plan;
+    plan.original_element_count = 0;
+    plan.target_element_count = 0;
+
+    auto result = ConnectionPreservingRemesher::validate_preservation_detailed(
+        registry, blueprint, plan);
+    EXPECT_FALSE(result.valid);
+    EXPECT_FALSE(result.errors.empty());
+}
+
+TEST(ConnectionPreservingRemesherTest, DetailedValidationDetectsElementCountMismatch) {
+    entt::registry registry;
+    nlohmann::json blueprint = nlohmann::json::object();
+
+    auto e1 = registry.create();
+    registry.emplace<Component::ElementID>(e1, 1);
+    auto e2 = registry.create();
+    registry.emplace<Component::ElementID>(e2, 2);
+
+    RemeshPlan plan;
+    plan.original_element_count = 1;  // plan says 1, registry has 2
+    plan.target_element_count = 1;
+
+    auto result = ConnectionPreservingRemesher::validate_preservation_detailed(
+        registry, blueprint, plan);
+    EXPECT_FALSE(result.valid);
+    EXPECT_FALSE(result.errors.empty());
+}
+
+TEST(ConnectionPreservingRemesherTest, DetailedValidationDetectsMissingAppliedLoads) {
+    entt::registry registry;
+    nlohmann::json blueprint = nlohmann::json::object();
+
+    RemeshPlan plan;
+    plan.original_element_count = 0;
+    plan.target_element_count = 0;
+    PartRemeshPlan pp;
+    pp.part_name = "LoadedPart";
+    pp.has_load = true;
+    pp.has_constraint = false;
+    plan.parts.push_back(pp);
+
+    // No AppliedLoadRef in registry
+    auto result = ConnectionPreservingRemesher::validate_preservation_detailed(
+        registry, blueprint, plan);
+    EXPECT_FALSE(result.valid);
+    EXPECT_FALSE(result.errors.empty());
+}
+
+TEST(ConnectionPreservingRemesherTest, DetailedValidationDetectsMissingAppliedBoundaries) {
+    entt::registry registry;
+    nlohmann::json blueprint = nlohmann::json::object();
+
+    RemeshPlan plan;
+    plan.original_element_count = 0;
+    plan.target_element_count = 0;
+    PartRemeshPlan pp;
+    pp.part_name = "ConstrainedPart";
+    pp.has_load = false;
+    pp.has_constraint = true;
+    plan.parts.push_back(pp);
+
+    // No AppliedBoundaryRef in registry
+    auto result = ConnectionPreservingRemesher::validate_preservation_detailed(
+        registry, blueprint, plan);
+    EXPECT_FALSE(result.valid);
+    EXPECT_FALSE(result.errors.empty());
 }

@@ -83,6 +83,11 @@ public:
     static RemeshValidationResult validate_preservation(const RemeshPlan& before,
                                                         const RemeshPlan& after);
 
+    static RemeshValidationResult validate_preservation_detailed(
+        entt::registry& registry,
+        const nlohmann::json& blueprint,
+        const RemeshPlan& after);
+
     static bool write_plan_json(const RemeshPlan& plan, const std::string& output_path);
 
     static RemeshExecutionResult remesh_structured_hex8(DataContext& ctx,
