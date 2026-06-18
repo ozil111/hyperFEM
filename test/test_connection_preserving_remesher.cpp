@@ -104,6 +104,59 @@ TEST(ConnectionPreservingRemesherTest, BuildsPlanWithSharedNodeInterface) {
     EXPECT_FALSE(bad.errors.empty());
 }
 
+TEST(ConnectionPreservingRemesherTest, DoublePartHex8CasePlansWithTieInterface) {
+    const std::filesystem::path control_path =
+        std::filesystem::path("case") / "double_part_hex8" / "doublepart_hex8_inp" / "control.json";
+    const std::filesystem::path mesh_path = control_path.parent_path() / "mesh.dat";
+    if (!std::filesystem::exists(control_path) || !std::filesystem::exists(mesh_path)) {
+        GTEST_SKIP() << "double_part_hex8 Simdroid case is not available";
+    }
+
+    DataContext ctx;
+    ASSERT_TRUE(SimdroidParser::parse(mesh_path.string(), control_path.string(), ctx))
+        << "failed to parse double_part_hex8 case";
+
+    SimdroidInspector inspector;
+    inspector.build(ctx.registry);
+
+    RemeshOptions options;
+    options.target_compression_ratio = 100.0;
+    RemeshPlan plan = ConnectionPreservingRemesher::build_plan(ctx.registry, inspector, options);
+
+    EXPECT_EQ(plan.original_element_count, 40000);
+    ASSERT_EQ(plan.parts.size(), 2);
+    EXPECT_EQ(plan.parts[0].original_element_count, 20000);
+    EXPECT_EQ(plan.parts[1].original_element_count, 20000);
+    ASSERT_EQ(plan.parts[0].element_type_counts.size(), 1);
+    EXPECT_EQ(plan.parts[0].element_type_counts.at(308), 20000);
+    ASSERT_EQ(plan.parts[1].element_type_counts.size(), 1);
+    EXPECT_EQ(plan.parts[1].element_type_counts.at(308), 20000);
+
+    bool has_contact_interface = false;
+    for (const auto& sig : plan.interfaces) {
+        if (sig.type == ConnectionType::Contact) has_contact_interface = true;
+    }
+    EXPECT_TRUE(has_contact_interface);
+
+    auto protected_infos =
+        ConnectionPreservingRemesher::extract_protected_entities(ctx.registry, inspector);
+    ASSERT_EQ(protected_infos.size(), 2u);
+    int total_contact_nodes = 0;
+    int total_loaded_nodes = 0;
+    int total_constrained_nodes = 0;
+    int total_shared_nodes = 0;
+    for (const auto& info : protected_infos) {
+        total_contact_nodes += static_cast<int>(info.contact_nodes.size());
+        total_loaded_nodes += static_cast<int>(info.loaded_nodes.size());
+        total_constrained_nodes += static_cast<int>(info.constrained_nodes.size());
+        total_shared_nodes += static_cast<int>(info.shared_nodes.size());
+    }
+    EXPECT_GT(total_contact_nodes, 0);
+    EXPECT_GT(total_loaded_nodes, 0);
+    EXPECT_GT(total_constrained_nodes, 0);
+    EXPECT_EQ(total_shared_nodes, 0);
+}
+
 TEST(ConnectionPreservingRemesherTest, BuildsPlanForCantileverBeamCase) {
     const std::filesystem::path control_path =
         std::filesystem::path("case") / "cantilever beam" / "cantilever_beam_inp" / "control.json";
@@ -133,6 +186,56 @@ TEST(ConnectionPreservingRemesherTest, BuildsPlanForCantileverBeamCase) {
     EXPECT_TRUE(plan.parts[0].has_load);
     EXPECT_TRUE(plan.parts[0].has_constraint);
     EXPECT_TRUE(plan.interfaces.empty());
+}
+
+TEST(ConnectionPreservingRemesherTest, StructuredHex8RemeshesDoublePartTieCase) {
+    const std::filesystem::path control_path =
+        std::filesystem::path("case") / "double_part_hex8" / "doublepart_hex8_inp" / "control.json";
+    const std::filesystem::path mesh_path = control_path.parent_path() / "mesh.dat";
+    if (!std::filesystem::exists(control_path) || !std::filesystem::exists(mesh_path)) {
+        GTEST_SKIP() << "double_part_hex8 Simdroid case is not available";
+    }
+
+    DataContext ctx;
+    ASSERT_TRUE(SimdroidParser::parse(mesh_path.string(), control_path.string(), ctx));
+
+    SimdroidInspector inspector;
+    RemeshOptions options;
+    options.target_compression_ratio = 100.0;
+
+    RemeshExecutionResult result =
+        ConnectionPreservingRemesher::remesh_structured_hex8(ctx, inspector, options);
+
+    ASSERT_TRUE(result.success) << result.message;
+    EXPECT_TRUE(result.validation.valid);
+
+    EXPECT_EQ(result.before.original_element_count, 40000);
+    ASSERT_EQ(result.before.parts.size(), 2);
+    ASSERT_EQ(result.after.parts.size(), 2);
+
+    for (const auto& pp : result.after.parts) {
+        ASSERT_EQ(pp.element_type_counts.size(), 1);
+        EXPECT_EQ(pp.element_type_counts.at(308), pp.original_element_count);
+        EXPECT_GT(pp.original_element_count, 0);
+    }
+
+    // The Tie contact interface must be preserved.
+    ASSERT_FALSE(result.after.interfaces.empty());
+    bool has_contact_after = false;
+    for (const auto& sig : result.after.interfaces) {
+        if (sig.type == ConnectionType::Contact) has_contact_after = true;
+    }
+    EXPECT_TRUE(has_contact_after);
+
+    // Each part should still report load/constraint coverage.
+    bool any_load = false;
+    bool any_constraint = false;
+    for (const auto& pp : result.after.parts) {
+        if (pp.has_load) any_load = true;
+        if (pp.has_constraint) any_constraint = true;
+    }
+    EXPECT_TRUE(any_load);
+    EXPECT_TRUE(any_constraint);
 }
 
 TEST(ConnectionPreservingRemesherTest, StructuredHex8RemeshesCantileverBeamToTargetCount) {

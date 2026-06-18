@@ -846,69 +846,107 @@ ConnectionPreservingRemesher::remesh_structured_hex8(DataContext& ctx,
     inspector.build(registry);
     result.before = build_plan(registry, inspector, options);
 
-    if (result.before.parts.size() != 1) {
-        result.message = "structured Hex8 remesh currently supports exactly one Part";
+    if (result.before.parts.empty()) {
+        result.message = "no parts to remesh";
         return result;
     }
 
-    const auto& part_plan = result.before.parts.front();
-    if (part_plan.element_type_counts.size() != 1 ||
-        part_plan.element_type_counts.find(308) == part_plan.element_type_counts.end()) {
-        result.message = "structured Hex8 remesh currently supports a single Hex8 element type";
-        return result;
-    }
-    if (part_plan.original_element_count <= 0 || part_plan.target_element_count <= 0) {
-        result.message = "model has no remeshable elements";
-        return result;
-    }
-
-    auto part_view = registry.view<Component::SimdroidPart>();
-    entt::entity part_entity = entt::null;
-    Component::SimdroidPart* part = nullptr;
-    for (auto e : part_view) {
-        part_entity = e;
-        part = &part_view.get<Component::SimdroidPart>(e);
-        break;
-    }
-    if (part_entity == entt::null || part == nullptr ||
-        !registry.valid(part->element_set) ||
-        !registry.all_of<Component::ElementSetMembers>(part->element_set)) {
-        result.message = "Part element set is missing";
-        return result;
+    // Every part must be a single-type Hex8 structured grid.
+    for (const auto& part_plan : result.before.parts) {
+        if (part_plan.element_type_counts.size() != 1 ||
+            part_plan.element_type_counts.find(308) == part_plan.element_type_counts.end()) {
+            result.message = "structured Hex8 remesh requires every part to use only Hex8 (308): " + part_plan.part_name;
+            return result;
+        }
+        if (part_plan.original_element_count <= 0 || part_plan.target_element_count <= 0) {
+            result.message = "part has no remeshable elements: " + part_plan.part_name;
+            return result;
+        }
     }
 
-    StructuredGridInfo grid;
-    auto node_view = registry.view<const Component::Position, const Component::NodeID>();
-    for (auto node : node_view) {
-        const auto& p = node_view.get<const Component::Position>(node);
-        unique_push_sorted(grid.xs, p.x);
-        unique_push_sorted(grid.ys, p.y);
-        unique_push_sorted(grid.zs, p.z);
-    }
-    sort_unique_coords(grid.xs);
-    sort_unique_coords(grid.ys);
-    sort_unique_coords(grid.zs);
-
-    if (grid.xs.size() < 2 || grid.ys.size() < 2 || grid.zs.size() < 2) {
-        result.message = "node coordinates do not form a 3D grid";
-        return result;
-    }
-
-    const std::array<int, 3> original_cells{
-        static_cast<int>(grid.xs.size()) - 1,
-        static_cast<int>(grid.ys.size()) - 1,
-        static_cast<int>(grid.zs.size()) - 1
+    // Per-part structured grid extraction.
+    struct PartMeshInfo {
+        const Component::SimdroidPart* part = nullptr;
+        StructuredGridInfo grid;
+        std::array<int, 3> original_cells{0, 0, 0};
+        std::array<int, 3> target_cells{0, 0, 0};
+        std::vector<int> ix, iy, iz;
+        std::vector<entt::entity> new_nodes;
+        std::vector<entt::entity> new_elements;
     };
-    if (original_cells[0] * original_cells[1] * original_cells[2] != part_plan.original_element_count) {
-        result.message = "Hex8 element count does not match a complete structured coordinate grid";
-        return result;
+    std::vector<PartMeshInfo> part_infos;
+    part_infos.reserve(result.before.parts.size());
+
+    {
+        auto part_view = registry.view<const Component::SimdroidPart>();
+        for (auto part_entity : part_view) {
+            const auto& part = part_view.get<const Component::SimdroidPart>(part_entity);
+
+            const PartRemeshPlan* pp = nullptr;
+            for (const auto& candidate : result.before.parts) {
+                if (candidate.part_name == part.name) { pp = &candidate; break; }
+            }
+            if (pp == nullptr) continue;
+
+            if (!registry.valid(part.element_set) ||
+                !registry.all_of<Component::ElementSetMembers>(part.element_set)) {
+                result.message = "Part element set is missing: " + part.name;
+                return result;
+            }
+
+            PartMeshInfo info;
+            info.part = &part;
+
+            std::set<entt::entity> part_node_set;
+            const auto& elem_members = registry.get<Component::ElementSetMembers>(part.element_set).members;
+            for (auto elem_entity : elem_members) {
+                if (!registry.valid(elem_entity) ||
+                    !registry.all_of<Component::Connectivity>(elem_entity)) continue;
+                for (auto node_entity : registry.get<Component::Connectivity>(elem_entity).nodes) {
+                    if (registry.valid(node_entity) && registry.all_of<Component::Position>(node_entity)) {
+                        part_node_set.insert(node_entity);
+                    }
+                }
+            }
+
+            for (auto node_entity : part_node_set) {
+                const auto& p = registry.get<Component::Position>(node_entity);
+                info.grid.xs.push_back(p.x);
+                info.grid.ys.push_back(p.y);
+                info.grid.zs.push_back(p.z);
+            }
+            sort_unique_coords(info.grid.xs);
+            sort_unique_coords(info.grid.ys);
+            sort_unique_coords(info.grid.zs);
+
+            if (info.grid.xs.size() < 2 || info.grid.ys.size() < 2 || info.grid.zs.size() < 2) {
+                result.message = "node coordinates do not form a 3D grid for part: " + part.name;
+                return result;
+            }
+
+            info.original_cells = {
+                static_cast<int>(info.grid.xs.size()) - 1,
+                static_cast<int>(info.grid.ys.size()) - 1,
+                static_cast<int>(info.grid.zs.size()) - 1
+            };
+            if (info.original_cells[0] * info.original_cells[1] * info.original_cells[2] != pp->original_element_count) {
+                result.message = "Hex8 element count does not match a complete structured grid for part: " + part.name;
+                return result;
+            }
+
+            info.target_cells = choose_target_cells(info.original_cells, pp->target_element_count);
+            info.ix = choose_axis_indices(info.original_cells[0], info.target_cells[0]);
+            info.iy = choose_axis_indices(info.original_cells[1], info.target_cells[1]);
+            info.iz = choose_axis_indices(info.original_cells[2], info.target_cells[2]);
+
+            part_infos.push_back(std::move(info));
+        }
     }
 
-    const std::array<int, 3> target_cells =
-        choose_target_cells(original_cells, part_plan.target_element_count);
-    const auto ix = choose_axis_indices(original_cells[0], target_cells[0]);
-    const auto iy = choose_axis_indices(original_cells[1], target_cells[1]);
-    const auto iz = choose_axis_indices(original_cells[2], target_cells[2]);
+    if (part_infos.size() != result.before.parts.size()) {
+        result.message = "could not build structured grid info for every part";
+        return result;
+    }
 
     struct OldNodeSetSnapshot {
         entt::entity set_entity;
@@ -926,6 +964,32 @@ ConnectionPreservingRemesher::remesh_structured_hex8(DataContext& ctx,
                 }
             }
             node_set_snapshots.push_back(std::move(snapshot));
+        }
+    }
+
+    // Snapshot surface sets by their corner-node positions so they can be rebuilt
+    // via nearest-centroid matching after the new boundary surfaces are generated.
+    struct SurfaceSetSnapshot {
+        entt::entity set_entity;
+        std::vector<std::vector<Component::Position>> surface_corners;
+    };
+    std::vector<SurfaceSetSnapshot> surface_set_snapshots;
+    {
+        auto set_view = registry.view<Component::SurfaceSetMembers>();
+        for (auto set_entity : set_view) {
+            SurfaceSetSnapshot snapshot;
+            snapshot.set_entity = set_entity;
+            for (auto surf : set_view.get<Component::SurfaceSetMembers>(set_entity).members) {
+                if (!registry.valid(surf) || !registry.all_of<Component::SurfaceConnectivity>(surf)) continue;
+                std::vector<Component::Position> corners;
+                for (auto node : registry.get<Component::SurfaceConnectivity>(surf).nodes) {
+                    if (registry.valid(node) && registry.all_of<Component::Position>(node)) {
+                        corners.push_back(registry.get<Component::Position>(node));
+                    }
+                }
+                if (!corners.empty()) snapshot.surface_corners.push_back(std::move(corners));
+            }
+            surface_set_snapshots.push_back(std::move(snapshot));
         }
     }
 
@@ -951,72 +1015,88 @@ ConnectionPreservingRemesher::remesh_structured_hex8(DataContext& ctx,
         registry.ctx().erase<std::unique_ptr<TopologyData>>();
     }
 
-    std::vector<entt::entity> new_nodes;
-    new_nodes.reserve(ix.size() * iy.size() * iz.size());
-    auto node_at = [&](std::size_t i, std::size_t j, std::size_t k) -> entt::entity& {
-        return new_nodes[(k * iy.size() + j) * ix.size() + i];
-    };
-
+    // Generate new nodes and elements per part with globally contiguous IDs.
     int next_node_id = 0;
-    for (std::size_t k = 0; k < iz.size(); ++k) {
-        for (std::size_t j = 0; j < iy.size(); ++j) {
-            for (std::size_t i = 0; i < ix.size(); ++i) {
-                auto node = registry.create();
-                registry.emplace<Component::Position>(node, grid.xs[ix[i]], grid.ys[iy[j]], grid.zs[iz[k]]);
-                registry.emplace<Component::NodeID>(node, next_node_id);
-                registry.emplace<Component::OriginalID>(node, next_node_id);
-                new_nodes.push_back(node);
-                ++next_node_id;
-            }
-        }
-    }
-
-    std::vector<entt::entity> new_elements;
-    new_elements.reserve((ix.size() - 1) * (iy.size() - 1) * (iz.size() - 1));
-    auto element_at = [&](std::size_t i, std::size_t j, std::size_t k) -> entt::entity {
-        return new_elements[(k * (iy.size() - 1) + j) * (ix.size() - 1) + i];
-    };
-
     int next_element_id = 0;
-    for (std::size_t k = 0; k + 1 < iz.size(); ++k) {
-        for (std::size_t j = 0; j + 1 < iy.size(); ++j) {
-            for (std::size_t i = 0; i + 1 < ix.size(); ++i) {
-                auto elem = registry.create();
-                registry.emplace<Component::ElementID>(elem, next_element_id);
-                registry.emplace<Component::OriginalID>(elem, next_element_id);
-                registry.emplace<Component::ElementType>(elem, 308);
-                registry.emplace<Component::PropertyRef>(elem, part->section);
-                registry.emplace<Component::Connectivity>(elem, Component::Connectivity{{
-                    node_at(i,     j,     k),
-                    node_at(i + 1, j,     k),
-                    node_at(i + 1, j + 1, k),
-                    node_at(i,     j + 1, k),
-                    node_at(i,     j,     k + 1),
-                    node_at(i + 1, j,     k + 1),
-                    node_at(i + 1, j + 1, k + 1),
-                    node_at(i,     j + 1, k + 1)
-                }});
-                new_elements.push_back(elem);
-                ++next_element_id;
+    for (auto& info : part_infos) {
+        const auto& g = info.grid;
+        const auto& ix = info.ix;
+        const auto& iy = info.iy;
+        const auto& iz = info.iz;
+
+        info.new_nodes.reserve(ix.size() * iy.size() * iz.size());
+        auto node_at = [&](std::size_t i, std::size_t j, std::size_t k) -> entt::entity& {
+            return info.new_nodes[(k * iy.size() + j) * ix.size() + i];
+        };
+
+        for (std::size_t k = 0; k < iz.size(); ++k) {
+            for (std::size_t j = 0; j < iy.size(); ++j) {
+                for (std::size_t i = 0; i < ix.size(); ++i) {
+                    auto node = registry.create();
+                    registry.emplace<Component::Position>(node, g.xs[ix[i]], g.ys[iy[j]], g.zs[iz[k]]);
+                    registry.emplace<Component::NodeID>(node, next_node_id);
+                    registry.emplace<Component::OriginalID>(node, next_node_id);
+                    info.new_nodes.push_back(node);
+                    ++next_node_id;
+                }
             }
+        }
+
+        info.new_elements.reserve((ix.size() - 1) * (iy.size() - 1) * (iz.size() - 1));
+        auto element_at = [&](std::size_t i, std::size_t j, std::size_t k) -> entt::entity {
+            return info.new_elements[(k * (iy.size() - 1) + j) * (ix.size() - 1) + i];
+        };
+
+        for (std::size_t k = 0; k + 1 < iz.size(); ++k) {
+            for (std::size_t j = 0; j + 1 < iy.size(); ++j) {
+                for (std::size_t i = 0; i + 1 < ix.size(); ++i) {
+                    auto elem = registry.create();
+                    registry.emplace<Component::ElementID>(elem, next_element_id);
+                    registry.emplace<Component::OriginalID>(elem, next_element_id);
+                    registry.emplace<Component::ElementType>(elem, 308);
+                    registry.emplace<Component::PropertyRef>(elem, info.part->section);
+                    registry.emplace<Component::Connectivity>(elem, Component::Connectivity{{
+                        node_at(i,     j,     k),
+                        node_at(i + 1, j,     k),
+                        node_at(i + 1, j + 1, k),
+                        node_at(i,     j + 1, k),
+                        node_at(i,     j,     k + 1),
+                        node_at(i + 1, j,     k + 1),
+                        node_at(i + 1, j + 1, k + 1),
+                        node_at(i,     j + 1, k + 1)
+                    }});
+                    info.new_elements.push_back(elem);
+                    ++next_element_id;
+                }
+            }
+        }
+
+        if (registry.valid(info.part->element_set)) {
+            auto& members = registry.get_or_emplace<Component::ElementSetMembers>(info.part->element_set).members;
+            members = info.new_elements;
         }
     }
 
-    const auto set_all_elements = [&](entt::entity set_entity) {
-        if (!registry.valid(set_entity)) return;
-        auto& members = registry.get_or_emplace<Component::ElementSetMembers>(set_entity).members;
-        members = new_elements;
-    };
-    set_all_elements(part->element_set);
-
+    // Rebuild element sets referenced by PartProperty (map EleSet name -> part's new elements).
     if (ctx.simdroid_blueprint.contains("PartProperty") &&
         ctx.simdroid_blueprint["PartProperty"].is_object()) {
+        std::map<std::string, const std::vector<entt::entity>*> eset_by_name;
+        for (const auto& info : part_infos) {
+            if (registry.valid(info.part->element_set) &&
+                registry.all_of<Component::SetName>(info.part->element_set)) {
+                eset_by_name[registry.get<Component::SetName>(info.part->element_set).value] = &info.new_elements;
+            }
+        }
         for (auto it = ctx.simdroid_blueprint["PartProperty"].begin();
              it != ctx.simdroid_blueprint["PartProperty"].end(); ++it) {
             if (!it.value().is_object()) continue;
             const std::string ele_set_name = it.value().value("EleSet", "");
             if (ele_set_name.empty()) continue;
-            set_all_elements(find_set_by_name(registry, ele_set_name));
+            auto mit = eset_by_name.find(ele_set_name);
+            if (mit == eset_by_name.end()) continue;
+            entt::entity set_entity = find_set_by_name(registry, ele_set_name);
+            if (!registry.valid(set_entity)) continue;
+            registry.get_or_emplace<Component::ElementSetMembers>(set_entity).members = *mit->second;
         }
     }
 
@@ -1030,49 +1110,103 @@ ConnectionPreservingRemesher::remesh_structured_hex8(DataContext& ctx,
         }
     }
 
-    std::vector<entt::entity> new_surfaces;
-    int next_surface_id = static_cast<int>(new_elements.size());
-    auto make_surface = [&](const std::vector<entt::entity>& nodes, entt::entity parent) {
-        auto surf = registry.create();
-        registry.emplace<Component::SurfaceID>(surf, next_surface_id);
-        registry.emplace<Component::OriginalID>(surf, next_surface_id);
-        registry.emplace<Component::SurfaceConnectivity>(surf, Component::SurfaceConnectivity{nodes});
-        registry.emplace<Component::SurfaceParentElement>(surf, parent);
-        new_surfaces.push_back(surf);
-        ++next_surface_id;
-    };
+    // Generate boundary surfaces per part with globally contiguous surface IDs.
+    std::vector<entt::entity> all_new_surfaces;
+    int next_surface_id = next_element_id;
+    for (auto& info : part_infos) {
+        const auto& ix = info.ix;
+        const auto& iy = info.iy;
+        const auto& iz = info.iz;
+        auto node_at = [&](std::size_t i, std::size_t j, std::size_t k) -> entt::entity& {
+            return info.new_nodes[(k * iy.size() + j) * ix.size() + i];
+        };
+        auto element_at = [&](std::size_t i, std::size_t j, std::size_t k) -> entt::entity {
+            return info.new_elements[(k * (iy.size() - 1) + j) * (ix.size() - 1) + i];
+        };
+        auto make_surface = [&](const std::vector<entt::entity>& nodes, entt::entity parent) {
+            auto surf = registry.create();
+            registry.emplace<Component::SurfaceID>(surf, next_surface_id);
+            registry.emplace<Component::OriginalID>(surf, next_surface_id);
+            registry.emplace<Component::SurfaceConnectivity>(surf, Component::SurfaceConnectivity{nodes});
+            registry.emplace<Component::SurfaceParentElement>(surf, parent);
+            all_new_surfaces.push_back(surf);
+            ++next_surface_id;
+        };
 
-    const std::size_t nx = ix.size() - 1;
-    const std::size_t ny = iy.size() - 1;
-    const std::size_t nz = iz.size() - 1;
-    for (std::size_t k = 0; k < nz; ++k) {
+        const std::size_t nx = ix.size() - 1;
+        const std::size_t ny = iy.size() - 1;
+        const std::size_t nz = iz.size() - 1;
+        for (std::size_t k = 0; k < nz; ++k) {
+            for (std::size_t j = 0; j < ny; ++j) {
+                make_surface({node_at(0, j, k), node_at(0, j + 1, k), node_at(0, j + 1, k + 1), node_at(0, j, k + 1)},
+                             element_at(0, j, k));
+                make_surface({node_at(nx, j, k), node_at(nx, j, k + 1), node_at(nx, j + 1, k + 1), node_at(nx, j + 1, k)},
+                             element_at(nx - 1, j, k));
+            }
+        }
+        for (std::size_t k = 0; k < nz; ++k) {
+            for (std::size_t i = 0; i < nx; ++i) {
+                make_surface({node_at(i, 0, k), node_at(i, 0, k + 1), node_at(i + 1, 0, k + 1), node_at(i + 1, 0, k)},
+                             element_at(i, 0, k));
+                make_surface({node_at(i, ny, k), node_at(i + 1, ny, k), node_at(i + 1, ny, k + 1), node_at(i, ny, k + 1)},
+                             element_at(i, ny - 1, k));
+            }
+        }
         for (std::size_t j = 0; j < ny; ++j) {
-            make_surface({node_at(0, j, k), node_at(0, j + 1, k), node_at(0, j + 1, k + 1), node_at(0, j, k + 1)},
-                         element_at(0, j, k));
-            make_surface({node_at(nx, j, k), node_at(nx, j, k + 1), node_at(nx, j + 1, k + 1), node_at(nx, j + 1, k)},
-                         element_at(nx - 1, j, k));
-        }
-    }
-    for (std::size_t k = 0; k < nz; ++k) {
-        for (std::size_t i = 0; i < nx; ++i) {
-            make_surface({node_at(i, 0, k), node_at(i, 0, k + 1), node_at(i + 1, 0, k + 1), node_at(i + 1, 0, k)},
-                         element_at(i, 0, k));
-            make_surface({node_at(i, ny, k), node_at(i + 1, ny, k), node_at(i + 1, ny, k + 1), node_at(i, ny, k + 1)},
-                         element_at(i, ny - 1, k));
-        }
-    }
-    for (std::size_t j = 0; j < ny; ++j) {
-        for (std::size_t i = 0; i < nx; ++i) {
-            make_surface({node_at(i, j, 0), node_at(i + 1, j, 0), node_at(i + 1, j + 1, 0), node_at(i, j + 1, 0)},
-                         element_at(i, j, 0));
-            make_surface({node_at(i, j, nz), node_at(i, j + 1, nz), node_at(i + 1, j + 1, nz), node_at(i + 1, j, nz)},
-                         element_at(i, j, nz - 1));
+            for (std::size_t i = 0; i < nx; ++i) {
+                make_surface({node_at(i, j, 0), node_at(i + 1, j, 0), node_at(i + 1, j + 1, 0), node_at(i, j + 1, 0)},
+                             element_at(i, j, 0));
+                make_surface({node_at(i, j, nz), node_at(i, j + 1, nz), node_at(i + 1, j + 1, nz), node_at(i + 1, j, nz)},
+                             element_at(i, j, nz - 1));
+            }
         }
     }
 
-    auto surface_set_view = registry.view<Component::SurfaceSetMembers>();
-    for (auto set_entity : surface_set_view) {
-        surface_set_view.get<Component::SurfaceSetMembers>(set_entity).members = new_surfaces;
+    // Precompute centroids of all new surfaces for nearest-match reconstruction.
+    struct SurfaceCentroid {
+        entt::entity surface;
+        double cx, cy, cz;
+    };
+    std::vector<SurfaceCentroid> surface_centroids;
+    surface_centroids.reserve(all_new_surfaces.size());
+    for (auto surf : all_new_surfaces) {
+        if (!registry.all_of<Component::SurfaceConnectivity>(surf)) continue;
+        const auto& conn = registry.get<Component::SurfaceConnectivity>(surf).nodes;
+        double cx = 0.0, cy = 0.0, cz = 0.0;
+        int n = 0;
+        for (auto node : conn) {
+            if (!registry.all_of<Component::Position>(node)) continue;
+            const auto& p = registry.get<Component::Position>(node);
+            cx += p.x; cy += p.y; cz += p.z; ++n;
+        }
+        if (n == 0) continue;
+        surface_centroids.push_back({surf, cx / n, cy / n, cz / n});
+    }
+
+    // Rebuild surface sets by nearest-centroid matching against the old snapshots.
+    for (const auto& snapshot : surface_set_snapshots) {
+        if (!registry.valid(snapshot.set_entity)) continue;
+        auto& members = registry.get_or_emplace<Component::SurfaceSetMembers>(snapshot.set_entity).members;
+        members.clear();
+        for (const auto& corners : snapshot.surface_corners) {
+            if (corners.empty() || surface_centroids.empty()) continue;
+            double tcx = 0.0, tcy = 0.0, tcz = 0.0;
+            for (const auto& p : corners) { tcx += p.x; tcy += p.y; tcz += p.z; }
+            tcx /= static_cast<double>(corners.size());
+            tcy /= static_cast<double>(corners.size());
+            tcz /= static_cast<double>(corners.size());
+
+            entt::entity best = entt::null;
+            double best_d2 = std::numeric_limits<double>::max();
+            for (const auto& sc : surface_centroids) {
+                const double dx = sc.cx - tcx;
+                const double dy = sc.cy - tcy;
+                const double dz = sc.cz - tcz;
+                const double d2 = dx * dx + dy * dy + dz * dz;
+                if (d2 < best_d2) { best_d2 = d2; best = sc.surface; }
+            }
+            append_unique(members, best);
+        }
     }
 
     reapply_loads_and_boundaries_from_blueprint(ctx);
