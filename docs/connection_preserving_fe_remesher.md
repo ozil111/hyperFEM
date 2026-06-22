@@ -328,7 +328,7 @@ static const int tet_table[6][4] = {
 1. ~~为每个部件泛化受保护的边界/接口提取。~~（已完成，见 `extract_protected_entities` 与 `PartRemeshPlan` 中的 `protected_*_count` 字段）
 2. ~~添加结构化 Hex8 之外的部件局部替换网格策略。~~（已完成，采用包围盒替换方案，`remesh_structured_tet4` 支持非结构化 Tet4 部件，`remesh` 统一调度入口按单元类型自动路由，详见上文"非结构化 Tet4 粗化策略"小节）
 3. ~~为 Contact、Tie、MPC 和 SharedNode 拓扑重建接口集。~~（已完成，`remesh_structured_hex8` 现支持多部件，通过表面集质心最近邻匹配保持 Tie 接口的 master 面集 / slave 节点集引用）
-4. 通过解耦边界集为非结构化网格重新施加载荷和约束。
+4. ~~通过解耦边界集为非结构化网格重新施加载荷和约束。~~（不再需要单独实现，复用现有 `reapply_loads_and_boundaries_from_blueprint` 机制即可：载荷/约束通过 NodeSet 名称作为中间桥梁重挂，与结构化/非结构化无关，Hex8 与 Tet4 路径等价使用）
 5. ~~扩展保持性验证以包含受保护集合的存在性/数量策略。~~（已完成，见 `validate_preservation_detailed`）
 6. ~~添加包含 Contact/Tie/MPC/SharedNode 接口的多部件回归案例。~~（已完成，双部件 Tie 接触案例 `double_part_hex8`）
 
