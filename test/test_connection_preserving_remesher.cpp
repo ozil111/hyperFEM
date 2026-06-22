@@ -268,6 +268,82 @@ TEST(ConnectionPreservingRemesherTest, StructuredHex8RemeshesCantileverBeamToTar
     EXPECT_TRUE(result.after.parts[0].has_constraint);
 }
 
+TEST(ConnectionPreservingRemesherTest, StructuredTet4RemeshesCantileverBeamTet4Case) {
+    const std::filesystem::path control_path =
+        std::filesystem::path("case") / "cantilever_beam_tet4" / "cantilever_beam_tet4_inp" / "control.json";
+    const std::filesystem::path mesh_path = control_path.parent_path() / "mesh.dat";
+    if (!std::filesystem::exists(control_path) || !std::filesystem::exists(mesh_path)) {
+        GTEST_SKIP() << "cantilever_beam_tet4 Simdroid case is not available";
+    }
+
+    DataContext ctx;
+    ASSERT_TRUE(SimdroidParser::parse(mesh_path.string(), control_path.string(), ctx))
+        << "failed to parse cantilever_beam_tet4 case";
+
+    SimdroidInspector inspector;
+    inspector.build(ctx.registry);
+
+    // Verify the source mesh is single-type Tet (304 or 310).
+    RemeshOptions options;
+    options.target_compression_ratio = 100.0;
+    RemeshPlan plan = ConnectionPreservingRemesher::build_plan(ctx.registry, inspector, options);
+    ASSERT_EQ(plan.parts.size(), 1);
+    ASSERT_EQ(plan.parts[0].element_type_counts.size(), 1);
+    const int source_type = plan.parts[0].element_type_counts.begin()->first;
+    EXPECT_TRUE(source_type == 304 || source_type == 310) << "expected Tet4 or Tet10, got " << source_type;
+    const int original_count = plan.parts[0].original_element_count;
+    ASSERT_GT(original_count, 0);
+
+    // Dispatch should route to the Tet strategy.
+    RemeshExecutionResult result =
+        ConnectionPreservingRemesher::remesh(ctx, inspector, options);
+
+    ASSERT_TRUE(result.success) << result.message;
+    EXPECT_TRUE(result.validation.valid);
+
+    // Element count must decrease.
+    EXPECT_LT(result.after.original_element_count, result.before.original_element_count);
+
+    // Element type must be preserved.
+    ASSERT_EQ(result.after.parts.size(), 1);
+    ASSERT_EQ(result.after.parts[0].element_type_counts.size(), 1);
+    EXPECT_EQ(result.after.parts[0].element_type_counts.begin()->first, source_type);
+
+    // Load and constraint coverage must be preserved.
+    EXPECT_TRUE(result.after.parts[0].has_load);
+    EXPECT_TRUE(result.after.parts[0].has_constraint);
+}
+
+TEST(ConnectionPreservingRemesherTest, StructuredTet4RemeshDirectlyProducesValidResult) {
+    const std::filesystem::path control_path =
+        std::filesystem::path("case") / "cantilever_beam_tet4" / "cantilever_beam_tet4_inp" / "control.json";
+    const std::filesystem::path mesh_path = control_path.parent_path() / "mesh.dat";
+    if (!std::filesystem::exists(control_path) || !std::filesystem::exists(mesh_path)) {
+        GTEST_SKIP() << "cantilever_beam_tet4 Simdroid case is not available";
+    }
+
+    DataContext ctx;
+    ASSERT_TRUE(SimdroidParser::parse(mesh_path.string(), control_path.string(), ctx));
+
+    SimdroidInspector inspector;
+    RemeshOptions options;
+    options.target_compression_ratio = 100.0;
+
+    RemeshExecutionResult result =
+        ConnectionPreservingRemesher::remesh_structured_tet4(ctx, inspector, options);
+
+    ASSERT_TRUE(result.success) << result.message;
+    EXPECT_TRUE(result.validation.valid);
+    ASSERT_EQ(result.after.parts.size(), 1);
+    ASSERT_EQ(result.after.parts[0].element_type_counts.size(), 1);
+    EXPECT_TRUE(result.after.parts[0].element_type_counts.begin()->first == 304 ||
+                result.after.parts[0].element_type_counts.begin()->first == 310);
+    EXPECT_GT(result.after.parts[0].original_element_count, 0);
+    EXPECT_LT(result.after.original_element_count, result.before.original_element_count);
+    EXPECT_TRUE(result.after.parts[0].has_load);
+    EXPECT_TRUE(result.after.parts[0].has_constraint);
+}
+
 TEST(ConnectionPreservingRemesherTest, DetailedValidationPassesWithHealthyRegistry) {
     entt::registry registry;
     nlohmann::json blueprint;

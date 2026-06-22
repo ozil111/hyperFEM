@@ -18,10 +18,11 @@
 
 ## 当前实现
 
-当前实现包含两个层次：
+当前实现包含三个层次：
 
 1. 规划与验证层。
 2. 针对结构化 Hex8 部件的多部件网格生成层。
+3. 针对非结构化 Tet4 部件的包围盒替换网格生成层。
 
 ### 规划与验证
 
@@ -59,6 +60,20 @@
 - 通过原始 Simdroid 蓝图集名称重新附加载荷和边界条件。
 
 对于不支持的模型，它会拒绝处理，而非静默生成具有误导性的网格。
+
+### 非结构化 Tet4 生成（包围盒替换）
+
+- `ConnectionPreservingRemesher::remesh_structured_tet4(...)`
+  针对一个或多个非结构化 Tet4/Tet10 部件执行包围盒替换式重网格。支持 Tet4（`ElementType=304`）和 Tet10（`ElementType=310`）两种四面体单元类型，输出类型与输入类型保持一致。
+- `ConnectionPreservingRemesher::remesh(...)`
+  统一调度入口：按部件单元类型自动路由到 Hex8 或 Tet 策略。`remesh_generate` 命令默认调用此入口。
+
+Tet 生成器复用 Hex8 流水线的全部后续链路（NodeSet 最近邻 / SurfaceSet 质心匹配 / Load/Boundary 按名重挂），差异仅在网格生成步骤：
+
+- 计算每部件包围盒，按长宽比估算等效结构化分辨率；
+- 在包围盒内生成均匀结构化网格坐标（每 Hex8 cell 拆分为 6 个 Tet）；
+- 对于 Tet10，在每条 Tet 边的中点生成中节点（跨单元共享），组装为 10 节点 Tet10 单元；
+- 表面仍用四边形面（对连接保持性验证足够）。
 
 ## CLI 用法
 
@@ -160,6 +175,38 @@ case\double_part_hex8\doublepart_hex8_inp\control.json
 - 保持不变的部件/材料/属性/类型签名
 - 保持不变的载荷/约束部件分类
 
+## 单部件 Tet4 案例
+
+首个非结构化 Tet4 生成案例为：
+
+```text
+case\cantilever_beam_tet4\cantilever_beam_tet4_inp\control.json
+```
+
+源模型为单部件非结构化 Tet10 悬臂梁：
+
+- 一个部件：`Component_1_Set-1`
+- 单元类型：Tet10（`ElementType=310`）
+- 材料：`IsotropicElastic`
+- 属性类型：`SolidAdvancedProperty`（CrossSection Formulation 为 `Tet10`）
+- 节点力集：`load`（y 方向）
+- 边界节点集：`NodeValueSet_1` 到 `NodeValueSet_6`（6 自由度约束）
+
+使用方法：
+
+```text
+import_simdroid "case\cantilever_beam_tet4\cantilever_beam_tet4_inp\control.json"
+remesh_generate "result\cantilever_tet4_remesh_100x" 100
+```
+
+当 `ratio=100` 时，包围盒替换生成器产生：
+
+- Tet10 单元数量显著缩减
+- 保持不变的单元类型签名（仅 310）
+- 非空的重建节点集、单元集和表面集
+- 保持不变的载荷/约束部件分类
+- 空接口列表（单部件无部件间接口）
+
 ## 测试
 
 专项测试位于：
@@ -176,6 +223,7 @@ test\test_connection_preserving_remesher.cpp
 - 悬臂梁案例的计划生成；
 - 悬臂梁从 `20000` 个单元到 `200` 个单元的结构化 Hex8 重网格（包含详细验证）；
 - 双部件 Tie 接触案例从 `40000` 个单元到 `400` 个单元的结构化 Hex8 重网格（含 Tie 接口保持与详细验证）；
+- 单部件 Tet4/Tet10 案例的统一调度路由与包围盒替换重网格（含四面体类型签名保持、单元数缩减、载荷/约束覆盖验证）；
 - 详细验证的正常态通过测试（含非空 NodeSet、ElementSet、SurfaceSet、AppliedLoadRef、AppliedBoundaryRef 及匹配的蓝图）；
 - 详细验证的空集合检测测试；
 - 详细验证的蓝图缺失集合检测测试；
@@ -278,7 +326,7 @@ static const int tet_table[6][4] = {
 ## 计划中的网格生成阶段
 
 1. ~~为每个部件泛化受保护的边界/接口提取。~~（已完成，见 `extract_protected_entities` 与 `PartRemeshPlan` 中的 `protected_*_count` 字段）
-2. 添加结构化 Hex8 之外的部件局部替换网格策略。（采用方案：包围盒替换，详见上文"非结构化 Tet4 粗化策略"小节）
+2. ~~添加结构化 Hex8 之外的部件局部替换网格策略。~~（已完成，采用包围盒替换方案，`remesh_structured_tet4` 支持非结构化 Tet4 部件，`remesh` 统一调度入口按单元类型自动路由，详见上文"非结构化 Tet4 粗化策略"小节）
 3. ~~为 Contact、Tie、MPC 和 SharedNode 拓扑重建接口集。~~（已完成，`remesh_structured_hex8` 现支持多部件，通过表面集质心最近邻匹配保持 Tie 接口的 master 面集 / slave 节点集引用）
 4. 通过解耦边界集为非结构化网格重新施加载荷和约束。
 5. ~~扩展保持性验证以包含受保护集合的存在性/数量策略。~~（已完成，见 `validate_preservation_detailed`）

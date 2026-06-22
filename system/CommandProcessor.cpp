@@ -642,9 +642,9 @@ void process_command(const std::string& command_line, AppSession& session) {
             std::filesystem::path out_dir(output_dir);
             std::filesystem::create_directories(out_dir);
 
-            spdlog::info("Generating structured Hex8 remesh...");
+            spdlog::info("Generating remesh...");
             RemeshExecutionResult result =
-                ConnectionPreservingRemesher::remesh_structured_hex8(
+                ConnectionPreservingRemesher::remesh(
                     session.data, session.inspector, options);
 
             const auto before_path = out_dir / "remesh_before.json";

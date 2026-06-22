@@ -91,6 +91,14 @@ struct StructuredGridInfo {
 
 constexpr double kCoordTol = 1e-9;
 
+// Hex8 → 6 Tet4 standard decomposition table.
+// Hex8 corner ordering matches the Connectivity used by remesh_structured_hex8:
+// {n0,n1,n2,n3,n4,n5,n6,n7} = bottom CCW then top CCW.
+constexpr int kTetTable[6][4] = {
+    {0, 1, 2, 6}, {0, 2, 3, 6}, {0, 3, 7, 6},
+    {0, 7, 4, 6}, {0, 4, 5, 6}, {0, 5, 1, 6}
+};
+
 bool nearly_equal(double a, double b) {
     return std::abs(a - b) <= kCoordTol;
 }
@@ -1225,5 +1233,514 @@ ConnectionPreservingRemesher::remesh_structured_hex8(DataContext& ctx,
     result.success = result.validation.valid;
     result.message = result.success ? "structured Hex8 remesh completed" : "preservation validation failed";
     result.warnings.push_back("structured Hex8 remesh is debug-only and only preserves coarse connectivity contracts");
+    return result;
+}
+
+RemeshExecutionResult
+ConnectionPreservingRemesher::remesh_structured_tet4(DataContext& ctx,
+                                                     SimdroidInspector& inspector,
+                                                     const RemeshOptions& options) {
+    RemeshExecutionResult result;
+    auto& registry = ctx.registry;
+
+    inspector.build(registry);
+    result.before = build_plan(registry, inspector, options);
+
+    if (result.before.parts.empty()) {
+        result.message = "no parts to remesh";
+        return result;
+    }
+
+    // Every part must be a single-type Tet4 (304) or Tet10 (310) mesh.
+    int output_element_type = 0;
+    for (const auto& part_plan : result.before.parts) {
+        if (part_plan.element_type_counts.size() != 1) {
+            result.message = "structured Tet remesh requires every part to use a single element type: " + part_plan.part_name;
+            return result;
+        }
+        const int type_id = part_plan.element_type_counts.begin()->first;
+        if (type_id != 304 && type_id != 310) {
+            result.message = "structured Tet remesh requires every part to use only Tet4 (304) or Tet10 (310): " + part_plan.part_name;
+            return result;
+        }
+        if (output_element_type == 0) {
+            output_element_type = type_id;
+        } else if (output_element_type != type_id) {
+            result.message = "structured Tet remesh requires all parts to use the same element type: " + part_plan.part_name;
+            return result;
+        }
+        if (part_plan.original_element_count <= 0 || part_plan.target_element_count <= 0) {
+            result.message = "part has no remeshable elements: " + part_plan.part_name;
+            return result;
+        }
+    }
+
+    // Per-part bounding-box structured grid generation.
+    // For unstructured Tet4 we cannot extract a grid from node coordinates;
+    // instead we compute the bounding box, estimate an equivalent structured
+    // resolution from the aspect ratio, and generate uniform grid coordinates.
+    struct PartMeshInfo {
+        const Component::SimdroidPart* part = nullptr;
+        StructuredGridInfo grid;
+        std::array<int, 3> original_cells{0, 0, 0};
+        std::array<int, 3> target_cells{0, 0, 0};
+        std::vector<int> ix, iy, iz;
+        std::vector<entt::entity> new_nodes;
+        std::vector<entt::entity> new_elements;
+    };
+    std::vector<PartMeshInfo> part_infos;
+    part_infos.reserve(result.before.parts.size());
+
+    {
+        auto part_view = registry.view<const Component::SimdroidPart>();
+        for (auto part_entity : part_view) {
+            const auto& part = part_view.get<const Component::SimdroidPart>(part_entity);
+
+            const PartRemeshPlan* pp = nullptr;
+            for (const auto& candidate : result.before.parts) {
+                if (candidate.part_name == part.name) { pp = &candidate; break; }
+            }
+            if (pp == nullptr) continue;
+
+            if (!registry.valid(part.element_set) ||
+                !registry.all_of<Component::ElementSetMembers>(part.element_set)) {
+                result.message = "Part element set is missing: " + part.name;
+                return result;
+            }
+
+            PartMeshInfo info;
+            info.part = &part;
+
+            // Collect all part node positions and compute bounding box.
+            double min_x = std::numeric_limits<double>::max();
+            double min_y = std::numeric_limits<double>::max();
+            double min_z = std::numeric_limits<double>::max();
+            double max_x = std::numeric_limits<double>::lowest();
+            double max_y = std::numeric_limits<double>::lowest();
+            double max_z = std::numeric_limits<double>::lowest();
+
+            std::set<entt::entity> part_node_set;
+            const auto& elem_members = registry.get<Component::ElementSetMembers>(part.element_set).members;
+            for (auto elem_entity : elem_members) {
+                if (!registry.valid(elem_entity) ||
+                    !registry.all_of<Component::Connectivity>(elem_entity)) continue;
+                for (auto node_entity : registry.get<Component::Connectivity>(elem_entity).nodes) {
+                    if (registry.valid(node_entity) && registry.all_of<Component::Position>(node_entity)) {
+                        if (part_node_set.insert(node_entity).second) {
+                            const auto& p = registry.get<Component::Position>(node_entity);
+                            min_x = std::min(min_x, p.x); max_x = std::max(max_x, p.x);
+                            min_y = std::min(min_y, p.y); max_y = std::max(max_y, p.y);
+                            min_z = std::min(min_z, p.z); max_z = std::max(max_z, p.z);
+                        }
+                    }
+                }
+            }
+
+            if (part_node_set.empty()) {
+                result.message = "no nodes found for part: " + part.name;
+                return result;
+            }
+
+            const double dx = max_x - min_x;
+            const double dy = max_y - min_y;
+            const double dz = max_z - min_z;
+            const double max_dim = std::max({dx, dy, dz});
+            if (max_dim <= 0.0) {
+                result.message = "degenerate bounding box for part: " + part.name;
+                return result;
+            }
+
+            // Estimate an equivalent structured resolution proportional to the
+            // bounding box aspect ratio. The base resolution gives the longest
+            // dimension a cell count of kBoundingBoxBase; shorter dimensions
+            // are scaled proportionally.
+            constexpr int kBoundingBoxBase = 100;
+            info.original_cells = {
+                std::max(1, static_cast<int>(std::round(kBoundingBoxBase * dx / max_dim))),
+                std::max(1, static_cast<int>(std::round(kBoundingBoxBase * dy / max_dim))),
+                std::max(1, static_cast<int>(std::round(kBoundingBoxBase * dz / max_dim)))
+            };
+
+            // Generate uniform grid coordinates within the bounding box.
+            info.grid.xs.resize(static_cast<std::size_t>(info.original_cells[0]) + 1);
+            info.grid.ys.resize(static_cast<std::size_t>(info.original_cells[1]) + 1);
+            info.grid.zs.resize(static_cast<std::size_t>(info.original_cells[2]) + 1);
+            for (int i = 0; i <= info.original_cells[0]; ++i)
+                info.grid.xs[static_cast<std::size_t>(i)] = min_x + dx * i / info.original_cells[0];
+            for (int j = 0; j <= info.original_cells[1]; ++j)
+                info.grid.ys[static_cast<std::size_t>(j)] = min_y + dy * j / info.original_cells[1];
+            for (int k = 0; k <= info.original_cells[2]; ++k)
+                info.grid.zs[static_cast<std::size_t>(k)] = min_z + dz * k / info.original_cells[2];
+
+            // Target Hex8 cell count = target Tet4 count / 6 (each Hex8 → 6 Tet4).
+            const int target_hex = std::max(1, pp->target_element_count / 6);
+            info.target_cells = choose_target_cells(info.original_cells, target_hex);
+            info.ix = choose_axis_indices(info.original_cells[0], info.target_cells[0]);
+            info.iy = choose_axis_indices(info.original_cells[1], info.target_cells[1]);
+            info.iz = choose_axis_indices(info.original_cells[2], info.target_cells[2]);
+
+            part_infos.push_back(std::move(info));
+        }
+    }
+
+    if (part_infos.size() != result.before.parts.size()) {
+        result.message = "could not build structured grid info for every part";
+        return result;
+    }
+
+    struct OldNodeSetSnapshot {
+        entt::entity set_entity;
+        std::vector<Component::Position> positions;
+    };
+    std::vector<OldNodeSetSnapshot> node_set_snapshots;
+    {
+        auto set_view = registry.view<Component::NodeSetMembers>();
+        for (auto set_entity : set_view) {
+            OldNodeSetSnapshot snapshot;
+            snapshot.set_entity = set_entity;
+            for (auto node : set_view.get<Component::NodeSetMembers>(set_entity).members) {
+                if (registry.valid(node) && registry.all_of<Component::Position>(node)) {
+                    snapshot.positions.push_back(registry.get<Component::Position>(node));
+                }
+            }
+            node_set_snapshots.push_back(std::move(snapshot));
+        }
+    }
+
+    struct SurfaceSetSnapshot {
+        entt::entity set_entity;
+        std::vector<std::vector<Component::Position>> surface_corners;
+    };
+    std::vector<SurfaceSetSnapshot> surface_set_snapshots;
+    {
+        auto set_view = registry.view<Component::SurfaceSetMembers>();
+        for (auto set_entity : set_view) {
+            SurfaceSetSnapshot snapshot;
+            snapshot.set_entity = set_entity;
+            for (auto surf : set_view.get<Component::SurfaceSetMembers>(set_entity).members) {
+                if (!registry.valid(surf) || !registry.all_of<Component::SurfaceConnectivity>(surf)) continue;
+                std::vector<Component::Position> corners;
+                for (auto node : registry.get<Component::SurfaceConnectivity>(surf).nodes) {
+                    if (registry.valid(node) && registry.all_of<Component::Position>(node)) {
+                        corners.push_back(registry.get<Component::Position>(node));
+                    }
+                }
+                if (!corners.empty()) snapshot.surface_corners.push_back(std::move(corners));
+            }
+            surface_set_snapshots.push_back(std::move(snapshot));
+        }
+    }
+
+    std::vector<entt::entity> old_mesh_entities;
+    {
+        auto view = registry.view<Component::NodeID>();
+        for (auto e : view) old_mesh_entities.push_back(e);
+    }
+    {
+        auto view = registry.view<Component::ElementID>();
+        for (auto e : view) append_unique(old_mesh_entities, e);
+    }
+    {
+        auto view = registry.view<Component::SurfaceID>();
+        for (auto e : view) append_unique(old_mesh_entities, e);
+    }
+
+    for (auto e : old_mesh_entities) {
+        if (registry.valid(e)) registry.destroy(e);
+    }
+
+    if (registry.ctx().contains<std::unique_ptr<TopologyData>>()) {
+        registry.ctx().erase<std::unique_ptr<TopologyData>>();
+    }
+
+    // Generate new nodes and elements per part with globally contiguous IDs.
+    int next_node_id = 0;
+    int next_element_id = 0;
+    for (auto& info : part_infos) {
+        const auto& g = info.grid;
+        const auto& ix = info.ix;
+        const auto& iy = info.iy;
+        const auto& iz = info.iz;
+
+        info.new_nodes.reserve(ix.size() * iy.size() * iz.size());
+        auto node_at = [&](std::size_t i, std::size_t j, std::size_t k) -> entt::entity& {
+            return info.new_nodes[(k * iy.size() + j) * ix.size() + i];
+        };
+
+        for (std::size_t k = 0; k < iz.size(); ++k) {
+            for (std::size_t j = 0; j < iy.size(); ++j) {
+                for (std::size_t i = 0; i < ix.size(); ++i) {
+                    auto node = registry.create();
+                    registry.emplace<Component::Position>(node, g.xs[ix[i]], g.ys[iy[j]], g.zs[iz[k]]);
+                    registry.emplace<Component::NodeID>(node, next_node_id);
+                    registry.emplace<Component::OriginalID>(node, next_node_id);
+                    info.new_nodes.push_back(node);
+                    ++next_node_id;
+                }
+            }
+        }
+
+        // Each structured cell produces 6 Tet elements (Tet4 or Tet10).
+        const std::size_t num_cells = (ix.size() - 1) * (iy.size() - 1) * (iz.size() - 1);
+        info.new_elements.reserve(num_cells * 6);
+
+        // For Tet10, midside nodes are shared across elements via this map.
+        std::map<std::pair<entt::entity, entt::entity>, entt::entity> midside_nodes;
+        auto get_or_create_midside = [&](entt::entity a, entt::entity b) -> entt::entity {
+            auto key = std::make_pair(std::min(a, b), std::max(a, b));
+            auto it = midside_nodes.find(key);
+            if (it != midside_nodes.end()) return it->second;
+            const auto& pa = registry.get<Component::Position>(a);
+            const auto& pb = registry.get<Component::Position>(b);
+            auto mid = registry.create();
+            registry.emplace<Component::Position>(mid, (pa.x + pb.x) * 0.5,
+                                                       (pa.y + pb.y) * 0.5,
+                                                       (pa.z + pb.z) * 0.5);
+            registry.emplace<Component::NodeID>(mid, next_node_id);
+            registry.emplace<Component::OriginalID>(mid, next_node_id);
+            ++next_node_id;
+            midside_nodes[key] = mid;
+            return mid;
+        };
+
+        for (std::size_t k = 0; k + 1 < iz.size(); ++k) {
+            for (std::size_t j = 0; j + 1 < iy.size(); ++j) {
+                for (std::size_t i = 0; i + 1 < ix.size(); ++i) {
+                    entt::entity hex_nodes[8] = {
+                        node_at(i,     j,     k),
+                        node_at(i + 1, j,     k),
+                        node_at(i + 1, j + 1, k),
+                        node_at(i,     j + 1, k),
+                        node_at(i,     j,     k + 1),
+                        node_at(i + 1, j,     k + 1),
+                        node_at(i + 1, j + 1, k + 1),
+                        node_at(i,     j + 1, k + 1)
+                    };
+                    for (int t = 0; t < 6; ++t) {
+                        const int a = kTetTable[t][0];
+                        const int b = kTetTable[t][1];
+                        const int c = kTetTable[t][2];
+                        const int d = kTetTable[t][3];
+
+                        auto elem = registry.create();
+                        registry.emplace<Component::ElementID>(elem, next_element_id);
+                        registry.emplace<Component::OriginalID>(elem, next_element_id);
+                        registry.emplace<Component::ElementType>(elem, output_element_type);
+                        registry.emplace<Component::PropertyRef>(elem, info.part->section);
+
+                        if (output_element_type == 310) {
+                            // Tet10: 4 corner nodes + 6 midside nodes.
+                            // Ordering: [0..3]=corners, [4]=mid(0,1), [5]=mid(1,2),
+                            //           [6]=mid(2,0), [7]=mid(0,3), [8]=mid(1,3), [9]=mid(2,3)
+                            registry.emplace<Component::Connectivity>(elem, Component::Connectivity{{
+                                hex_nodes[a], hex_nodes[b], hex_nodes[c], hex_nodes[d],
+                                get_or_create_midside(hex_nodes[a], hex_nodes[b]),
+                                get_or_create_midside(hex_nodes[b], hex_nodes[c]),
+                                get_or_create_midside(hex_nodes[c], hex_nodes[a]),
+                                get_or_create_midside(hex_nodes[a], hex_nodes[d]),
+                                get_or_create_midside(hex_nodes[b], hex_nodes[d]),
+                                get_or_create_midside(hex_nodes[c], hex_nodes[d])
+                            }});
+                        } else {
+                            // Tet4: 4 corner nodes only.
+                            registry.emplace<Component::Connectivity>(elem, Component::Connectivity{{
+                                hex_nodes[a], hex_nodes[b], hex_nodes[c], hex_nodes[d]
+                            }});
+                        }
+                        info.new_elements.push_back(elem);
+                        ++next_element_id;
+                    }
+                }
+            }
+        }
+
+        if (registry.valid(info.part->element_set)) {
+            auto& members = registry.get_or_emplace<Component::ElementSetMembers>(info.part->element_set).members;
+            members = info.new_elements;
+        }
+    }
+
+    // Rebuild element sets referenced by PartProperty (map EleSet name -> part's new elements).
+    if (ctx.simdroid_blueprint.contains("PartProperty") &&
+        ctx.simdroid_blueprint["PartProperty"].is_object()) {
+        std::map<std::string, const std::vector<entt::entity>*> eset_by_name;
+        for (const auto& info : part_infos) {
+            if (registry.valid(info.part->element_set) &&
+                registry.all_of<Component::SetName>(info.part->element_set)) {
+                eset_by_name[registry.get<Component::SetName>(info.part->element_set).value] = &info.new_elements;
+            }
+        }
+        for (auto it = ctx.simdroid_blueprint["PartProperty"].begin();
+             it != ctx.simdroid_blueprint["PartProperty"].end(); ++it) {
+            if (!it.value().is_object()) continue;
+            const std::string ele_set_name = it.value().value("EleSet", "");
+            if (ele_set_name.empty()) continue;
+            auto mit = eset_by_name.find(ele_set_name);
+            if (mit == eset_by_name.end()) continue;
+            entt::entity set_entity = find_set_by_name(registry, ele_set_name);
+            if (!registry.valid(set_entity)) continue;
+            registry.get_or_emplace<Component::ElementSetMembers>(set_entity).members = *mit->second;
+        }
+    }
+
+    const auto sorted_new_nodes = all_nodes_sorted(registry);
+    for (const auto& snapshot : node_set_snapshots) {
+        if (!registry.valid(snapshot.set_entity)) continue;
+        auto& members = registry.get_or_emplace<Component::NodeSetMembers>(snapshot.set_entity).members;
+        members.clear();
+        for (const auto& pos : snapshot.positions) {
+            append_unique(members, nearest_node(registry, sorted_new_nodes, pos));
+        }
+    }
+
+    // Generate boundary surfaces per part with globally contiguous surface IDs.
+    // Each cell's first Tet4 is used as the SurfaceParentElement.
+    std::vector<entt::entity> all_new_surfaces;
+    int next_surface_id = next_element_id;
+    for (auto& info : part_infos) {
+        const auto& ix = info.ix;
+        const auto& iy = info.iy;
+        const auto& iz = info.iz;
+        auto node_at = [&](std::size_t i, std::size_t j, std::size_t k) -> entt::entity& {
+            return info.new_nodes[(k * iy.size() + j) * ix.size() + i];
+        };
+        auto element_at = [&](std::size_t i, std::size_t j, std::size_t k) -> entt::entity {
+            std::size_t cell_idx = (k * (iy.size() - 1) + j) * (ix.size() - 1) + i;
+            return info.new_elements[cell_idx * 6];
+        };
+        auto make_surface = [&](const std::vector<entt::entity>& nodes, entt::entity parent) {
+            auto surf = registry.create();
+            registry.emplace<Component::SurfaceID>(surf, next_surface_id);
+            registry.emplace<Component::OriginalID>(surf, next_surface_id);
+            registry.emplace<Component::SurfaceConnectivity>(surf, Component::SurfaceConnectivity{nodes});
+            registry.emplace<Component::SurfaceParentElement>(surf, parent);
+            all_new_surfaces.push_back(surf);
+            ++next_surface_id;
+        };
+
+        const std::size_t nx = ix.size() - 1;
+        const std::size_t ny = iy.size() - 1;
+        const std::size_t nz = iz.size() - 1;
+        for (std::size_t k = 0; k < nz; ++k) {
+            for (std::size_t j = 0; j < ny; ++j) {
+                make_surface({node_at(0, j, k), node_at(0, j + 1, k), node_at(0, j + 1, k + 1), node_at(0, j, k + 1)},
+                             element_at(0, j, k));
+                make_surface({node_at(nx, j, k), node_at(nx, j, k + 1), node_at(nx, j + 1, k + 1), node_at(nx, j + 1, k)},
+                             element_at(nx - 1, j, k));
+            }
+        }
+        for (std::size_t k = 0; k < nz; ++k) {
+            for (std::size_t i = 0; i < nx; ++i) {
+                make_surface({node_at(i, 0, k), node_at(i, 0, k + 1), node_at(i + 1, 0, k + 1), node_at(i + 1, 0, k)},
+                             element_at(i, 0, k));
+                make_surface({node_at(i, ny, k), node_at(i + 1, ny, k), node_at(i + 1, ny, k + 1), node_at(i, ny, k + 1)},
+                             element_at(i, ny - 1, k));
+            }
+        }
+        for (std::size_t j = 0; j < ny; ++j) {
+            for (std::size_t i = 0; i < nx; ++i) {
+                make_surface({node_at(i, j, 0), node_at(i + 1, j, 0), node_at(i + 1, j + 1, 0), node_at(i, j + 1, 0)},
+                             element_at(i, j, 0));
+                make_surface({node_at(i, j, nz), node_at(i, j + 1, nz), node_at(i + 1, j + 1, nz), node_at(i + 1, j, nz)},
+                             element_at(i, j, nz - 1));
+            }
+        }
+    }
+
+    struct SurfaceCentroid {
+        entt::entity surface;
+        double cx, cy, cz;
+    };
+    std::vector<SurfaceCentroid> surface_centroids;
+    surface_centroids.reserve(all_new_surfaces.size());
+    for (auto surf : all_new_surfaces) {
+        if (!registry.all_of<Component::SurfaceConnectivity>(surf)) continue;
+        const auto& conn = registry.get<Component::SurfaceConnectivity>(surf).nodes;
+        double cx = 0.0, cy = 0.0, cz = 0.0;
+        int n = 0;
+        for (auto node : conn) {
+            if (!registry.all_of<Component::Position>(node)) continue;
+            const auto& p = registry.get<Component::Position>(node);
+            cx += p.x; cy += p.y; cz += p.z; ++n;
+        }
+        if (n == 0) continue;
+        surface_centroids.push_back({surf, cx / n, cy / n, cz / n});
+    }
+
+    for (const auto& snapshot : surface_set_snapshots) {
+        if (!registry.valid(snapshot.set_entity)) continue;
+        auto& members = registry.get_or_emplace<Component::SurfaceSetMembers>(snapshot.set_entity).members;
+        members.clear();
+        for (const auto& corners : snapshot.surface_corners) {
+            if (corners.empty() || surface_centroids.empty()) continue;
+            double tcx = 0.0, tcy = 0.0, tcz = 0.0;
+            for (const auto& p : corners) { tcx += p.x; tcy += p.y; tcz += p.z; }
+            tcx /= static_cast<double>(corners.size());
+            tcy /= static_cast<double>(corners.size());
+            tcz /= static_cast<double>(corners.size());
+
+            entt::entity best = entt::null;
+            double best_d2 = std::numeric_limits<double>::max();
+            for (const auto& sc : surface_centroids) {
+                const double dx = sc.cx - tcx;
+                const double dy = sc.cy - tcy;
+                const double dz = sc.cz - tcz;
+                const double d2 = dx * dx + dy * dy + dz * dz;
+                if (d2 < best_d2) { best_d2 = d2; best = sc.surface; }
+            }
+            append_unique(members, best);
+        }
+    }
+
+    reapply_loads_and_boundaries_from_blueprint(ctx);
+
+    inspector.build(registry);
+    result.after = build_plan(registry, inspector, options);
+    result.validation = validate_preservation(result.before, result.after);
+
+    auto detailed = validate_preservation_detailed(registry, ctx.simdroid_blueprint, result.after);
+    result.validation.errors.insert(result.validation.errors.end(),
+                                    detailed.errors.begin(), detailed.errors.end());
+    result.validation.warnings.insert(result.validation.warnings.end(),
+                                      detailed.warnings.begin(), detailed.warnings.end());
+    result.validation.valid = result.validation.valid && detailed.valid;
+
+    result.success = result.validation.valid;
+    result.message = result.success ? "structured Tet remesh completed" : "preservation validation failed";
+    result.warnings.push_back("structured Tet remesh is debug-only and only preserves coarse connectivity contracts");
+    return result;
+}
+
+RemeshExecutionResult
+ConnectionPreservingRemesher::remesh(DataContext& ctx,
+                                     SimdroidInspector& inspector,
+                                     const RemeshOptions& options) {
+    inspector.build(ctx.registry);
+    RemeshPlan plan = build_plan(ctx.registry, inspector, options);
+
+    if (plan.parts.empty()) {
+        RemeshExecutionResult result;
+        result.message = "no parts to remesh";
+        return result;
+    }
+
+    bool all_hex8 = true;
+    bool all_tet = true;
+    for (const auto& part : plan.parts) {
+        if (part.element_type_counts.size() != 1) {
+            all_hex8 = false;
+            all_tet = false;
+            break;
+        }
+        const int type_id = part.element_type_counts.begin()->first;
+        if (type_id != 308) all_hex8 = false;
+        if (type_id != 304 && type_id != 310) all_tet = false;
+    }
+
+    if (all_hex8) return remesh_structured_hex8(ctx, inspector, options);
+    if (all_tet) return remesh_structured_tet4(ctx, inspector, options);
+
+    RemeshExecutionResult result;
+    result.message = "no suitable remesh strategy for mixed/unsupported element types";
     return result;
 }

@@ -114,6 +114,16 @@ public:
                                                         SimdroidInspector& inspector,
                                                         const RemeshOptions& options = {});
 
+    static RemeshExecutionResult remesh_structured_tet4(DataContext& ctx,
+                                                        SimdroidInspector& inspector,
+                                                        const RemeshOptions& options = {});
+
+    // Unified dispatch: routes to remesh_structured_hex8 or remesh_structured_tet4
+    // based on the element type(s) found in the registry.
+    static RemeshExecutionResult remesh(DataContext& ctx,
+                                        SimdroidInspector& inspector,
+                                        const RemeshOptions& options = {});
+
 private:
     static std::vector<InterfaceSignature> collect_interface_signatures(const PartGraph& graph);
 };
