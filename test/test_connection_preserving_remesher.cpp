@@ -344,6 +344,112 @@ TEST(ConnectionPreservingRemesherTest, StructuredTet4RemeshDirectlyProducesValid
     EXPECT_TRUE(result.after.parts[0].has_constraint);
 }
 
+TEST(ConnectionPreservingRemesherTest, DoublePartTet10CasePlansWithTieInterface) {
+    const std::filesystem::path control_path =
+        std::filesystem::path("case") / "cantilever_beam_tet10" / "doublepart_tet10_inp" / "control.json";
+    const std::filesystem::path mesh_path = control_path.parent_path() / "mesh.dat";
+    if (!std::filesystem::exists(control_path) || !std::filesystem::exists(mesh_path)) {
+        GTEST_SKIP() << "doublepart_tet10 Simdroid case is not available";
+    }
+
+    DataContext ctx;
+    ASSERT_TRUE(SimdroidParser::parse(mesh_path.string(), control_path.string(), ctx))
+        << "failed to parse doublepart_tet10 case";
+
+    SimdroidInspector inspector;
+    inspector.build(ctx.registry);
+
+    RemeshOptions options;
+    options.target_compression_ratio = 100.0;
+    RemeshPlan plan = ConnectionPreservingRemesher::build_plan(ctx.registry, inspector, options);
+
+    EXPECT_EQ(plan.original_element_count, 36036);
+    ASSERT_EQ(plan.parts.size(), 2);
+    EXPECT_EQ(plan.parts[0].original_element_count, 18018);
+    EXPECT_EQ(plan.parts[1].original_element_count, 18018);
+    ASSERT_EQ(plan.parts[0].element_type_counts.size(), 1);
+    EXPECT_EQ(plan.parts[0].element_type_counts.at(310), 18018);
+    ASSERT_EQ(plan.parts[1].element_type_counts.size(), 1);
+    EXPECT_EQ(plan.parts[1].element_type_counts.at(310), 18018);
+
+    bool has_contact_interface = false;
+    for (const auto& sig : plan.interfaces) {
+        if (sig.type == ConnectionType::Contact) has_contact_interface = true;
+    }
+    EXPECT_TRUE(has_contact_interface);
+
+    auto protected_infos =
+        ConnectionPreservingRemesher::extract_protected_entities(ctx.registry, inspector);
+    ASSERT_EQ(protected_infos.size(), 2u);
+    int total_contact_nodes = 0;
+    int total_loaded_nodes = 0;
+    int total_constrained_nodes = 0;
+    for (const auto& info : protected_infos) {
+        total_contact_nodes += static_cast<int>(info.contact_nodes.size());
+        total_loaded_nodes += static_cast<int>(info.loaded_nodes.size());
+        total_constrained_nodes += static_cast<int>(info.constrained_nodes.size());
+    }
+    EXPECT_GT(total_contact_nodes, 0);
+    EXPECT_GT(total_loaded_nodes, 0);
+    EXPECT_GT(total_constrained_nodes, 0);
+}
+
+TEST(ConnectionPreservingRemesherTest, StructuredTet4RemeshesDoublePartTet10TieCase) {
+    const std::filesystem::path control_path =
+        std::filesystem::path("case") / "cantilever_beam_tet10" / "doublepart_tet10_inp" / "control.json";
+    const std::filesystem::path mesh_path = control_path.parent_path() / "mesh.dat";
+    if (!std::filesystem::exists(control_path) || !std::filesystem::exists(mesh_path)) {
+        GTEST_SKIP() << "doublepart_tet10 Simdroid case is not available";
+    }
+
+    DataContext ctx;
+    ASSERT_TRUE(SimdroidParser::parse(mesh_path.string(), control_path.string(), ctx))
+        << "failed to parse doublepart_tet10 case";
+
+    SimdroidInspector inspector;
+    RemeshOptions options;
+    options.target_compression_ratio = 100.0;
+
+    // Unified dispatch should route to the Tet strategy for Tet10 parts.
+    RemeshExecutionResult result =
+        ConnectionPreservingRemesher::remesh(ctx, inspector, options);
+
+    ASSERT_TRUE(result.success) << result.message;
+    EXPECT_TRUE(result.validation.valid);
+
+    EXPECT_EQ(result.before.original_element_count, 36036);
+    ASSERT_EQ(result.before.parts.size(), 2);
+    ASSERT_EQ(result.after.parts.size(), 2);
+
+    // Element count must decrease.
+    EXPECT_LT(result.after.original_element_count, result.before.original_element_count);
+
+    // Each part must preserve the Tet10 (310) type signature.
+    for (const auto& pp : result.after.parts) {
+        ASSERT_EQ(pp.element_type_counts.size(), 1);
+        EXPECT_EQ(pp.element_type_counts.at(310), pp.original_element_count);
+        EXPECT_GT(pp.original_element_count, 0);
+    }
+
+    // The Tie contact interface must be preserved.
+    ASSERT_FALSE(result.after.interfaces.empty());
+    bool has_contact_after = false;
+    for (const auto& sig : result.after.interfaces) {
+        if (sig.type == ConnectionType::Contact) has_contact_after = true;
+    }
+    EXPECT_TRUE(has_contact_after);
+
+    // Each part should still report load/constraint coverage.
+    bool any_load = false;
+    bool any_constraint = false;
+    for (const auto& pp : result.after.parts) {
+        if (pp.has_load) any_load = true;
+        if (pp.has_constraint) any_constraint = true;
+    }
+    EXPECT_TRUE(any_load);
+    EXPECT_TRUE(any_constraint);
+}
+
 TEST(ConnectionPreservingRemesherTest, DetailedValidationPassesWithHealthyRegistry) {
     entt::registry registry;
     nlohmann::json blueprint;
