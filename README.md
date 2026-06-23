@@ -16,6 +16,18 @@
 
 项目使用 `vcpkg`管理 C++ 依赖，并提供了一套脚本来简化环境配置。
 
+### 0. 获取子模块
+
+```bash
+git submodule update --init --recursive
+```
+
+后续更新子模块到各自分支最新提交：
+
+```bash
+git submodule update --remote --recursive
+```
+
 ### 1. 依赖管理 (Vcpkg)
 
 在首次构建前，需安装 C++ 依赖项：
