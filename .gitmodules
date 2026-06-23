@@ -1,3 +1,8 @@
-[submodule "vuel"]
-	path = vuel
-	url = D:/Document/NovaFea-vuel
+[submodule "extern/vuel"]
+	path = extern/vuel
+	url = https://github.com/ozil111/NovaFea-vuel.git
+	branch = develop
+[submodule "extern/fea_codegen"]
+	path = extern/fea_codegen
+	url = git@github.com:ozil111/fea_codegen.git
+	branch = develop
