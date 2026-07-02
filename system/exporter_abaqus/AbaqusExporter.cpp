@@ -359,16 +359,22 @@ bool AbaqusExporter::save(const std::string& filepath, const DataContext& data_c
             registry.valid(data_context.analysis_entity)) {
 
             auto a = data_context.analysis_entity;
-            out << "*STEP, NLGEOM=YES";
-            out << "\n";
 
-            // *DYNAMIC
+            bool nlgeom = false;
+            if (registry.all_of<Component::Nlgeom>(a)) {
+                nlgeom = registry.get<Component::Nlgeom>(a).value;
+            }
+            out << "*STEP, NLGEOM=" << (nlgeom ? "YES" : "NO") << "\n";
+
+            // Analysis type
             std::string step_type = "DynamicExplicit";
             if (registry.all_of<Component::AnalysisType>(a)) {
                 step_type = registry.get<Component::AnalysisType>(a).value;
             }
 
-            if (step_type == "DynamicExplicit" || step_type == "DynamicImplicit") {
+            if (step_type == "Static") {
+                out << "*STATIC\n";
+            } else if (step_type == "DynamicExplicit" || step_type == "DynamicImplicit") {
                 out << "*DYNAMIC, EXPLICIT, DIRECT USER CONTROL\n";
             } else {
                 out << "*DYNAMIC, EXPLICIT\n";

@@ -43,6 +43,25 @@
           }
         }
       ]
+    },
+    {
+      "name": "abaqus_parser_t01_implicit",
+      "steps":[
+        {
+          "command": "../bin/Debug/NovaFEA_app.exe",
+          "args":["-s","abaqus_T01_explicit/import_export_implicit.nova"],
+          "expected": {
+            "output_contains": ["Application finished successfully"]
+          }
+        },
+        {
+          "command": "python",
+          "args":["-s","abaqus_T01_explicit/run_abaqus.py","abaqus_T01_explicit/abaqus_T01_implicit_export.inp"],
+          "expected": {
+            "output_contains": ["运行完成"]
+          }
+        }
+      ]
     }
   ]
 }

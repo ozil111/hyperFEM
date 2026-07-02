@@ -1,0 +1,2 @@
+import abaqus_T01_explicit\abaqus_T01_implicit.inp
+export_abaqus abaqus_T01_explicit\abaqus_T01_implicit_export.inp

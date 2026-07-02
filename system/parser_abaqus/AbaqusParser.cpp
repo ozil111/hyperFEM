@@ -530,6 +530,15 @@ void process_step(const AbaqusBlock& block,
     ctx.registry.emplace<Component::AnalysisID>(analysis_e, ctx.analysis_id_counter++);
     data_context.analysis_entity = analysis_e;
 
+    // Parse NLGEOM (Abaqus default: NO for Standard)
+    bool nlgeom = false;
+    auto ngit = block.params.find("NLGEOM");
+    if (ngit != block.params.end()) {
+        std::string val = to_upper(ngit->second);
+        nlgeom = (val == "YES" || val == "ON" || val == "TRUE");
+    }
+    ctx.registry.emplace_or_replace<Component::Nlgeom>(analysis_e, nlgeom);
+
     for (const auto& sub : sub_blocks) {
         if (sub.keyword == "DYNAMIC") {
             // Check for EXPLICIT flag
@@ -544,6 +553,21 @@ void process_step(const AbaqusBlock& block,
 
             ctx.registry.emplace_or_replace<Component::AnalysisType>(
                 analysis_e, is_explicit ? "DynamicExplicit" : "DynamicImplicit");
+
+            if (!sub.data_lines.empty()) {
+                auto f = split_csv(sub.data_lines[0]);
+                if (f.size() >= 1 && !trim_copy(f[0]).empty()) {
+                    double dt = std::stod(trim_copy(f[0]));
+                    ctx.registry.emplace_or_replace<Component::FixedTimeStep>(analysis_e, dt);
+                }
+                if (f.size() >= 2 && !trim_copy(f[1]).empty()) {
+                    double end_time = std::stod(trim_copy(f[1]));
+                    ctx.registry.emplace_or_replace<Component::EndTime>(analysis_e, end_time);
+                }
+            }
+        } else if (sub.keyword == "STATIC") {
+            ctx.registry.emplace_or_replace<Component::AnalysisType>(
+                analysis_e, "Static");
 
             if (!sub.data_lines.empty()) {
                 auto f = split_csv(sub.data_lines[0]);

@@ -59,6 +59,14 @@ namespace Component {
     };
 
     /**
+     * @brief NLGEOM flag component
+     * @details Attached to analysis entities, indicates whether geometric nonlinearity is enabled
+     */
+    struct Nlgeom {
+        bool value;
+    };
+
+    /**
      * @brief Node output component
      * @details Attached to entities representing output
      */
