@@ -44,8 +44,11 @@ void MassSystem::compute_lumped_mass(entt::registry& registry) {
                     entt::entity property_entity = property_ref.property_entity;
                     
                     if (registry.all_of<Component::SolidProperty>(property_entity)) {
-                        const auto& solid_prop = registry.get<Component::SolidProperty>(property_entity);
-                        n_integration_points = solid_prop.integration_network;
+                        if (registry.all_of<Component::IntegrationPoints>(property_entity)) {
+                            n_integration_points = registry.get<Component::IntegrationPoints>(property_entity).value;
+                        } else {
+                            spdlog::warn("Property missing IntegrationPoints component. Using default integration points = 1.");
+                        }
                     } else {
                         spdlog::warn("Property missing SolidProperty component. Using default integration points = 1.");
                     }

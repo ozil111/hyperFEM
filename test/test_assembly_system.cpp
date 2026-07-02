@@ -60,12 +60,9 @@ protected:
         // Create property
         property_entity = registry.create();
         registry.emplace<Component::PropertyID>(property_entity, 1);
-        registry.emplace<Component::SolidProperty>(
-            property_entity,
-            308,      // type_id (C3D8R)
-            2,        // integration_network
-            "eas"     // hourglass_control
-        );
+        registry.emplace<Component::SolidProperty>(property_entity, 308);
+        registry.emplace<Component::IntegrationPoints>(property_entity, 2);
+        registry.emplace<Component::HourglassControl>(property_entity, "eas");
 
         // Create element (C3D8R)
         element_entity = registry.create();

@@ -11,6 +11,9 @@
 #include <string>
 #include <vector>
 #include <array>
+#include <algorithm>
+#include <unordered_map>
+#include <utility>
 #include <entt/entt.hpp>
 
 /**
@@ -30,13 +33,14 @@ namespace Component {
     };
 
     /**
-     * @brief [New] Attached to Property entity, stores section/integration properties for solid elements
-     * @details Corresponds to "property" object in JSON, stores only parameters related to section and integration
+     * @brief [New] Attached to Property entity, marker for solid elements.
+     * @details Only retains type_id to preserve the property subtype (solid / solid_orthotropic, etc.).
+     *          All other solid parameters are stored as independent components (IntegrationPoints,
+     *          HourglassControl, Formulation, SmallStrain, etc.) so that different solvers can
+     *          freely compose the subset they need.
      */
     struct SolidProperty {
-        int type_id;                    // From JSON "typeid"
-        int integration_network;        // Integration network parameter, e.g. "integration_network": 2
-        std::string hourglass_control;  // Hourglass control method, e.g. "hourglass_control": "eas"
+        int type_id;  // From JSON "typeid"
     };
 
     // ------------------------------------------------------------------
@@ -68,6 +72,66 @@ namespace Component {
     };
 
     // ------------------------------------------------------------------
+    //  Solid property sub-components (independent, composable)
+    //  These replace the former SolidAdvancedProperty monolith so that
+    //  different solvers (Simdroid / Abaqus / JSON) can attach only the
+    //  parameters they actually need.
+    // ------------------------------------------------------------------
+
+    // Number of integration points (e.g. 1 for reduced, 2/8/27 for full)
+    struct IntegrationPoints {
+        int value = 1;
+    };
+
+    // Hourglass control method ("eas", "rph", "enhanced", "stiffness",
+    // "relax_stiffness", "standard", "viscous", "" = none)
+    // Merges the former "hourglass_control" and "hourglass_type" fields.
+    struct HourglassControl {
+        std::string value;
+    };
+
+    // Constant pressure assumption (Simdroid Icpre)
+    struct ConstPressure {
+        std::string value;
+    };
+
+    // Co-rotation frame flag (Simdroid Iframe)
+    struct CoRotationFlag {
+        std::string value;
+    };
+
+    // Viscous hourglass coefficient h
+    struct ViscoHourglassK {
+        double value = 0.1;
+    };
+
+    // Minimum time step (dtmin)
+    struct DtMin {
+        double value = 0.0;
+    };
+
+    // Numeric damping (dn)
+    struct NumericDamping {
+        double value = 0.0;
+    };
+
+    // Distortion control (enabled + 3 coefficients)
+    struct DistortionControl {
+        bool enabled = false;
+        std::array<double, 3> coeffs{};
+    };
+
+    // Displacement hourglass factor
+    struct DispHourglassFactor {
+        double value = 1.0;
+    };
+
+    // Element characteristic length flag
+    struct EleCharacLength {
+        bool value = false;
+    };
+
+    // ------------------------------------------------------------------
     //  Typical section property components (mapped to Simdroid CrossSection / Radioss PROP)
     // ------------------------------------------------------------------
 
@@ -89,24 +153,6 @@ namespace Component {
         std::array<double, 3> hourglass_coefs{};  // hm, hf, hr
         std::string plastic_plane_stress_return;  // "Default" / "Iteration" / "Newton"
         std::string mid_shell_flag;               // "NoOffset"/"Upper"/"Lower"
-    };
-
-    // Type == Solid / SolidOrthotropic (lightweight extension based on original SolidProperty)
-    struct SolidAdvancedProperty {
-        // Directly reuse/supplement SolidProperty's advanced options, maintaining decoupling:
-        std::string formulation;      // Hex8R / Tet4Q / ...
-        std::string small_strain;     // Ismstr
-        std::string const_pressure;   // Icpre
-        std::string co_rotation_flag; // Iframe
-        double visco_hourglass_k = 0.1; // h
-        ViscosityParams bulk_viscosity;  // qa / qb
-        double dtmin = 0.0;              // Δtmin
-        double numeric_damping = 0.0;    // dn
-        bool distortion_control = false; // DistortionControl
-        std::array<double, 3> distortion_coeffs{}; // DistortionControlCoeffs[3]
-        double disp_hourglass_factor = 1.0;        // DispHourglassFactor
-        std::string hourglass_type;                // "Stiffness" / "RelaxStiffness"
-        bool ele_charac_length = false;            // EleCharacLength
     };
 
     // Type == SolidShell (PROP TYPE20)
@@ -222,6 +268,56 @@ namespace Component {
         std::array<double, 6> failure_scale{};       // FailureScale
         std::array<double, 6> failure_exp{};         // FailureExp
     };
+
+    // ------------------------------------------------------------------
+    //  Solid formulation → (IntegrationPoints, HourglassControl) lookup
+    // ------------------------------------------------------------------
+
+    /// Simdroid solid formulation → (integration points, hourglass control)
+    inline std::pair<int, std::string> simdroid_solid_formulation_lookup(
+        const std::string& formulation)
+    {
+        static const std::unordered_map<std::string, std::pair<int, std::string>> table = {
+            {"Hex8",      {2, ""}},      // full integration, no hourglass
+            {"Hex8RPH",   {1, "rph"}},
+            {"Hex8r_EAS", {1, "EAS"}},
+            {"Tet4",      {1, ""}},
+        };
+        auto it = table.find(formulation);
+        if (it != table.end()) return it->second;
+        return {1, ""};  // default fallback
+    }
+
+    /// Abaqus solid element type string → (integration points, hourglass control)
+    /// Values based on standard Abaqus defaults; adjust as needed.
+    inline std::pair<int, std::string> abaqus_solid_element_lookup(
+        const std::string& element_type)
+    {
+        // Normalise to upper-case for matching
+        std::string t = element_type;
+        std::transform(t.begin(), t.end(), t.begin(),
+            [](unsigned char c) { return std::toupper(c); });
+
+        static const std::unordered_map<std::string, std::pair<int, std::string>> table = {
+            {"C3D8",    {8, ""}},            // full integration hex8
+            {"C3D8R",   {1, "enhanced"}},    // reduced integration hex8
+            {"C3D8I",   {8, ""}},            // incompatible modes hex8
+            {"C3D8H",   {8, ""}},            // hybrid hex8
+            {"C3D4",    {1, ""}},            // linear tet
+            {"C3D10",   {4, ""}},            // quadratic tet
+            {"C3D10M",  {4, ""}},            // modified quadratic tet
+            {"C3D10H",  {4, ""}},            // hybrid quadratic tet
+            {"C3D10I",  {4, ""}},            // incompatible quadratic tet
+            {"C3D20",   {27, ""}},           // full integration hex20
+            {"C3D20R",  {8, "enhanced"}},    // reduced integration hex20
+            {"C3D20H",  {27, ""}},           // hybrid hex20
+            {"C3D6",    {2, ""}},            // wedge
+            {"C3D6R",   {1, "enhanced"}},    // reduced wedge
+        };
+        auto it = table.find(t);
+        if (it != table.end()) return it->second;
+        return {1, ""};  // default fallback
+    }
 
 } // namespace Component
 

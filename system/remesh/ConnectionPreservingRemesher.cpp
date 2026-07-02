@@ -47,7 +47,6 @@ std::string property_type_name(entt::registry& registry, entt::entity section) {
     if (registry.all_of<Component::BeamSpringProperty>(section)) return "BeamSpringProperty";
     if (registry.all_of<Component::SolidShCompProperty>(section)) return "SolidShCompProperty";
     if (registry.all_of<Component::SolidShellProperty>(section)) return "SolidShellProperty";
-    if (registry.all_of<Component::SolidAdvancedProperty>(section)) return "SolidAdvancedProperty";
     if (registry.all_of<Component::SolidProperty>(section)) return "SolidProperty";
     if (registry.all_of<Component::TrussProperty>(section)) return "TrussProperty";
     if (registry.all_of<Component::CohesiveProperty>(section)) return "CohesiveProperty";

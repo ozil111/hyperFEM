@@ -1099,21 +1099,26 @@ void SimdroidExporter::save_control_json(const std::string& path, DataContext& c
                 std::transform(type_l.begin(), type_l.end(), type_l.begin(),
                     [](unsigned char c) { return std::tolower(c); });
 
-                // Solid / SolidOrthotropic → SolidAdvancedProperty
+                // Solid / SolidOrthotropic → SolidProperty + sub-components
                 if ((type_l == "solid" || type_l == "solidorthotropic")
-                    && registry.all_of<Component::SolidAdvancedProperty>(entity)) {
-                    const auto& prop = registry.get<Component::SolidAdvancedProperty>(entity);
-
-                    if (!prop.formulation.empty()) {
-                        cs_node["Formulation"] = nlohmann::json::array({prop.formulation});
+                    && registry.all_of<Component::SolidProperty>(entity)) {
+                    if (registry.all_of<Component::Formulation>(entity))
+                        cs_node["Formulation"] = nlohmann::json::array({registry.get<Component::Formulation>(entity).value});
+                    if (registry.all_of<Component::SmallStrain>(entity))
+                        cs_node["SmallStrain"] = registry.get<Component::SmallStrain>(entity).value;
+                    if (registry.all_of<Component::ConstPressure>(entity))
+                        cs_node["ConstPressure"] = registry.get<Component::ConstPressure>(entity).value;
+                    if (registry.all_of<Component::CoRotationFlag>(entity))
+                        cs_node["CoRotationFlag"] = registry.get<Component::CoRotationFlag>(entity).value;
+                    if (registry.all_of<Component::ViscosityParams>(entity)) {
+                        const auto& vp = registry.get<Component::ViscosityParams>(entity);
+                        cs_node["QuadraticViscosity"] = vp.quadratic;
+                        cs_node["LinearViscosity"]    = vp.linear;
                     }
-                    if (!prop.small_strain.empty())    cs_node["SmallStrain"]     = prop.small_strain;
-                    if (!prop.const_pressure.empty())  cs_node["ConstPressure"]    = prop.const_pressure;
-                    if (!prop.co_rotation_flag.empty()) cs_node["CoRotationFlag"]  = prop.co_rotation_flag;
-                    cs_node["QuadraticViscosity"] = prop.bulk_viscosity.quadratic;
-                    cs_node["LinearViscosity"]    = prop.bulk_viscosity.linear;
-                    cs_node["hm"]                 = prop.visco_hourglass_k;
-                    cs_node["dtmin"]              = prop.dtmin;
+                    if (registry.all_of<Component::ViscoHourglassK>(entity))
+                        cs_node["hm"] = registry.get<Component::ViscoHourglassK>(entity).value;
+                    if (registry.all_of<Component::DtMin>(entity))
+                        cs_node["dtmin"] = registry.get<Component::DtMin>(entity).value;
                 }
                 // TODO: 后续可添加其他 section 类型的同步 (Shell, SolidShell, Beam 等)
             }

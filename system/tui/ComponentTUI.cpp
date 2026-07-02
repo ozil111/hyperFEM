@@ -126,17 +126,14 @@ void init_registry() {
                 text("  Type = Solid"),
                 text("  type_id = " + std::to_string(p.type_id)),
             };
-            return vbox(std::move(lines));
-        });
-
-    r.register_component<::Component::SolidAdvancedProperty>("SolidAdvancedProperty",
-        [](entt::registry& reg, entt::entity e, SimdroidInspector*) -> Element {
-            const auto& p = reg.get<::Component::SolidAdvancedProperty>(e);
-            Elements lines = {
-                text("  Type = Solid"),
-                text("  SmallStrain = " + (p.small_strain.empty() ? "-" : p.small_strain)),
-                text("  Formulation = " + (p.formulation.empty() ? "-" : p.formulation)),
-            };
+            if (reg.all_of<::Component::Formulation>(e))
+                lines.push_back(text("  Formulation = " + reg.get<::Component::Formulation>(e).value));
+            if (reg.all_of<::Component::SmallStrain>(e))
+                lines.push_back(text("  SmallStrain = " + reg.get<::Component::SmallStrain>(e).value));
+            if (reg.all_of<::Component::IntegrationPoints>(e))
+                lines.push_back(text("  IntegrationPoints = " + std::to_string(reg.get<::Component::IntegrationPoints>(e).value)));
+            if (reg.all_of<::Component::HourglassControl>(e))
+                lines.push_back(text("  HourglassControl = " + reg.get<::Component::HourglassControl>(e).value));
             return vbox(std::move(lines));
         });
 

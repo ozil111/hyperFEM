@@ -81,14 +81,15 @@ public:
                            std::to_string(p.integration_points[0]) + "," +
                            std::to_string(p.integration_points[1]) + "," +
                            std::to_string(p.integration_points[2]) + "]";
-                } else if (registry.all_of<Component::SolidAdvancedProperty>(sec)) {
-                    const auto& p = registry.get<Component::SolidAdvancedProperty>(sec);
-                    info = "Solid: " + p.formulation +
-                           ", ss=" + p.small_strain +
-                           ", h=" + std::to_string(p.visco_hourglass_k);
                 } else if (registry.all_of<Component::SolidProperty>(sec)) {
-                    const auto& prop = registry.get<Component::SolidProperty>(sec);
-                    info = "Type: " + std::to_string(prop.type_id) + ", HG: " + prop.hourglass_control;
+                    std::string info = "Solid: type=" + std::to_string(registry.get<Component::SolidProperty>(sec).type_id);
+                    if (registry.all_of<Component::Formulation>(sec))
+                        info += ", form=" + registry.get<Component::Formulation>(sec).value;
+                    if (registry.all_of<Component::IntegrationPoints>(sec))
+                        info += ", npts=" + std::to_string(registry.get<Component::IntegrationPoints>(sec).value);
+                    if (registry.all_of<Component::HourglassControl>(sec))
+                        info += ", hg=" + registry.get<Component::HourglassControl>(sec).value;
+                    node.property_info = std::move(info);
                 }
 
                 node.property_info = std::move(info);

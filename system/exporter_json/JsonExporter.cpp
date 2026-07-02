@@ -72,8 +72,10 @@ bool JsonExporter::save(const std::string& filepath, const DataContext& data_con
         if (registry.all_of<Component::SolidProperty>(e)) {
             const auto& solid = registry.get<Component::SolidProperty>(e);
             prop_j["typeid"] = solid.type_id;
-            prop_j["integration_network"] = solid.integration_network;
-            prop_j["hourglass_control"] = solid.hourglass_control;
+            if (registry.all_of<Component::IntegrationPoints>(e))
+                prop_j["integration_network"] = registry.get<Component::IntegrationPoints>(e).value;
+            if (registry.all_of<Component::HourglassControl>(e))
+                prop_j["hourglass_control"] = registry.get<Component::HourglassControl>(e).value;
         } else {
             prop_j["typeid"] = 0;
         }

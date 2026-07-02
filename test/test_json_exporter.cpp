@@ -26,7 +26,9 @@ protected:
         // 2. Property
         auto prop = registry.create();
         registry.emplace<Component::PropertyID>(prop, 1);
-        registry.emplace<Component::SolidProperty>(prop, 1, 2, "eas");
+        registry.emplace<Component::SolidProperty>(prop, 1);
+        registry.emplace<Component::IntegrationPoints>(prop, 2);
+        registry.emplace<Component::HourglassControl>(prop, "eas");
         
         // 3. SimdroidPart (links mat and prop)
         auto part_e = registry.create();

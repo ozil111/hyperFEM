@@ -174,6 +174,29 @@ bool is_material_option(const std::string& kw) {
 }
 
 // ---------------------------------------------------------------------------
+// Parsed *SECTION CONTROLS data (keyed by NAME)
+// ---------------------------------------------------------------------------
+
+struct SectionControlData {
+    std::string hourglass;            // "enhanced", "relax_stiffness", etc.
+    bool distortion_control = false;
+    bool element_deletion = false;
+    bool element_conversion = false;
+    double linear_viscosity = 0.0;    // data line field 1 (qb)
+    double quadratic_viscosity = 0.0; // data line field 2 (qa)
+    double visco_hourglass_k = 0.0;   // data line field 3 (h)
+};
+
+/// Normalise hourglass string: lowercase, spaces → underscores
+inline std::string normalize_hourglass(std::string s) {
+    for (auto& c : s) {
+        if (std::isspace(static_cast<unsigned char>(c))) c = '_';
+        else c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
+    return s;
+}
+
+// ---------------------------------------------------------------------------
 // Parse-context bundle
 // ---------------------------------------------------------------------------
 
@@ -185,6 +208,8 @@ struct ParseCtx {
     std::unordered_map<std::string, entt::entity> elset_name_map;
     std::unordered_map<std::string, entt::entity> material_name_map;
     std::unordered_map<std::string, entt::entity> curve_name_map;
+    std::unordered_map<std::string, SectionControlData> section_controls;  // NAME -> controls
+    std::unordered_map<entt::entity, std::string> element_abaqus_type;     // element entity -> Abaqus type string
 
     int material_id_counter  = 1;
     int property_id_counter  = 1;
@@ -217,9 +242,11 @@ void process_nodes(const AbaqusBlock& block, ParseCtx& ctx) {
 
 void process_elements(const AbaqusBlock& block, ParseCtx& ctx) {
     int type_id = 308;
+    std::string type_str = "C3D8";
     auto it = block.params.find("TYPE");
     if (it != block.params.end()) {
         type_id = abaqus_type_to_id(it->second);
+        type_str = to_upper(trim_copy(it->second));
     }
 
     for (const auto& line : block.data_lines) {
@@ -249,6 +276,7 @@ void process_elements(const AbaqusBlock& block, ParseCtx& ctx) {
         ctx.registry.emplace<Component::ElementID>(e, eid);
         ctx.registry.emplace<Component::OriginalID>(e, eid);
         ctx.registry.emplace<Component::ElementType>(e, type_id);
+        ctx.element_abaqus_type[e] = type_str;
         Component::Connectivity conn;
         conn.nodes = std::move(nodes);
         ctx.registry.emplace<Component::Connectivity>(e, std::move(conn));
@@ -444,6 +472,52 @@ void process_material(const AbaqusBlock& block,
     }
 }
 
+void process_section_controls(const AbaqusBlock& block, ParseCtx& ctx) {
+    auto nit = block.params.find("NAME");
+    if (nit == block.params.end()) {
+        spdlog::warn("*SECTION CONTROLS without NAME, skipping");
+        return;
+    }
+    std::string name = nit->second;
+
+    SectionControlData scd;
+
+    auto hit = block.params.find("HOURGLASS");
+    if (hit != block.params.end()) {
+        scd.hourglass = normalize_hourglass(trim_copy(hit->second));
+    }
+
+    auto dit = block.params.find("DISTORTION CONTROL");
+    if (dit != block.params.end()) {
+        std::string v = to_upper(trim_copy(dit->second));
+        scd.distortion_control = (v == "YES" || v == "ON" || v == "TRUE" || v == "1");
+    }
+
+    auto delit = block.params.find("ELEMENT DELETION");
+    if (delit != block.params.end()) {
+        std::string v = to_upper(trim_copy(delit->second));
+        scd.element_deletion = (v == "YES" || v == "ON" || v == "TRUE" || v == "1");
+    }
+
+    auto convit = block.params.find("ELEMENT CONVERSION");
+    if (convit != block.params.end()) {
+        std::string v = to_upper(trim_copy(convit->second));
+        scd.element_conversion = (v == "YES" || v == "ON" || v == "TRUE" || v == "1");
+    }
+
+    // Data line: linear viscosity (qb), quadratic viscosity (qa), visco hourglass k (h)
+    if (!block.data_lines.empty()) {
+        auto f = split_csv(block.data_lines[0]);
+        if (f.size() >= 1) { std::string s = trim_copy(f[0]); if (!s.empty()) scd.linear_viscosity = std::stod(s); }
+        if (f.size() >= 2) { std::string s = trim_copy(f[1]); if (!s.empty()) scd.quadratic_viscosity = std::stod(s); }
+        if (f.size() >= 3) { std::string s = trim_copy(f[2]); if (!s.empty()) scd.visco_hourglass_k = std::stod(s); }
+    }
+
+    ctx.section_controls[name] = scd;
+    spdlog::debug("  Parsed SECTION CONTROLS '{}': hourglass={}, distortion={}",
+                  name, scd.hourglass, scd.distortion_control);
+}
+
 void process_solid_section(const AbaqusBlock& block, ParseCtx& ctx) {
     auto eit = block.params.find("ELSET");
     if (eit == block.params.end()) {
@@ -459,10 +533,56 @@ void process_solid_section(const AbaqusBlock& block, ParseCtx& ctx) {
     }
     entt::entity elset_e = esit->second;
 
+    // Determine element type from the first element in the ELSET
+    std::string elem_type_str = "C3D8";
+    if (ctx.registry.all_of<Component::ElementSetMembers>(elset_e)) {
+        auto& em = ctx.registry.get<Component::ElementSetMembers>(elset_e);
+        if (!em.members.empty()) {
+            auto tit = ctx.element_abaqus_type.find(em.members[0]);
+            if (tit != ctx.element_abaqus_type.end()) {
+                elem_type_str = tit->second;
+            }
+        }
+    }
+
     // Create property entity
     auto prop_e = ctx.registry.create();
     ctx.registry.emplace<Component::PropertyID>(prop_e, ctx.property_id_counter++);
-    ctx.registry.emplace<Component::SolidProperty>(prop_e, 308, 2, "enhanced");
+    int type_id = abaqus_type_to_id(elem_type_str);
+    ctx.registry.emplace<Component::SolidProperty>(prop_e, type_id);
+
+    // Look up default integration points and hourglass control from element type
+    auto [npts, hg] = Component::abaqus_solid_element_lookup(elem_type_str);
+    ctx.registry.emplace<Component::IntegrationPoints>(prop_e, npts);
+
+    // Apply SECTION CONTROLS if referenced
+    auto cit = block.params.find("CONTROLS");
+    if (cit != block.params.end()) {
+        std::string controls_name = cit->second;
+        auto scit = ctx.section_controls.find(controls_name);
+        if (scit != ctx.section_controls.end()) {
+            const auto& scd = scit->second;
+            if (!scd.hourglass.empty()) hg = scd.hourglass;
+            ctx.registry.emplace<Component::HourglassControl>(prop_e, hg);
+
+            Component::ViscosityParams vp;
+            vp.linear = scd.linear_viscosity;
+            vp.quadratic = scd.quadratic_viscosity;
+            ctx.registry.emplace<Component::ViscosityParams>(prop_e, vp);
+
+            if (scd.distortion_control) {
+                ctx.registry.emplace<Component::DistortionControl>(prop_e);
+            }
+            if (scd.visco_hourglass_k != 0.0) {
+                ctx.registry.emplace<Component::ViscoHourglassK>(prop_e, scd.visco_hourglass_k);
+            }
+        } else {
+            spdlog::warn("SOLID SECTION references unknown SECTION CONTROLS '{}'", controls_name);
+            ctx.registry.emplace<Component::HourglassControl>(prop_e, hg);
+        }
+    } else {
+        ctx.registry.emplace<Component::HourglassControl>(prop_e, hg);
+    }
 
     // Resolve material (may not exist yet at single-pass; handled by multi-pass)
     entt::entity mat_e = entt::null;
@@ -686,6 +806,8 @@ bool AbaqusParser::parse(const std::string& filepath, DataContext& data_context)
             process_elset(block, ctx);
         } else if (block.keyword == "AMPLITUDE") {
             process_amplitude(block, ctx);
+        } else if (block.keyword == "SECTION CONTROLS") {
+            process_section_controls(block, ctx);
         }
     }
 

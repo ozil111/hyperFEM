@@ -133,17 +133,67 @@ void handle_set_section(std::stringstream& ss, AppSession& session) {
         return s == "true" || s == "1" || s == "yes" || s == "on";
     };
 
-    if (section_type == "Solid") {
+    if (section_type == "Solid" || section_type == "SolidAdvanced") {
         if (!registry.all_of<Component::SolidProperty>(prop_e)) {
             spdlog::error("Section {} does not have SolidProperty.", sid);
             return;
         }
-        auto& p = registry.get<Component::SolidProperty>(prop_e);
-        if (param_name == "type_id")                  { p.type_id = std::stoi(value_str); }
-        else if (param_name == "integration_network") { p.integration_network = std::stoi(value_str); }
-        else if (param_name == "hourglass_control")   { p.hourglass_control = value_str; }
+        if (param_name == "type_id") {
+            registry.get<Component::SolidProperty>(prop_e).type_id = std::stoi(value_str);
+        }
+        else if (param_name == "integration_network") {
+            registry.emplace_or_replace<Component::IntegrationPoints>(prop_e, std::stoi(value_str));
+        }
+        else if (param_name == "hourglass_control") {
+            registry.emplace_or_replace<Component::HourglassControl>(prop_e, value_str);
+        }
+        else if (param_name == "formulation") {
+            registry.emplace_or_replace<Component::Formulation>(prop_e, value_str);
+        }
+        else if (param_name == "small_strain") {
+            registry.emplace_or_replace<Component::SmallStrain>(prop_e, value_str);
+        }
+        else if (param_name == "const_pressure") {
+            registry.emplace_or_replace<Component::ConstPressure>(prop_e, value_str);
+        }
+        else if (param_name == "co_rotation") {
+            registry.emplace_or_replace<Component::CoRotationFlag>(prop_e, value_str);
+        }
+        else if (param_name == "visco_hourglass_k") {
+            registry.emplace_or_replace<Component::ViscoHourglassK>(prop_e, std::stod(value_str));
+        }
+        else if (param_name == "qa") {
+            registry.get_or_emplace<Component::ViscosityParams>(prop_e).quadratic = std::stod(value_str);
+        }
+        else if (param_name == "qb") {
+            registry.get_or_emplace<Component::ViscosityParams>(prop_e).linear = std::stod(value_str);
+        }
+        else if (param_name == "dtmin") {
+            registry.emplace_or_replace<Component::DtMin>(prop_e, std::stod(value_str));
+        }
+        else if (param_name == "numeric_damping") {
+            registry.emplace_or_replace<Component::NumericDamping>(prop_e, std::stod(value_str));
+        }
+        else if (param_name == "distortion_control") {
+            registry.get_or_emplace<Component::DistortionControl>(prop_e).enabled = parse_bool(value_str);
+        }
+        else if (param_name == "dc0") {
+            registry.get_or_emplace<Component::DistortionControl>(prop_e).coeffs[0] = std::stod(value_str);
+        }
+        else if (param_name == "dc1") {
+            registry.get_or_emplace<Component::DistortionControl>(prop_e).coeffs[1] = std::stod(value_str);
+        }
+        else if (param_name == "dc2") {
+            registry.get_or_emplace<Component::DistortionControl>(prop_e).coeffs[2] = std::stod(value_str);
+        }
+        else if (param_name == "disp_hg_factor") {
+            registry.emplace_or_replace<Component::DispHourglassFactor>(prop_e, std::stod(value_str));
+        }
+        else if (param_name == "ele_charac_length") {
+            registry.emplace_or_replace<Component::EleCharacLength>(prop_e, parse_bool(value_str));
+        }
         else {
-            spdlog::error("Unknown Solid param: '{}'. Valid: type_id, integration_network, hourglass_control", param_name);
+            spdlog::error("Unknown Solid param: '{}'.", param_name);
             return;
         }
     }
@@ -183,33 +233,6 @@ void handle_set_section(std::stringstream& ss, AppSession& session) {
         else if (param_name == "mid_shell_flag")  { p.mid_shell_flag = value_str; }
         else {
             spdlog::error("Unknown Shell param: '{}'.", param_name);
-            return;
-        }
-    }
-    else if (section_type == "SolidAdvanced") {
-        if (!registry.all_of<Component::SolidAdvancedProperty>(prop_e)) {
-            spdlog::error("Section {} does not have SolidAdvancedProperty.", sid);
-            return;
-        }
-        auto& p = registry.get<Component::SolidAdvancedProperty>(prop_e);
-        if (param_name == "formulation")         { p.formulation = value_str; }
-        else if (param_name == "small_strain")   { p.small_strain = value_str; }
-        else if (param_name == "const_pressure") { p.const_pressure = value_str; }
-        else if (param_name == "co_rotation")    { p.co_rotation_flag = value_str; }
-        else if (param_name == "visco_hourglass_k") { p.visco_hourglass_k = std::stod(value_str); }
-        else if (param_name == "qa")             { p.bulk_viscosity.quadratic = std::stod(value_str); }
-        else if (param_name == "qb")             { p.bulk_viscosity.linear = std::stod(value_str); }
-        else if (param_name == "dtmin")          { p.dtmin = std::stod(value_str); }
-        else if (param_name == "numeric_damping") { p.numeric_damping = std::stod(value_str); }
-        else if (param_name == "distortion_control") { p.distortion_control = parse_bool(value_str); }
-        else if (param_name == "dc0")            { p.distortion_coeffs[0] = std::stod(value_str); }
-        else if (param_name == "dc1")            { p.distortion_coeffs[1] = std::stod(value_str); }
-        else if (param_name == "dc2")            { p.distortion_coeffs[2] = std::stod(value_str); }
-        else if (param_name == "disp_hg_factor") { p.disp_hourglass_factor = std::stod(value_str); }
-        else if (param_name == "hourglass_type") { p.hourglass_type = value_str; }
-        else if (param_name == "ele_charac_length") { p.ele_charac_length = parse_bool(value_str); }
-        else {
-            spdlog::error("Unknown SolidAdvanced param: '{}'.", param_name);
             return;
         }
     }

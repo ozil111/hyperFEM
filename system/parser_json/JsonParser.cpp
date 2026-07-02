@@ -373,13 +373,13 @@ void JsonParser::parse_properties(
         // 根据 type_id 附加不同的属性组�?
         switch (type_id) {
             case 1: { // 固体单元属�?
-                Component::SolidProperty solid_prop;
-                solid_prop.type_id = type_id;
-                solid_prop.integration_network = prop["integration_network"];
-                solid_prop.hourglass_control = prop["hourglass_control"];
-                registry.emplace<Component::SolidProperty>(e, solid_prop);
-                spdlog::debug("  Created SolidProperty {}: integration={}, hourglass={}", 
-                              pid, solid_prop.integration_network, solid_prop.hourglass_control);
+                registry.emplace<Component::SolidProperty>(e, type_id);
+                int npts = prop.value("integration_network", 1);
+                registry.emplace<Component::IntegrationPoints>(e, npts);
+                std::string hg = prop.value("hourglass_control", "");
+                registry.emplace<Component::HourglassControl>(e, hg);
+                spdlog::debug("  Created SolidProperty {}: integration={}, hourglass={}",
+                              pid, npts, hg);
                 break;
             }
             // 未来可以添加其他属性类�?

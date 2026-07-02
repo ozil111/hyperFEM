@@ -61,7 +61,8 @@ TEST(ConnectionPreservingRemesherTest, BuildsPlanWithSharedNodeInterface) {
 
     auto property = registry.create();
     registry.emplace<Component::PropertyID>(property, 1);
-    registry.emplace<Component::SolidProperty>(property, 304, 1, "none");
+    registry.emplace<Component::SolidProperty>(property, 304);
+    registry.emplace<Component::IntegrationPoints>(property, 1);
 
     auto n1 = create_node(registry, 1, 0.0, 0.0, 0.0);
     auto n2 = create_node(registry, 2, 1.0, 0.0, 0.0);
@@ -467,7 +468,8 @@ TEST(ConnectionPreservingRemesherTest, DetailedValidationPassesWithHealthyRegist
     // Create elements
     auto prop = registry.create();
     registry.emplace<Component::PropertyID>(prop, 100);
-    registry.emplace<Component::SolidProperty>(prop, 308, 1, "none");
+    registry.emplace<Component::SolidProperty>(prop, 308);
+    registry.emplace<Component::IntegrationPoints>(prop, 1);
 
     auto e1 = registry.create();
     registry.emplace<Component::ElementID>(e1, 10);
@@ -648,7 +650,8 @@ TEST(ConnectionPreservingRemesherTest, ExtractsProtectedEntitiesForSharedNodeMod
 
     auto property = registry.create();
     registry.emplace<Component::PropertyID>(property, 1);
-    registry.emplace<Component::SolidProperty>(property, 304, 1, "none");
+    registry.emplace<Component::SolidProperty>(property, 304);
+    registry.emplace<Component::IntegrationPoints>(property, 1);
 
     auto n1 = create_node(registry, 1, 0.0, 0.0, 0.0);
     auto n2 = create_node(registry, 2, 1.0, 0.0, 0.0);

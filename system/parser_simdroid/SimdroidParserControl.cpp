@@ -123,52 +123,97 @@ void SimdroidParser::parse_cross_sections(
 
         // --- Solid / SolidOrthotropic ---
         if (type_l == "solid" || type_l == "solidorthotropic") {
-            Component::SolidAdvancedProperty prop{};
+            // Marker + type_id
+            registry.emplace<Component::SolidProperty>(cs_entity, 1);
 
+            // Formulation
+            std::string formulation;
             if (cs_val.contains("Formulation") && cs_val["Formulation"].is_array() && !cs_val["Formulation"].empty()) {
-                prop.formulation = cs_val["Formulation"].front().get<std::string>();
+                formulation = cs_val["Formulation"].front().get<std::string>();
             }
-            prop.small_strain = cs_val.value("SmallStrain", "");
-            prop.const_pressure = cs_val.value("ConstPressure", "");
-            prop.co_rotation_flag = cs_val.value("CoRotationFlag", "");
+            if (!formulation.empty()) {
+                registry.emplace<Component::Formulation>(cs_entity, formulation);
+            }
 
+            // Small strain
+            std::string small_strain = cs_val.value("SmallStrain", "");
+            if (!small_strain.empty()) {
+                registry.emplace<Component::SmallStrain>(cs_entity, small_strain);
+            }
+
+            // Const pressure
+            std::string const_pressure = cs_val.value("ConstPressure", "");
+            if (!const_pressure.empty()) {
+                registry.emplace<Component::ConstPressure>(cs_entity, const_pressure);
+            }
+
+            // Co-rotation flag
+            std::string co_rotation = cs_val.value("CoRotationFlag", "");
+            if (!co_rotation.empty()) {
+                registry.emplace<Component::CoRotationFlag>(cs_entity, co_rotation);
+            }
+
+            // ViscoHourglassK
+            double visco_hg_k = 0.1;
             if (cs_val.contains("ViscoHourglassK")) {
-                prop.visco_hourglass_k = cs_val["ViscoHourglassK"].get<double>();
+                visco_hg_k = cs_val["ViscoHourglassK"].get<double>();
             } else if (cs_val.contains("hm")) {
-                prop.visco_hourglass_k = cs_val["hm"].get<double>();
+                visco_hg_k = cs_val["hm"].get<double>();
             }
-            if (cs_val.contains("QuadraticViscosity")) {
-                prop.bulk_viscosity.quadratic = cs_val["QuadraticViscosity"].get<double>();
-            }
-            if (cs_val.contains("LinearViscosity")) {
-                prop.bulk_viscosity.linear = cs_val["LinearViscosity"].get<double>();
-            }
-            if (cs_val.contains("dtmin") && cs_val["dtmin"].is_number()) {
-                prop.dtmin = cs_val["dtmin"].get<double>();
-            }
-            if (cs_val.contains("DampingNumeri") && cs_val["DampingNumeri"].is_number()) {
-                prop.numeric_damping = cs_val["DampingNumeri"].get<double>();
-            }
-            if (cs_val.contains("DistortionControl") && cs_val["DistortionControl"].is_boolean()) {
-                prop.distortion_control = cs_val["DistortionControl"].get<bool>();
-            }
-            if (cs_val.contains("DistortionControlCoeffs") && cs_val["DistortionControlCoeffs"].is_array()) {
-                const auto& arr = cs_val["DistortionControlCoeffs"];
-                for (size_t i = 0; i < std::min<std::size_t>(3, arr.size()); ++i) {
-                    prop.distortion_coeffs[i] = arr[i].get<double>();
+            registry.emplace<Component::ViscoHourglassK>(cs_entity, visco_hg_k);
+
+            // Viscosity params
+            {
+                Component::ViscosityParams vp;
+                if (cs_val.contains("QuadraticViscosity")) {
+                    vp.quadratic = cs_val["QuadraticViscosity"].get<double>();
                 }
-            }
-            if (cs_val.contains("DispHourglassFactor") && cs_val["DispHourglassFactor"].is_number()) {
-                prop.disp_hourglass_factor = cs_val["DispHourglassFactor"].get<double>();
-            }
-            if (cs_val.contains("HourglassType") && cs_val["HourglassType"].is_string()) {
-                prop.hourglass_type = cs_val["HourglassType"].get<std::string>();
-            }
-            if (cs_val.contains("EleCharacLength") && cs_val["EleCharacLength"].is_boolean()) {
-                prop.ele_charac_length = cs_val["EleCharacLength"].get<bool>();
+                if (cs_val.contains("LinearViscosity")) {
+                    vp.linear = cs_val["LinearViscosity"].get<double>();
+                }
+                registry.emplace<Component::ViscosityParams>(cs_entity, vp);
             }
 
-            registry.emplace<Component::SolidAdvancedProperty>(cs_entity, std::move(prop));
+            // dtmin
+            if (cs_val.contains("dtmin") && cs_val["dtmin"].is_number()) {
+                registry.emplace<Component::DtMin>(cs_entity, cs_val["dtmin"].get<double>());
+            }
+
+            // Numeric damping
+            if (cs_val.contains("DampingNumeri") && cs_val["DampingNumeri"].is_number()) {
+                registry.emplace<Component::NumericDamping>(cs_entity, cs_val["DampingNumeri"].get<double>());
+            }
+
+            // Distortion control
+            if (cs_val.contains("DistortionControl") && cs_val["DistortionControl"].is_boolean()) {
+                Component::DistortionControl dc;
+                dc.enabled = cs_val["DistortionControl"].get<bool>();
+                if (cs_val.contains("DistortionControlCoeffs") && cs_val["DistortionControlCoeffs"].is_array()) {
+                    const auto& arr = cs_val["DistortionControlCoeffs"];
+                    for (size_t i = 0; i < std::min<std::size_t>(3, arr.size()); ++i) {
+                        dc.coeffs[i] = arr[i].get<double>();
+                    }
+                }
+                registry.emplace<Component::DistortionControl>(cs_entity, std::move(dc));
+            }
+
+            // Disp hourglass factor
+            if (cs_val.contains("DispHourglassFactor") && cs_val["DispHourglassFactor"].is_number()) {
+                registry.emplace<Component::DispHourglassFactor>(cs_entity, cs_val["DispHourglassFactor"].get<double>());
+            }
+
+            // Element characteristic length
+            if (cs_val.contains("EleCharacLength") && cs_val["EleCharacLength"].is_boolean()) {
+                registry.emplace<Component::EleCharacLength>(cs_entity, cs_val["EleCharacLength"].get<bool>());
+            }
+
+            // Auto-fill IntegrationPoints and HourglassControl from formulation lookup.
+            // Explicit HourglassType (if present) overrides the lookup default.
+            auto [npts, hg] = Component::simdroid_solid_formulation_lookup(formulation);
+            std::string hourglass_type = cs_val.value("HourglassType", "");
+            if (!hourglass_type.empty()) hg = hourglass_type;
+            registry.emplace<Component::IntegrationPoints>(cs_entity, npts);
+            registry.emplace<Component::HourglassControl>(cs_entity, hg);
         }
         // --- Shell / SandwichShell ---
         else if (type_l == "shell" || type_l == "sandwichshell") {

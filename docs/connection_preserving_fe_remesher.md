@@ -132,7 +132,7 @@ remesh_generate "result\cantilever_remesh_100x" 100
 - `20000` 个 Hex8 单元
 - 一个部件：`Component_1_Set-1`
 - 材料：`IsotropicElastic`
-- 属性类型：`SolidAdvancedProperty`
+- 属性类型：`SolidProperty`
 - 节点力集：`load`
 - 边界节点集：`NodeValueSet_1` 到 `NodeValueSet_6`
 - 外表面集：`Model_Outside_Surface`
@@ -188,7 +188,7 @@ case\cantilever_beam_tet4\cantilever_beam_tet4_inp\control.json
 - 一个部件：`Component_1_Set-1`
 - 单元类型：Tet10（`ElementType=310`）
 - 材料：`IsotropicElastic`
-- 属性类型：`SolidAdvancedProperty`（CrossSection Formulation 为 `Tet10`）
+- 属性类型：`SolidProperty`（CrossSection Formulation 为 `Tet10`）
 - 节点力集：`load`（y 方向）
 - 边界节点集：`NodeValueSet_1` 到 `NodeValueSet_6`（6 自由度约束）
 
