@@ -1,0 +1,57 @@
+**
+** ABAQUS Input Deck - Test Case T01 (cleaned from HyperMesh export)
+**
+*HEADING
+No heading defined for this deck
+*PREPRINT,ECHO=NO,HISTORY=NO,MODEL=NO
+*NODE
+         1,  1.0            ,  1.0            ,  1.0
+         2,  1.0            ,  0.0            ,  1.0
+         3,  1.0            ,  1.0            ,  0.0
+         4,  1.0            ,  0.0            ,  0.0
+         5,  0.0            ,  1.0            ,  1.0
+         6,  0.0            ,  0.0            ,  1.0
+         7,  0.0            ,  1.0            ,  0.0
+         8,  0.0            ,  0.0            ,  0.0
+*ELEMENT,TYPE=C3D8R
+         1,         5,         6,         8,         7,         1,         2,         4,         3
+*ELSET, ELSET=HMprop_Part-1-1_Set-1
+         1
+*SOLID SECTION, ELSET=HMprop_Part-1-1_Set-1, CONTROLS = EC-1, MATERIAL=Material-1
+,
+*NSET, NSET=Part-1-1_Set-1, GENERATE
+         1,         8,         1
+*NSET, NSET=Part-1_Part-1-1-1
+         2,         4,         6,         8
+*NSET, NSET=fix
+Part-1_Part-1-1-1,
+*NSET, NSET=Part-1_Part-1-1-2
+         1,         3,         5,         7
+*NSET, NSET=load
+Part-1_Part-1-1-2,
+*ELSET, ELSET=Part-1-1_Set-1
+         1,
+*ELSET, ELSET=fix
+         1,
+*MATERIAL, NAME=Material-1
+*DENSITY
+1000.0    ,0.0
+*ELASTIC, TYPE = ISOTROPIC
+21000000.0,0.3       ,0.0
+*SECTION CONTROLS, NAME = EC-1, HOURGLASS = ENHANCED, DISTORTION CONTROL = NO, ELEMENT DELETION = NO, ELEMENT CONVERSION = NO
+1.0       ,1.0       ,1.0            , ,
+*AMPLITUDE, NAME =Amp-1
+0.0       ,0.0       ,1.0       ,1.0
+*STEP, NLGEOM = YES, NAME = Step-1
+*DYNAMIC, EXPLICIT, DIRECT USER CONTROL
+      0.001,       1.0
+*BULK VISCOSITY
+0.06      ,1.2
+*BOUNDARY
+fix,2, ,0.0
+*CLOAD, AMPLITUDE = Amp-1
+load,2,100.0
+*OUTPUT, FIELD, VARIABLE = PRESELECT
+*OUTPUT, HISTORY, VARIABLE = PRESELECT
+*RESTART, WRITE, NUMBER INTERVAL =     1, TIME MARKS = NO
+*END STEP
