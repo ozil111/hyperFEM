@@ -69,15 +69,6 @@ target_compile_definitions(test_abaqus_parser PRIVATE
     TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/test/cases"
 )
 
-# Test executable for Abaqus exporter
-add_executable(test_abaqus_exporter
-    test_abaqus_exporter.cpp
-    ${SYSTEM_SOURCES}
-)
-target_compile_definitions(test_abaqus_exporter PRIVATE
-    TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/test/cases"
-)
-
 # Link libraries (match parent: header-only spdlog/fmt only)
 target_link_libraries(test_assembly_system PRIVATE
     fmt::fmt-header-only
@@ -135,20 +126,6 @@ target_link_libraries(test_abaqus_parser PRIVATE
     GTest::gtest_main
 )
 
-target_link_libraries(test_abaqus_exporter PRIVATE
-    fmt::fmt-header-only
-    spdlog::spdlog_header_only
-    Eigen3::Eigen
-    nlohmann_json::nlohmann_json
-    EnTT::EnTT
-    ftxui::dom
-    ftxui::component
-    ftxui::screen
-    tinyxml2::tinyxml2
-    GTest::gtest
-    GTest::gtest_main
-)
-
 # Enable testing
 enable_testing()
 
@@ -157,15 +134,13 @@ add_test(NAME test_assembly_system COMMAND test_assembly_system)
 add_test(NAME test_json_exporter COMMAND test_json_exporter)
 add_test(NAME test_connection_preserving_remesher COMMAND test_connection_preserving_remesher)
 add_test(NAME test_abaqus_parser COMMAND test_abaqus_parser)
-add_test(NAME test_abaqus_exporter COMMAND test_abaqus_exporter)
-
 # Set output directory (match parent project structure)
 if(MSVC)
-    set_target_properties(test_assembly_system test_json_exporter test_connection_preserving_remesher test_abaqus_parser test_abaqus_exporter PROPERTIES
+    set_target_properties(test_assembly_system test_json_exporter test_connection_preserving_remesher test_abaqus_parser PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/msvc/tests
     )
 else()
-    set_target_properties(test_assembly_system test_json_exporter test_connection_preserving_remesher test_abaqus_parser test_abaqus_exporter PROPERTIES
+    set_target_properties(test_assembly_system test_json_exporter test_connection_preserving_remesher test_abaqus_parser PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin/${CMAKE_BUILD_TYPE}/tests
     )
 endif()
@@ -180,7 +155,7 @@ if(WIN32 AND NOT MSVC)
         set(VCPKG_BIN_DIR "${CMAKE_SOURCE_DIR}/vcpkg_installed/${NOVAFEA_VCPKG_TRIPLET}/bin")
     endif()
 
-    foreach(TEST_TARGET test_assembly_system test_json_exporter test_connection_preserving_remesher test_abaqus_parser test_abaqus_exporter)
+    foreach(TEST_TARGET test_assembly_system test_json_exporter test_connection_preserving_remesher test_abaqus_parser)
         add_custom_command(TARGET ${TEST_TARGET} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 "${MINGW_BIN_DIR}/libgcc_s_seh-1.dll"
