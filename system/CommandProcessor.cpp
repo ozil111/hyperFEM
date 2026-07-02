@@ -18,6 +18,8 @@
 #include "mesh/TopologySystems.h"
 #include "parser_simdroid/SimdroidParser.h"
 #include "exporter_simdroid/SimdroidExporter.h"
+#include "parser_abaqus/AbaqusParser.h"
+#include "exporter_abaqus/AbaqusExporter.h"
 #include "analysis/GraphBuilder.h"
 #include "analysis/MermaidReporter.h"
 #include "remesh/ConnectionPreservingRemesher.h"
@@ -201,7 +203,7 @@ void process_command(const std::string& command_line, AppSession& session) {
         spdlog::info("Exiting NovaFEA. Goodbye!");
     }
     else if (command == "help") {
-        spdlog::info("Available commands: import, import_simdroid, export_simdroid, json_apply, "
+        spdlog::info("Available commands: import, import_simdroid, export_simdroid, export_abaqus, json_apply, "
                      "info, build_topology, list_bodies, show_body, "
                      "list_parts, delete_part, graph, remesh_plan, remesh_generate, validate_constraints, list_constraint_warnings, "
                      "panel node <nid>, panel elem <eid>, panel part <name>, panel set <name>, "
@@ -240,8 +242,11 @@ void process_command(const std::string& command_line, AppSession& session) {
         } else if (extension == ".xfem") {
             spdlog::info("Detected XFEM format, using FemParser (legacy)...");
             parse_success = FemParser::parse(file_path, session.data);
+        } else if (extension == ".inp") {
+            spdlog::info("Detected Abaqus .inp format, using AbaqusParser...");
+            parse_success = AbaqusParser::parse(file_path, session.data);
         } else {
-            spdlog::error("Unsupported file format: {}. Supported: .json, .jsonc, .xfem", extension);
+            spdlog::error("Unsupported file format: {}. Supported: .json, .jsonc, .xfem, .inp", extension);
             return;
         }
         
@@ -401,6 +406,37 @@ void process_command(const std::string& command_line, AppSession& session) {
 
         } catch (const std::exception& e) {
             spdlog::error("Exception during export: {}", e.what());
+        }
+    }
+    // =======================================================
+    // New: Abaqus .inp export command
+    // =======================================================
+    else if (command == "export_abaqus") {
+        if (!session.mesh_loaded) {
+            spdlog::error("No mesh loaded. Please 'import' or 'import_simdroid' first.");
+            return;
+        }
+
+        std::string file_path = read_rest_of_line(ss);
+        if (file_path.empty()) {
+            spdlog::error("Usage: export_abaqus <path_to_output.inp>");
+            return;
+        }
+
+        // Ensure .inp extension
+        std::filesystem::path out_path(file_path);
+        if (out_path.extension().empty()) {
+            out_path += ".inp";
+        }
+        if (!out_path.parent_path().empty()) {
+            std::filesystem::create_directories(out_path.parent_path());
+        }
+
+        spdlog::info("Exporting Abaqus .inp to: {}", out_path.string());
+        if (AbaqusExporter::save(out_path.string(), session.data)) {
+            spdlog::info("Abaqus export successful.");
+        } else {
+            spdlog::error("Abaqus export failed.");
         }
     }
     else if (command == "build_topology") {
