@@ -17,3 +17,5 @@ test_case/test_report.txt
 /.codebuddy
 /extern/fea_codegen/hex8r_gen
 /case
+*.odb
+*.symtest

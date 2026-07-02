@@ -25,6 +25,8 @@
 #include <vector>
 #include <filesystem>
 #include <cstdlib>
+#include <fstream>
+#include "CommandProcessor.h"
 
 // Function to print the startup banner
 void print_banner() {
@@ -52,6 +54,7 @@ void print_help() {
     std::cout << "  --output-file <file>       [deprecated] Alias for --export (.xfem or .jsonc)" << std::endl;
     std::cout << "  --log-level, -l <level>    Set log level (trace, debug, info, warn, error, critical)" << std::endl;
     std::cout << "  --log-directory, -d <path> Set log file path" << std::endl;
+    std::cout << "  --script, -s <file>        Run commands from a script file (one per line, '#' for comments)" << std::endl;
     std::cout << "  --help, -h                 Show this help message" << std::endl;
     std::cout << std::endl;
     std::cout << "Supported Input Formats:" << std::endl;
@@ -84,7 +87,10 @@ int main(int argc, char* argv[]) {
     
     // Result output .vtu file path (new output)
     std::string output_vtu_path;
-    
+
+    // Script file path (for script mode)
+    std::string script_file_path;
+
     // Parse command line arguments
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
@@ -172,6 +178,13 @@ int main(int argc, char* argv[]) {
                 std::cerr << "Error: --log-directory requires a path argument" << std::endl;
                 return 1;
             }
+        } else if (arg == "--script" || arg == "-s") {
+            if (i + 1 < argc) {
+                script_file_path = argv[++i];
+            } else {
+                std::cerr << "Error: --script requires a file path argument" << std::endl;
+                return 1;
+            }
         } else {
             std::cerr << "Unknown argument: " << arg << std::endl;
             std::cerr << "Use --help or -h for usage information" << std::endl;
@@ -201,8 +214,33 @@ int main(int argc, char* argv[]) {
     spdlog::info("Log level set to: {}", spdlog::level::to_string_view(log_level));
     
     // --- Step 4: Mode decision ---
-    // Decide which mode to enter based on whether --input-file is provided
-    if (!input_file_path.empty()) {
+    // Decide which mode to enter: script mode > batch mode > interactive mode
+    if (!script_file_path.empty()) {
+        // --- SCRIPT MODE EXECUTION ---
+        spdlog::info("Running in Script Mode.");
+        spdlog::info("Executing script file: {}", script_file_path);
+
+        AppSession session;
+        std::ifstream script_file(script_file_path);
+        if (!script_file.is_open()) {
+            spdlog::error("Cannot open script file: {}", script_file_path);
+            return 1;
+        }
+
+        std::string line;
+        int line_num = 0;
+        while (session.is_running && std::getline(script_file, line)) {
+            ++line_num;
+            // Skip blank lines and comments (lines whose first non-whitespace char is '#')
+            size_t first = line.find_first_not_of(" \t\r\n");
+            if (first == std::string::npos) continue;
+            if (line[first] == '#') continue;
+
+            spdlog::info("[script:{}]> {}", line_num, line);
+            process_command(line, session);
+        }
+        spdlog::info("Script execution finished. {} lines processed.", line_num);
+    } else if (!input_file_path.empty()) {
         // Banner is meaningful in batch mode output.
         print_banner();
         // --- BATCH MODE EXECUTION ---

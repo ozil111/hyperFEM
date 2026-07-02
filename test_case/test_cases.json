@@ -2,11 +2,47 @@
   "test_cases": [
     {
       "name": "tet4_mat1_im",
-      "command": "../bin/Debug/NovaFEA_app.exe",
-      "args":["-i","tet4_mat1_im/tet4_mat1_im.jsonc","--output","tet4_mat1_im/tet4_mat1_im.vtu"],
-      "expected": {
-        "output_contains": ["Application finished successfully"]
-      }
+      "steps":[
+        {
+          "command": "../bin/Debug/NovaFEA_app.exe",
+          "args":["-i","tet4_mat1_im/tet4_mat1_im.jsonc","--output","tet4_mat1_im/tet4_mat1_im.vtu"],
+          "expected": {
+            "output_contains": ["Application finished successfully"]
+          }
+        },
+        {
+          "command": "compare-files",
+          "args": [
+            "tet4_mat1_im/tet4_mat1_im.vtu",
+            "tet4_mat1_im/benchmark/tet4_mat1_im.vtu",
+            "--file-type=text"
+          ],
+          "expected": {
+            "output_contains": [
+              "Files are identical"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "abaqus_parser_t01_explicit",
+      "steps":[
+        {
+          "command": "../bin/Debug/NovaFEA_app.exe",
+          "args":["-s","abaqus_T01_explicit/import_export.nova"],
+          "expected": {
+            "output_contains": ["Application finished successfully"]
+          }
+        },
+        {
+          "command": "python",
+          "args":["-s","abaqus_T01_explicit/run_abaqus.py","abaqus_T01_explicit/abaqus_T01_export.inp"],
+          "expected": {
+            "output_contains": ["运行完成"]
+          }
+        }
+      ]
     }
   ]
 }
