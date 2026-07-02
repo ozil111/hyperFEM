@@ -207,7 +207,7 @@ void process_command(const std::string& command_line, AppSession& session) {
                      "info, build_topology, list_bodies, show_body, "
                      "list_parts, delete_part, graph, remesh_plan, remesh_generate, validate_constraints, list_constraint_warnings, "
                      "panel node <nid>, panel elem <eid>, panel part <name>, panel set <name>, "
-                     "node, list_nodes, node_add, node_move, node_delete, "
+                     "node, list_nodes, node_add, node_move, nset_move, node_delete, "
                      "elem, elem_add, elem_delete, "
                      "list_elements, "
                      "list_sets, set_info, set_addnode, set_addelem, set_removenode, set_removeelem, "
@@ -782,6 +782,37 @@ void process_command(const std::string& command_line, AppSession& session) {
         pos.z = z;
         spdlog::info("Node {} moved to ({}, {}, {}).", nid, x, y, z);
         session.mesh_loaded = true;
+        // Topology unchanged (coordinates only); no topology / inspector rebuild needed
+    }
+    else if (command == "nset_move") {
+        std::string set_name;
+        double dx, dy, dz;
+        if (!(ss >> set_name >> dx >> dy >> dz)) {
+            spdlog::error("Usage: nset_move <set_name> <dx> <dy> <dz>");
+            spdlog::info("  Moves all nodes in the named node set by a relative offset (dx, dy, dz).");
+            return;
+        }
+        auto& registry = session.data.registry;
+        entt::entity set_e = find_set_by_name(registry, set_name);
+        if (set_e == entt::null) {
+            spdlog::error("Set '{}' not found.", set_name);
+            return;
+        }
+        if (!registry.all_of<Component::NodeSetMembers>(set_e)) {
+            spdlog::error("Set '{}' is not a node set.", set_name);
+            return;
+        }
+        const auto& mem = registry.get<Component::NodeSetMembers>(set_e).members;
+        std::size_t moved = 0;
+        for (auto ne : mem) {
+            if (!registry.valid(ne) || !registry.all_of<Component::Position>(ne)) continue;
+            auto& pos = registry.get<Component::Position>(ne);
+            pos.x += dx;
+            pos.y += dy;
+            pos.z += dz;
+            ++moved;
+        }
+        spdlog::info("nset_move '{}': moved {} nodes by ({}, {}, {}).", set_name, moved, dx, dy, dz);
         // Topology unchanged (coordinates only); no topology / inspector rebuild needed
     }
     else if (command == "node_delete") {
