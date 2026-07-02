@@ -118,7 +118,7 @@ void handle_set_section(std::stringstream& ss, AppSession& session) {
     std::string section_type, param_name, value_str;
     if (!(ss >> sid >> section_type >> param_name >> value_str)) {
         spdlog::error("Usage: set_section <section_id> <section_type> <param> <value>");
-        spdlog::info("  Section types: Solid, Truss, Shell, SolidAdvanced, SolidShell, SolidShComp, Beam, FiberBeam, Cohesive, AxialSpringDamper, BeamSpring");
+        spdlog::info("  Section types: Solid, Truss, Shell, SolidShell, SolidShComp, Beam, FiberBeam, Cohesive, AxialSpringDamper, BeamSpring");
         return;
     }
 
