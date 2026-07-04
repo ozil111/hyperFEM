@@ -17,6 +17,7 @@
 #include <fstream>
 #include <sstream>
 #include <iomanip>
+#include <cctype>
 #include <map>
 #include <unordered_map>
 
@@ -284,10 +285,65 @@ bool AbaqusExporter::save(const std::string& filepath, const DataContext& data_c
                 out << "\n";
             }
 
+            // Emit *SECTION CONTROLS (if the property has HourglassScaleFactors,
+            // indicating it was parsed from an Abaqus input with CONTROLS)
+            std::string controls_name;
+            if (registry.all_of<Component::HourglassScaleFactors>(part.section)) {
+                int pid = 1;
+                if (registry.all_of<Component::PropertyID>(part.section)) {
+                    pid = registry.get<Component::PropertyID>(part.section).value;
+                }
+                controls_name = "EC-" + std::to_string(pid);
+
+                out << "*SECTION CONTROLS, NAME=" << controls_name;
+
+                // Hourglass control
+                if (registry.all_of<Component::HourglassControl>(part.section)) {
+                    std::string hg = registry.get<Component::HourglassControl>(part.section).value;
+                    if (!hg.empty()) {
+                        // Uppercase for Abaqus convention (parser lowercases it)
+                        for (auto& c : hg) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+                        out << ", HOURGLASS=" << hg;
+                    }
+                }
+
+                // Distortion control
+                bool distortion = registry.all_of<Component::DistortionControl>(part.section);
+                out << ", DISTORTION CONTROL=" << (distortion ? "YES" : "NO");
+
+                // Element deletion
+                bool elem_del = false;
+                if (registry.all_of<Component::ElementDeletion>(part.section)) {
+                    elem_del = registry.get<Component::ElementDeletion>(part.section).value;
+                }
+                out << ", ELEMENT DELETION=" << (elem_del ? "YES" : "NO");
+
+                // Element conversion
+                bool elem_conv = false;
+                if (registry.all_of<Component::ElementConversion>(part.section)) {
+                    elem_conv = registry.get<Component::ElementConversion>(part.section).value;
+                }
+                out << ", ELEMENT CONVERSION=" << (elem_conv ? "YES" : "NO");
+
+                out << "\n";
+
+                // Data line: display scale, rot scale, zero-display scale,
+                //            linear viscosity scale, quadratic viscosity scale
+                const auto& hsf = registry.get<Component::HourglassScaleFactors>(part.section);
+                out << std::setprecision(6) << std::showpoint << hsf.display_scale << ","
+                    << std::setprecision(6) << std::showpoint << hsf.rot_scale << ","
+                    << std::setprecision(6) << std::showpoint << hsf.zero_display_scale << ","
+                    << std::setprecision(6) << std::showpoint << hsf.linear_visc_scale << ","
+                    << std::setprecision(6) << std::showpoint << hsf.quad_visc_scale << "\n";
+            }
+
             // Emit *SOLID SECTION
             std::string mat_name = find_material_name(registry, part.section);
-            out << "*SOLID SECTION, ELSET=" << elset_name
-                << ", MATERIAL=" << mat_name << "\n";
+            out << "*SOLID SECTION, ELSET=" << elset_name;
+            if (!controls_name.empty()) {
+                out << ", CONTROLS=" << controls_name;
+            }
+            out << ", MATERIAL=" << mat_name << "\n";
             out << ",\n"; // data line (empty for solid)
         }
     }

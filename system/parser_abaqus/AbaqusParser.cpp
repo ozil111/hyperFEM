@@ -182,9 +182,11 @@ struct SectionControlData {
     bool distortion_control = false;
     bool element_deletion = false;
     bool element_conversion = false;
-    double linear_viscosity = 0.0;    // data line field 1 (qb)
-    double quadratic_viscosity = 0.0; // data line field 2 (qa)
-    double visco_hourglass_k = 0.0;   // data line field 3 (h)
+    double display_scale = 1.0;       // data line field 1
+    double rot_scale = 1.0;           // data line field 2
+    double zero_display_scale = 1.0;  // data line field 3
+    double linear_visc_scale = 1.0;   // data line field 4
+    double quad_visc_scale = 1.0;     // data line field 5
 };
 
 /// Normalise hourglass string: lowercase, spaces → underscores
@@ -505,12 +507,15 @@ void process_section_controls(const AbaqusBlock& block, ParseCtx& ctx) {
         scd.element_conversion = (v == "YES" || v == "ON" || v == "TRUE" || v == "1");
     }
 
-    // Data line: linear viscosity (qb), quadratic viscosity (qa), visco hourglass k (h)
+    // Data line: display scale, rot scale, zero-display scale,
+    //            linear viscosity scale, quadratic viscosity scale
     if (!block.data_lines.empty()) {
         auto f = split_csv(block.data_lines[0]);
-        if (f.size() >= 1) { std::string s = trim_copy(f[0]); if (!s.empty()) scd.linear_viscosity = std::stod(s); }
-        if (f.size() >= 2) { std::string s = trim_copy(f[1]); if (!s.empty()) scd.quadratic_viscosity = std::stod(s); }
-        if (f.size() >= 3) { std::string s = trim_copy(f[2]); if (!s.empty()) scd.visco_hourglass_k = std::stod(s); }
+        if (f.size() >= 1) { std::string s = trim_copy(f[0]); if (!s.empty()) scd.display_scale = std::stod(s); }
+        if (f.size() >= 2) { std::string s = trim_copy(f[1]); if (!s.empty()) scd.rot_scale = std::stod(s); }
+        if (f.size() >= 3) { std::string s = trim_copy(f[2]); if (!s.empty()) scd.zero_display_scale = std::stod(s); }
+        if (f.size() >= 4) { std::string s = trim_copy(f[3]); if (!s.empty()) scd.linear_visc_scale = std::stod(s); }
+        if (f.size() >= 5) { std::string s = trim_copy(f[4]); if (!s.empty()) scd.quad_visc_scale = std::stod(s); }
     }
 
     ctx.section_controls[name] = scd;
@@ -565,17 +570,19 @@ void process_solid_section(const AbaqusBlock& block, ParseCtx& ctx) {
             if (!scd.hourglass.empty()) hg = scd.hourglass;
             ctx.registry.emplace<Component::HourglassControl>(prop_e, hg);
 
-            Component::ViscosityParams vp;
-            vp.linear = scd.linear_viscosity;
-            vp.quadratic = scd.quadratic_viscosity;
-            ctx.registry.emplace<Component::ViscosityParams>(prop_e, vp);
+            Component::HourglassScaleFactors hsf;
+            hsf.display_scale      = scd.display_scale;
+            hsf.rot_scale          = scd.rot_scale;
+            hsf.zero_display_scale = scd.zero_display_scale;
+            hsf.linear_visc_scale  = scd.linear_visc_scale;
+            hsf.quad_visc_scale    = scd.quad_visc_scale;
+            ctx.registry.emplace<Component::HourglassScaleFactors>(prop_e, hsf);
 
             if (scd.distortion_control) {
                 ctx.registry.emplace<Component::DistortionControl>(prop_e);
             }
-            if (scd.visco_hourglass_k != 0.0) {
-                ctx.registry.emplace<Component::ViscoHourglassK>(prop_e, scd.visco_hourglass_k);
-            }
+            ctx.registry.emplace<Component::ElementDeletion>(prop_e, scd.element_deletion);
+            ctx.registry.emplace<Component::ElementConversion>(prop_e, scd.element_conversion);
         } else {
             spdlog::warn("SOLID SECTION references unknown SECTION CONTROLS '{}'", controls_name);
             ctx.registry.emplace<Component::HourglassControl>(prop_e, hg);

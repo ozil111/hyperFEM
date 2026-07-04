@@ -121,6 +121,27 @@ namespace Component {
         std::array<double, 3> coeffs{};
     };
 
+    // Element deletion control (Abaqus *SECTION CONTROLS, ELEMENT DELETION)
+    struct ElementDeletion {
+        bool value = false;
+    };
+
+    // Element conversion control (Abaqus *SECTION CONTROLS, ELEMENT CONVERSION)
+    struct ElementConversion {
+        bool value = false;
+    };
+
+    // Hourglass scale factors from *SECTION CONTROLS data line (Abaqus)
+    // Five fields: display scale, rot scale, zero-display scale,
+    //              linear viscosity scale, quadratic viscosity scale
+    struct HourglassScaleFactors {
+        double display_scale      = 1.0;
+        double rot_scale          = 1.0;
+        double zero_display_scale = 1.0;
+        double linear_visc_scale  = 1.0;
+        double quad_visc_scale    = 1.0;
+    };
+
     // Displacement hourglass factor
     struct DispHourglassFactor {
         double value = 1.0;
