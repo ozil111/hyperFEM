@@ -19,3 +19,4 @@ test_case/test_report.txt
 /case
 *.odb
 *.symtest
+tools
