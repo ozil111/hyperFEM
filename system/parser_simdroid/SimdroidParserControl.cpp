@@ -523,13 +523,17 @@ void SimdroidParser::parse_materials(
 {
     if (!j.contains("Material") || !j["Material"].is_object()) return;
 
+    int mid_counter = 1;
     for (auto& [key, val] : j["Material"].items()) {
         const entt::entity mat_e = registry.create();
 
         // Material ID (MID) - primary key connecting elements and materials
         if (val.contains("MID") && val["MID"].is_number_integer()) {
             registry.emplace<Component::MaterialID>(mat_e, val["MID"].get<int>());
+        } else {
+            registry.emplace<Component::MaterialID>(mat_e, mid_counter);
         }
+        mid_counter++;
 
         // Material type (prefer Simdroid's "MaterialType", fallback to legacy "Type")
         const std::string mat_type = val.value("MaterialType", val.value("Type", ""));
