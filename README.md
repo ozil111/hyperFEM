@@ -84,9 +84,42 @@ python run_build_and_test.py --itest
 
 - **手动运行**（需激活 Python 环境）：
 
+**依赖安装：**
+
+```bash
+pip install cli_test_framework==0.9.0
+```
+
+`test.py` 基于 `cli_test_framework`，支持按案例名称和标签筛选运行。
+
+**用法：**
+
 ```bash
 cd test_case
+python test.py [--test-target <name...>] [--tag <tag...>]
+```
+
+**参数说明：**
+
+| 参数 | 说明 |
+|------|------|
+| `--test-target` | 指定要运行的测试案例名称，支持多个，例如：`--test-target tet4_mat1_im` |
+| `--tag` | 按标签过滤测试案例，支持多个（OR 关系），例如：`--tag solver implicit` |
+
+**示例：**
+
+```bash
+# 运行所有测试
 python test.py
+
+# 只运行指定案例
+python test.py --test-target tet4_mat1_im
+
+# 按标签过滤（运行 implicit 标签的案例）
+python test.py --tag implicit
+
+# 组合筛选
+python test.py --test-target tet4_mat1_im --tag solver
 ```
 
 测试结果将自动生成报告并保存于 `test_case/test_report.txt`。

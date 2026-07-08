@@ -10,6 +10,8 @@ def main():
     parser = argparse.ArgumentParser(description="Fatigue test runner")
     parser.add_argument("--test-target", nargs="+", default=None,
                         help="指定要运行的测试案例名称，支持多个，例如: --test-target alpha gamma")
+    parser.add_argument("--tag", nargs="+", default=None, dest="test_tag",
+                        help="按标签过滤测试案例，支持多个(OR关系)，例如: --tag smoke --tag regression")
     args = parser.parse_args()
 
     setup_console_logging()
@@ -19,7 +21,8 @@ def main():
         workspace=os.path.dirname(os.path.abspath(__file__)),
         max_workers=4, execution_mode="thread",
         history_dir="./hist",
-        test_case_filter=args.test_target
+        test_case_filter=args.test_target,
+        test_case_tag_filter=args.test_tag
     )
     success = runner.run_tests()
     

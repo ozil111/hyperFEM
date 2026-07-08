@@ -2,6 +2,7 @@
   "test_cases": [
     {
       "name": "tet4_mat1_im",
+      "tags": ["tet4", "mat1", "imlicit","solver"],
       "steps":[
         {
           "command": "../bin/Debug/NovaFEA_app.exe",
@@ -27,6 +28,7 @@
     },
     {
       "name": "abaqus_parser_t01_explicit",
+      "tags":["inp","preprocess","explicit"],
       "steps":[
         {
           "command": "../bin/Debug/NovaFEA_app.exe",
@@ -46,6 +48,7 @@
     },
     {
       "name": "abaqus_parser_t01_implicit",
+      "tags":["inp","preprocess","implicit"],
       "steps":[
         {
           "command": "../bin/Debug/NovaFEA_app.exe",
