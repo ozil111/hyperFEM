@@ -14,6 +14,7 @@ using namespace SimdroidParserDetail;
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 // Implementation of collect_set_definitions_from_file (defined in header but needs .cpp body)
@@ -30,22 +31,23 @@ void collect_set_definitions_from_file(const std::string& path, MeshSetDefs& def
     auto flush_current = [&](const std::string& block_type) {
         if (current_name.empty()) return;
         const auto ranges = parse_id_ranges(current_ids);
-        if (ranges.empty()) return;
+        const auto refs   = extract_set_refs(current_ids);
+        if (ranges.empty() && refs.empty()) return;
 
         if (block_type == "element") {
-            auto& v = defs.element_sets[current_name];
-            v.insert(v.end(), ranges.begin(), ranges.end());
+            if (!ranges.empty()) { auto& v = defs.element_sets[current_name];     v.insert(v.end(), ranges.begin(), ranges.end()); }
+            if (!refs.empty())   { auto& v = defs.element_set_refs[current_name]; v.insert(v.end(), refs.begin(),   refs.end());   }
         } else if (block_type == "part") {
-            auto& v = defs.parts_ranges[current_name];
-            v.insert(v.end(), ranges.begin(), ranges.end());
+            if (!ranges.empty()) { auto& v = defs.parts_ranges[current_name];     v.insert(v.end(), ranges.begin(), ranges.end()); }
+            if (!refs.empty())   { auto& v = defs.part_set_refs[current_name];    v.insert(v.end(), refs.begin(),   refs.end());   }
         } else if (block_type == "node") {
-            auto& v = defs.node_sets[current_name];
-            v.insert(v.end(), ranges.begin(), ranges.end());
+            if (!ranges.empty()) { auto& v = defs.node_sets[current_name];        v.insert(v.end(), ranges.begin(), ranges.end()); }
+            if (!refs.empty())   { auto& v = defs.node_set_refs[current_name];     v.insert(v.end(), refs.begin(),   refs.end());   }
         } else if (block_type == "surface") {
-            auto& v = defs.surface_sets[current_name];
-            v.insert(v.end(), ranges.begin(), ranges.end());
+            if (!ranges.empty()) { auto& v = defs.surface_sets[current_name];     v.insert(v.end(), ranges.begin(), ranges.end()); }
+            if (!refs.empty())   { auto& v = defs.surface_set_refs[current_name]; v.insert(v.end(), refs.begin(),   refs.end());   }
         }
-        current_ids.clear(); 
+        current_ids.clear();
     };
 
     std::string line;
@@ -134,6 +136,48 @@ void collect_set_definitions_from_file(const std::string& path, MeshSetDefs& def
 }
 
 } // namespace SimdroidParserDetail
+
+// ---------------------------------------------------------------
+// Helper: resolve set-to-set references (handles chained refs)
+// ---------------------------------------------------------------
+template <typename MemberComp>
+static void resolve_set_references(entt::registry& registry,
+    const std::unordered_map<std::string, std::vector<std::string>>& refs_map)
+{
+    using namespace SimdroidParserDetail;
+    if (refs_map.empty()) return;
+    std::unordered_set<std::string> resolved;
+    bool changed = true;
+    int max_iter = 100; // guard against circular references
+    while (changed && max_iter-- > 0) {
+        changed = false;
+        for (const auto& [name, ref_names] : refs_map) {
+            if (resolved.count(name)) continue;
+            // Wait until all referenced sets that also have refs are resolved
+            bool all_ready = true;
+            for (const auto& ref : ref_names) {
+                if (refs_map.count(ref) && !resolved.count(ref)) {
+                    all_ready = false;
+                    break;
+                }
+            }
+            if (!all_ready) continue;
+
+            entt::entity target = get_or_create_set_entity(registry, name);
+            auto& target_members = registry.get_or_emplace<MemberComp>(target);
+            for (const auto& ref : ref_names) {
+                entt::entity ref_entity = get_or_create_set_entity(registry, ref);
+                if (registry.all_of<MemberComp>(ref_entity)) {
+                    auto& ref_members = registry.get<MemberComp>(ref_entity);
+                    target_members.members.insert(target_members.members.end(),
+                        ref_members.members.begin(), ref_members.members.end());
+                }
+            }
+            resolved.insert(name);
+            changed = true;
+        }
+    }
+}
 
 // ---------------------------------------------------------------
 // Main mesh parser: parse_mesh_dat()
@@ -504,4 +548,10 @@ void SimdroidParser::parse_mesh_dat(const std::string& path, DataContext& ctx) {
         auto& members = registry.get_or_emplace<Component::SurfaceSetMembers>(e);
         add_to_set(members.members, ranges, surface_lookup);
     }
+
+    // 5. Resolve set-to-set references (handles chained & circular refs)
+    resolve_set_references<Component::ElementSetMembers>(registry, defs.element_set_refs);
+    resolve_set_references<Component::ElementSetMembers>(registry, defs.part_set_refs);
+    resolve_set_references<Component::NodeSetMembers>(registry, defs.node_set_refs);
+    resolve_set_references<Component::SurfaceSetMembers>(registry, defs.surface_set_refs);
 }

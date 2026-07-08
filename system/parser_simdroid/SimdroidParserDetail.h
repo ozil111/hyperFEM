@@ -102,6 +102,28 @@ inline std::vector<IdRange> parse_id_ranges(const std::string& id_string) {
     return ranges;
 }
 
+inline bool is_numeric_token(const std::string& tok) {
+    if (tok.empty()) return false;
+    size_t start = 0;
+    if (tok[0] == '-' || tok[0] == '+') start = 1;
+    if (start >= tok.size()) return false;
+    for (size_t i = start; i < tok.size(); ++i) {
+        if (tok[i] == ':') continue;
+        if (!std::isdigit(static_cast<unsigned char>(tok[i]))) return false;
+    }
+    return true;
+}
+
+inline std::vector<std::string> extract_set_refs(const std::string& id_string) {
+    std::vector<std::string> refs;
+    for (const auto& tok : split_ws_and_commas(id_string)) {
+        if (!is_numeric_token(tok)) {
+            refs.push_back(tok);
+        }
+    }
+    return refs;
+}
+
 inline entt::entity get_or_create_set_entity(entt::registry& registry, const std::string& name) {
     auto view = registry.view<const Component::SetName>();
     for (auto e : view) {
@@ -210,6 +232,11 @@ struct MeshSetDefs {
     std::unordered_map<std::string, std::vector<IdRange>> parts_ranges;
     std::unordered_map<std::string, std::vector<IdRange>> node_sets;
     std::unordered_map<std::string, std::vector<IdRange>> surface_sets;
+    // Set-to-set references (set name -> list of referenced set names)
+    std::unordered_map<std::string, std::vector<std::string>> element_set_refs;
+    std::unordered_map<std::string, std::vector<std::string>> part_set_refs;
+    std::unordered_map<std::string, std::vector<std::string>> node_set_refs;
+    std::unordered_map<std::string, std::vector<std::string>> surface_set_refs;
 };
 
 void collect_set_definitions_from_file(const std::string& path, MeshSetDefs& defs);
