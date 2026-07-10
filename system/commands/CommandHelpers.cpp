@@ -64,6 +64,24 @@ int allocate_next_element_id(entt::registry& registry) {
     return max_id + 1;
 }
 
+int allocate_next_nodeset_id(entt::registry& registry) {
+    int max_id = 0;
+    auto view = registry.view<const Component::NodeSetID>();
+    for (auto e : view) {
+        max_id = std::max(max_id, view.get<const Component::NodeSetID>(e).value);
+    }
+    return max_id + 1;
+}
+
+int allocate_next_eleset_id(entt::registry& registry) {
+    int max_id = 0;
+    auto view = registry.view<const Component::EleSetID>();
+    for (auto e : view) {
+        max_id = std::max(max_id, view.get<const Component::EleSetID>(e).value);
+    }
+    return max_id + 1;
+}
+
 entt::entity find_material_by_id(entt::registry& registry, int mid) {
     auto view = registry.view<const Component::MaterialID>();
     for (auto e : view) {

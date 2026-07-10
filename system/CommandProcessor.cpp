@@ -28,7 +28,7 @@ void process_command(const std::string& command_line, AppSession& session) {
                      "node, list_nodes, node_add, node_move, nset_move, node_delete, "
                      "elem, elem_add, elem_delete, "
                      "list_elements, "
-                     "list_sets, set_info, set_addnode, set_addelem, set_removenode, set_removeelem, "
+                     "list_sets, set_info, create_set, set_addnode, set_addelem, set_removenode, set_removeelem, "
                      "set_material <mid> <component> <param> <value>, "
                      "set_section <sid> <type> <param> <value>, "
                      "save, help, quit");
@@ -119,6 +119,9 @@ void process_command(const std::string& command_line, AppSession& session) {
     }
     else if (command == "set_removeelem") {
         cmd::edit::handle_set_removeelem(ss, session);
+    }
+    else if (command == "create_set") {
+        cmd::edit::handle_create_set(ss, session);
     }
     else if (command == "set_material") {
         cmd::property::handle_set_material(ss, session);

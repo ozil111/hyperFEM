@@ -449,4 +449,60 @@ void handle_set_removeelem(std::stringstream& ss, AppSession& session) {
     spdlog::info("set_removeelem '{}' : removed {} entries.", set_name, removed);
 }
 
+void handle_create_set(std::stringstream& ss, AppSession& session) {
+    std::string set_name, type_str;
+    if (!(ss >> set_name >> type_str)) {
+        spdlog::error("Usage: create_set <set_name> <node|element> [id1 id2 ...]");
+        return;
+    }
+    auto& registry = session.data.registry;
+    // 同名 set 已存在则报错
+    if (find_set_by_name(registry, set_name) != entt::null) {
+        spdlog::error("Set '{}' already exists.", set_name);
+        return;
+    }
+    auto e = registry.create();
+    registry.emplace<Component::SetName>(e, set_name);
+
+    if (type_str == "node") {
+        int nsid = allocate_next_nodeset_id(registry);
+        registry.emplace<Component::NodeSetID>(e, nsid);
+        auto& mem = registry.emplace<Component::NodeSetMembers>(e);
+        std::size_t added = 0;
+        for (int nid; ss >> nid; ) {
+            entt::entity ne = find_node_by_id(registry, nid);
+            if (ne == entt::null) {
+                spdlog::warn("Node {} not found. Skipped in create_set.", nid);
+                continue;
+            }
+            if (std::find(mem.members.begin(), mem.members.end(), ne) == mem.members.end()) {
+                mem.members.push_back(ne);
+                ++added;
+            }
+        }
+        spdlog::info("Created node set '{}' (nsid={}) with {} members.", set_name, nsid, added);
+    } else if (type_str == "element") {
+        int esid = allocate_next_eleset_id(registry);
+        registry.emplace<Component::EleSetID>(e, esid);
+        auto& mem = registry.emplace<Component::ElementSetMembers>(e);
+        std::size_t added = 0;
+        for (int eid; ss >> eid; ) {
+            entt::entity ee = find_element_by_id(registry, eid);
+            if (ee == entt::null) {
+                spdlog::warn("Element {} not found. Skipped in create_set.", eid);
+                continue;
+            }
+            if (std::find(mem.members.begin(), mem.members.end(), ee) == mem.members.end()) {
+                mem.members.push_back(ee);
+                ++added;
+            }
+        }
+        spdlog::info("Created element set '{}' (esid={}) with {} members.", set_name, esid, added);
+    } else {
+        registry.destroy(e);
+        spdlog::error("Unknown set type '{}'. Use 'node' or 'element'.", type_str);
+        return;
+    }
+}
+
 } // namespace cmd::edit

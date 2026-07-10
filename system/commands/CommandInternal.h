@@ -27,6 +27,8 @@ entt::entity find_property_by_id(entt::registry& registry, int pid);
 
 int allocate_next_node_id(entt::registry& registry);
 int allocate_next_element_id(entt::registry& registry);
+int allocate_next_nodeset_id(entt::registry& registry);
+int allocate_next_eleset_id(entt::registry& registry);
 
 entt::entity get_or_create_set_entity(entt::registry& registry, const std::string& name);
 
@@ -80,6 +82,7 @@ void handle_set_addnode(std::stringstream& ss, AppSession& session);
 void handle_set_addelem(std::stringstream& ss, AppSession& session);
 void handle_set_removenode(std::stringstream& ss, AppSession& session);
 void handle_set_removeelem(std::stringstream& ss, AppSession& session);
+void handle_create_set(std::stringstream& ss, AppSession& session);
 } // namespace edit
 
 namespace property {
