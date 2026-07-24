@@ -47,3 +47,20 @@ Eigen::Matrix<double, 24, 24> compute_c3d8r_stiffness_matrix(
     entt::entity element_entity
 );
 
+/**
+ * @brief 从当前位移场计算 C3D8R 单元的应力和应变（后处理用）
+ * @param registry EnTT registry
+ * @param element_entity 单元实体句柄
+ * @param D 材料的本构矩阵 (6x6)
+ * @param stress 输出: 应力分量 S11,S22,S33,S12,S13,S23
+ * @param strain 输出: 应变分量 E11,E22,E33,E12,E13,E23
+ * @return true 成功, false 失败
+ */
+bool compute_c3d8r_stress_strain(
+    const entt::registry& registry,
+    entt::entity element_entity,
+    const Eigen::Matrix<double, 6, 6>& D,
+    Eigen::Vector<double, 6>& stress,
+    Eigen::Vector<double, 6>& strain
+);
+

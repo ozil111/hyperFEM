@@ -42,6 +42,11 @@ namespace {
 
     static constexpr double one_over_eight = 1.0 / 8.0;
     static constexpr double WG = 8.0;
+
+    // 是否使用多点雅可比路径（对应 FORTRAN USE_MULTIPOINT_JACOBIAN）
+    // 多点路径使用 2×2×2 高斯点处的雅可比矩阵进行物理空间投影，
+    // 对于翘曲/畸变单元可捕获雅可比在单元内部的变化
+    static constexpr bool USE_MULTIPOINT_JACOBIAN = true;
 }
 
 // -------------------------------------------------------------------
@@ -95,26 +100,26 @@ static void calc_b_bar_component(
 // FORTRAN: JAC = matmul(transpose(XiI), COORD) * one_over_eight; JAC = transpose(JAC)
 // -------------------------------------------------------------------
 static Eigen::Matrix3d jacobian_center(const Eigen::Matrix<double, 8, 3>& coords) {
-    // FORTRAN 代码中的 XiI 矩阵（单元中心处的等参坐标导数）
-    // FORTRAN reshape 按列填充（列主序），对应单元中心 (0, 0, 0)
-    // XiI(8,3) = reshape([第一�?个�? 第二�?个�? 第三�?个值], [8,3])
+    // FORTRAN: XiI(8,3) at center (0,0,0), column-major reshape
+    // 手动初始化避免 comma initializer 的跨平台不确定性
     static const double one_over_eight = 1.0 / 8.0;
-    static const Eigen::Matrix<double, 8, 3> XiI = (Eigen::Matrix<double, 8, 3>() <<
-        // 第一�?(xi 导数)
-        -1.0,  1.0,  1.0, -1.0, -1.0,  1.0,  1.0, -1.0,
-        // 第二�?(eta 导数)
-        -1.0, -1.0,  1.0,  1.0, -1.0, -1.0,  1.0,  1.0,
-        // 第三�?(zeta 导数)
-        -1.0, -1.0, -1.0, -1.0,  1.0,  1.0,  1.0,  1.0
-    ).finished();
+    static Eigen::Matrix<double, 8, 3> XiI;
+    static bool XiI_init = false;
+    if (!XiI_init) {
+        // Column 0 (xi derivatives):  [-1, 1, 1,-1,-1, 1, 1,-1]
+        XiI(0,0)=-1; XiI(1,0)= 1; XiI(2,0)= 1; XiI(3,0)=-1;
+        XiI(4,0)=-1; XiI(5,0)= 1; XiI(6,0)= 1; XiI(7,0)=-1;
+        // Column 1 (eta derivatives): [-1,-1, 1, 1,-1,-1, 1, 1]
+        XiI(0,1)=-1; XiI(1,1)=-1; XiI(2,1)= 1; XiI(3,1)= 1;
+        XiI(4,1)=-1; XiI(5,1)=-1; XiI(6,1)= 1; XiI(7,1)= 1;
+        // Column 2 (zeta derivatives):[-1,-1,-1,-1, 1, 1, 1, 1]
+        XiI(0,2)=-1; XiI(1,2)=-1; XiI(2,2)=-1; XiI(3,2)=-1;
+        XiI(4,2)= 1; XiI(5,2)= 1; XiI(6,2)= 1; XiI(7,2)= 1;
+        XiI_init = true;
+    }
     
-    // FORTRAN: JAC = matmul(transpose(XiI), COORD) * one_over_eight
-    // XiI �?8x3，COORD �?8x3
-    // transpose(XiI) �?3x8
-    // matmul(transpose(XiI), COORD) �?3x8 * 8x3 = 3x3
+    // FORTRAN: JAC = matmul(transpose(XiI), COORD) * one_over_eight; JAC = transpose(JAC)
     Eigen::Matrix3d JAC = (XiI.transpose() * coords) * one_over_eight;
-    
-    // FORTRAN: JAC = transpose(JAC)
     return JAC.transpose();
 }
 
@@ -125,6 +130,46 @@ static double jacobian_determinant(const Eigen::Matrix3d& JAC) {
     return JAC(0,0)*(JAC(1,1)*JAC(2,2)-JAC(1,2)*JAC(2,1)) -
            JAC(0,1)*(JAC(1,0)*JAC(2,2)-JAC(1,2)*JAC(2,0)) +
            JAC(0,2)*(JAC(1,0)*JAC(2,1)-JAC(1,1)*JAC(2,0));
+}
+
+// -------------------------------------------------------------------
+// **辅助函数：计算任意参数点处的雅可比矩阵和行列式**
+// 参考 FORTRAN 代码中的 JACOBIAN_AT_POINT 子程序
+// JAC(i,j) = ∂X_i / ∂ξ_j，与 jacobian_center 的约定一致
+// -------------------------------------------------------------------
+static void jacobian_at_point(
+    double xi, double eta, double zeta,
+    const Eigen::Matrix<double, 8, 3>& coords,
+    Eigen::Matrix3d& JAC,
+    double& DETJ
+) {
+    // Node parametric coordinates (对应 FORTRAN XiI)
+    static const double xi_i[8]  = {-1.0, 1.0, 1.0,-1.0,-1.0, 1.0, 1.0,-1.0};
+    static const double eta_i[8] = {-1.0,-1.0, 1.0, 1.0,-1.0,-1.0, 1.0, 1.0};
+    static const double zeta_i[8]= {-1.0,-1.0,-1.0,-1.0, 1.0, 1.0, 1.0, 1.0};
+
+    JAC.setZero();
+    for (int A = 0; A < 8; ++A) {
+        // ∂N_A/∂ξ = (1/8) * ξ_A * (1 + η·η_A) * (1 + ζ·ζ_A)
+        double dNdxi   = one_over_eight * xi_i[A]   * (1.0 + eta  * eta_i[A])  * (1.0 + zeta * zeta_i[A]);
+        // ∂N_A/∂η = (1/8) * η_A * (1 + ξ·ξ_A) * (1 + ζ·ζ_A)
+        double dNdeta  = one_over_eight * eta_i[A]  * (1.0 + xi   * xi_i[A])   * (1.0 + zeta * zeta_i[A]);
+        // ∂N_A/∂ζ = (1/8) * ζ_A * (1 + ξ·ξ_A) * (1 + η·η_A)
+        double dNdzeta = one_over_eight * zeta_i[A] * (1.0 + xi   * xi_i[A])   * (1.0 + eta  * eta_i[A]);
+
+        // JAC(i,j) = Σ_A ∂N_A/∂ξ_j · X_i^A
+        JAC(0, 0) += coords(A, 0) * dNdxi;
+        JAC(0, 1) += coords(A, 0) * dNdeta;
+        JAC(0, 2) += coords(A, 0) * dNdzeta;
+        JAC(1, 0) += coords(A, 1) * dNdxi;
+        JAC(1, 1) += coords(A, 1) * dNdeta;
+        JAC(1, 2) += coords(A, 1) * dNdzeta;
+        JAC(2, 0) += coords(A, 2) * dNdxi;
+        JAC(2, 1) += coords(A, 2) * dNdeta;
+        JAC(2, 2) += coords(A, 2) * dNdzeta;
+    }
+
+    DETJ = jacobian_determinant(JAC);
 }
 
 // -------------------------------------------------------------------
@@ -188,7 +233,7 @@ static Eigen::Matrix<double, 6, 24> form_b_matrix(
 }
 
 // ===================================================================
-// **第一阶段：极分解与旋转工�?(Polar Decomposition & Rotation)**
+// **第一阶段：极分解与旋转工具 (Polar Decomposition & Rotation)**
 // ===================================================================
 
 /**
@@ -200,7 +245,7 @@ static void polar_decomp_for_j0hinv(
     Eigen::Matrix3d& R,
     Eigen::Matrix3d& U_diag_inv
 ) {
-    // 提取列向�?j1, j2, j3
+    // 提取行向�?j1, j2, j3（FORTRAN: J0_T(1,:), J0_T(2,:), J0_T(3,:)�?
     Eigen::Vector3d j1 = J0_T.row(0).transpose();
     Eigen::Vector3d j2 = J0_T.row(1).transpose();
     Eigen::Vector3d j3 = J0_T.row(2).transpose();
@@ -214,25 +259,20 @@ static void polar_decomp_for_j0hinv(
         throw std::runtime_error("Jacobian column norm is zero or too small in polar decomposition");
     }
     
-    // Gram-Schmidt 正交化得�?R
-    Eigen::Vector3d q1 = j1 / j1_norm;
-    
-    Eigen::Vector3d q2 = j2 - j2.dot(q1) * q1;
-    q2.normalize();
-    
-    Eigen::Vector3d q3 = j3 - j3.dot(q1) * q1 - j3.dot(q2) * q2;
-    q3.normalize();
-    
-    // R 矩阵（正交）
-    R.row(0) = q1.transpose();
-    R.row(1) = q2.transpose();
-    R.row(2) = q3.transpose();
-    
     // U_diag_inv = diag(1/||j1||, 1/||j2||, 1/||j3||)
     U_diag_inv.setZero();
     U_diag_inv(0, 0) = 1.0 / j1_norm;
     U_diag_inv(1, 1) = 1.0 / j2_norm;
     U_diag_inv(2, 2) = 1.0 / j3_norm;
+
+    // USE_DIAGONAL_J0_INV = TRUE（对应 FORTRAN uel_constants）:
+    // Puso (2000) Section 5.2: 对于各向同性材料，R 可以忽略，
+    // hat_J0_inv = U_diag_inv（纯对角），跳过 Gram-Schmidt。
+    // 对于规则网格无影响；对于畸变网格消除了 R 引入的离对角耦合。
+    R.setZero();
+    R(0, 0) = 1.0;
+    R(1, 1) = 1.0;
+    R(2, 2) = 1.0;
 }
 
 /**
@@ -244,62 +284,65 @@ static void rot_dmtx(
     const Eigen::Matrix3d& J0Inv,
     Eigen::Matrix<double, 6, 6>& D_rotated
 ) {
-    // 提取 J0Inv 的分�?
+    // 提取 J0Inv 的分量（与 FORTRAN 一致：行优先）
+    // jXY = J0Inv 的第 X �?Y �?
     double j11 = J0Inv(0, 0), j12 = J0Inv(0, 1), j13 = J0Inv(0, 2);
     double j21 = J0Inv(1, 0), j22 = J0Inv(1, 1), j23 = J0Inv(1, 2);
     double j31 = J0Inv(2, 0), j32 = J0Inv(2, 1), j33 = J0Inv(2, 2);
     
     // 构建 6x6 变换矩阵 J_transform
+    // Voigt �?XX, YY, ZZ, XY, YZ, XZ
+    // FORTRAN: 每行使用 J0Inv 的对应行（而非列）
     Eigen::Matrix<double, 6, 6> J_transform;
     J_transform.setZero();
     
-    // Row 1
+    // Row 0 (XX) — 使用 J0Inv �?0 �?
     J_transform(0, 0) = j11 * j11;
-    J_transform(0, 1) = j21 * j21;
-    J_transform(0, 2) = j31 * j31;
-    J_transform(0, 3) = j11 * j21;
-    J_transform(0, 4) = j21 * j31;
-    J_transform(0, 5) = j11 * j31;
+    J_transform(0, 1) = j12 * j12;
+    J_transform(0, 2) = j13 * j13;
+    J_transform(0, 3) = 2.0 * j11 * j12;
+    J_transform(0, 4) = 2.0 * j12 * j13;
+    J_transform(0, 5) = 2.0 * j11 * j13;
     
-    // Row 2
-    J_transform(1, 0) = j12 * j12;
+    // Row 1 (YY) — 使用 J0Inv �?1 �?
+    J_transform(1, 0) = j21 * j21;
     J_transform(1, 1) = j22 * j22;
-    J_transform(1, 2) = j32 * j32;
-    J_transform(1, 3) = j12 * j22;
-    J_transform(1, 4) = j22 * j32;
-    J_transform(1, 5) = j12 * j32;
+    J_transform(1, 2) = j23 * j23;
+    J_transform(1, 3) = 2.0 * j21 * j22;
+    J_transform(1, 4) = 2.0 * j22 * j23;
+    J_transform(1, 5) = 2.0 * j21 * j23;
     
-    // Row 3
-    J_transform(2, 0) = j13 * j13;
-    J_transform(2, 1) = j23 * j23;
+    // Row 2 (ZZ) — 使用 J0Inv �?2 �?
+    J_transform(2, 0) = j31 * j31;
+    J_transform(2, 1) = j32 * j32;
     J_transform(2, 2) = j33 * j33;
-    J_transform(2, 3) = j13 * j23;
-    J_transform(2, 4) = j23 * j33;
-    J_transform(2, 5) = j13 * j33;
+    J_transform(2, 3) = 2.0 * j31 * j32;
+    J_transform(2, 4) = 2.0 * j32 * j33;
+    J_transform(2, 5) = 2.0 * j31 * j33;
     
-    // Row 4
-    J_transform(3, 0) = 2.0 * j11 * j12;
-    J_transform(3, 1) = 2.0 * j21 * j22;
-    J_transform(3, 2) = 2.0 * j31 * j32;
-    J_transform(3, 3) = j11 * j22 + j21 * j12;
-    J_transform(3, 4) = j21 * j32 + j31 * j22;
-    J_transform(3, 5) = j11 * j32 + j31 * j12;
+    // Row 3 (XY) — 使用 J0Inv �?0 �?1 �?
+    J_transform(3, 0) = j11 * j21;
+    J_transform(3, 1) = j12 * j22;
+    J_transform(3, 2) = j13 * j23;
+    J_transform(3, 3) = j11 * j22 + j12 * j21;
+    J_transform(3, 4) = j12 * j23 + j13 * j22;
+    J_transform(3, 5) = j11 * j23 + j13 * j21;
     
-    // Row 5
-    J_transform(4, 0) = 2.0 * j12 * j13;
-    J_transform(4, 1) = 2.0 * j22 * j23;
-    J_transform(4, 2) = 2.0 * j32 * j33;
-    J_transform(4, 3) = j12 * j23 + j22 * j13;
-    J_transform(4, 4) = j22 * j33 + j32 * j23;
-    J_transform(4, 5) = j12 * j33 + j32 * j13;
+    // Row 4 (YZ) — 使用 J0Inv �?1 �?2 �?
+    J_transform(4, 0) = j21 * j31;
+    J_transform(4, 1) = j22 * j32;
+    J_transform(4, 2) = j23 * j33;
+    J_transform(4, 3) = j21 * j32 + j22 * j31;
+    J_transform(4, 4) = j22 * j33 + j23 * j32;
+    J_transform(4, 5) = j21 * j33 + j23 * j31;
     
-    // Row 6
-    J_transform(5, 0) = 2.0 * j13 * j11;
-    J_transform(5, 1) = 2.0 * j23 * j21;
-    J_transform(5, 2) = 2.0 * j33 * j31;
-    J_transform(5, 3) = j13 * j21 + j23 * j11;
-    J_transform(5, 4) = j23 * j31 + j33 * j21;
-    J_transform(5, 5) = j13 * j31 + j33 * j11;
+    // Row 5 (XZ) — 使用 J0Inv �?0 �?2 �?
+    J_transform(5, 0) = j11 * j31;
+    J_transform(5, 1) = j12 * j32;
+    J_transform(5, 2) = j13 * j33;
+    J_transform(5, 3) = j11 * j32 + j12 * j31;
+    J_transform(5, 4) = j12 * j33 + j13 * j32;
+    J_transform(5, 5) = j11 * j33 + j13 * j31;
     
     // D_rotated = J_transform^T * D * J_transform
     D_rotated = J_transform.transpose() * D * J_transform;
@@ -513,7 +556,7 @@ static void calc_k_matrices(
 }
 
 // ===================================================================
-// **第四阶段：静力凝�?(Static Condensation) - OPTIMIZED**
+// **第四阶段：静力凝聚 (Static Condensation) - OPTIMIZED**
 // ===================================================================
 
 /**
@@ -566,14 +609,33 @@ static void compute_hourglass_stiffness(
     
     // 5. 静力凝聚并转换回物理空间 (24x24)
     Ke_hg_out.setZero();
-    
-    // 预计�?FJAC 的转置，避免在循环中重复计算
+
+    // 多点雅可比：预计算 2×2×2 高斯点处的 J_k 和 det(J_k)
+    // 对应 FORTRAN: uel_implicit.for 中 GP_1D = ±1/√3
+    Eigen::Matrix3d GP_JAC[8];
+    double GP_DETJ[8];
+    if (USE_MULTIPOINT_JACOBIAN) {
+        const double G = 1.0 / std::sqrt(3.0);
+        const double gp_pts[2] = {-G, G};
+        int gp_idx = 0;
+        for (int ig = 0; ig < 2; ++ig) {
+            for (int jg = 0; jg < 2; ++jg) {
+                for (int kg = 0; kg < 2; ++kg) {
+                    jacobian_at_point(gp_pts[ig], gp_pts[jg], gp_pts[kg],
+                                     coords, GP_JAC[gp_idx], GP_DETJ[gp_idx]);
+                    ++gp_idx;
+                }
+            }
+        }
+    }
+
+    // 预计�?FJAC 的转置，避免在循环中重复计算（单点路径使用）
     const Eigen::Matrix3d FJAC_T = FJAC.transpose();
-    
+
     // 临时变量放在循环外（优化�?B：减少临时分配）
     Eigen::Matrix3d K_cond;
     Eigen::Matrix3d K_cond_transformed;
-    
+
     // 循环 4x4 模式
     for (int i = 0; i < 4; ++i) {
         // 预计算部�?K_au 项：Temp = K_au_i^T * K_aa_inv
@@ -586,27 +648,38 @@ static void compute_hourglass_stiffness(
             // A. 计算凝聚后的 3x3 刚度�?
             // K_cond = K_uu[i][j] - (Kau_T_KaaInv * K_au[j])
             K_cond.noalias() = K_uu[i][j] - Kau_T_KaaInv * K_au[j];
-            
-            // B. 坐标变换：J * K_cond * J^T 
-            // CRITICAL FIX: 使用 FJAC (J) 而不�?J0_T (J^T)
-            K_cond_transformed.noalias() = FJAC * K_cond * FJAC_T;
-            
+
+            // B. 坐标变换：
+            // 多点路径: M_IJ = (1/8) * Σ_k det(J_k) * J_k * K_cond * J_k^T
+            // 单点路径: M_IJ = J0 * K_cond * J0^T
+            if (USE_MULTIPOINT_JACOBIAN) {
+                K_cond_transformed.setZero();
+                for (int gp = 0; gp < 8; ++gp) {
+                    // K_cond_transformed += det(J_k) * J_k * K_cond * J_k^T
+                    K_cond_transformed.noalias() += GP_DETJ[gp]
+                        * (GP_JAC[gp] * K_cond * GP_JAC[gp].transpose());
+                }
+                K_cond_transformed *= one_over_eight;
+            } else {
+                K_cond_transformed.noalias() = FJAC * K_cond * FJAC_T;
+            }
+
             // C. 组装�?24x24 矩阵 (Kronecker Product 优化 - 优化�?A)
-            // 原理：Ke_block_AB += gamma(A,i)*gamma(B,j) * K_transformed
+            // 原理：Ke_block_AB += gamma(A,i)*gamma(B,j) * M_IJ
             // 利用 Block 操作代替逐元素循环，利用 SIMD 指令
-            
+
             // 提取�?i 列和�?j �?gamma�?x1 向量�?
-            auto gamma_i = gammas.col(i); 
+            auto gamma_i = gammas.col(i);
             auto gamma_j = gammas.col(j);
-            
+
             for (int A = 0; A < 8; ++A) {
                 double g_Ai = gamma_i(A);
                 // 稀疏优化：如果 g_Ai 极小，跳过内层循�?
-                if (std::abs(g_Ai) < 1e-15) continue; 
+                if (std::abs(g_Ai) < 1e-15) continue;
 
                 for (int B = 0; B < 8; ++B) {
                     double coef = g_Ai * gamma_j(B);
-                    
+
                     // 利用 Eigen �?block 操作直接加上 3x3 矩阵
                     // 这比逐元素加法快得多，因为利用了 SIMD
                     Ke_hg_out.block<3, 3>(3 * A, 3 * B).noalias() += coef * K_cond_transformed;
@@ -614,13 +687,19 @@ static void compute_hourglass_stiffness(
             }
         }
     }
-    
-    // 应用体积因子和缩�?
-    Ke_hg_out *= (vol / 8.0) * SCALE_HOURGLASS;
+
+    // 应用缩放因子
+    // 多点路径: M_IJ 已包含 det(J_k) 权重，只需 × SCALE_HOURGLASS
+    // 单点路径: M_IJ = J0*Kc*J0^T 不含 detJ，需 × DETJ(=vol/8) × SCALE_HOURGLASS
+    if (USE_MULTIPOINT_JACOBIAN) {
+        Ke_hg_out *= SCALE_HOURGLASS;
+    } else {
+        Ke_hg_out *= (vol / 8.0) * SCALE_HOURGLASS;
+    }
 }
 
 // -------------------------------------------------------------------
-// **主函数：计算 C3D8R 单元刚度矩阵（高性能版本�?*
+// **主函数：计算 C3D8R 单元刚度矩阵（高性能版本）**
 // -------------------------------------------------------------------
 void compute_c3d8r_stiffness_matrix(
     entt::registry& registry,
@@ -669,15 +748,15 @@ void compute_c3d8r_stiffness_matrix(
     calc_b_bar_component(x, y, BiI.data() + 2*8);  // z 分量（对�?BiI(:,3)�?
     
     // 6. 计算单元体积
-    double VOL = calc_vol_bbar(BiI.data() + 0*8, x);  // 使用第一个分�?
+    double VOL = calc_vol_bbar(BiI.data() + 0*8, x);  // 使用第一个分量
     
-    // 7. 归一�?B-bar 矩阵（除以体积）
+    // 7. 归一化 B-bar 矩阵（除以体积）
     if (std::abs(VOL) < 1.0e-20) {
         throw std::runtime_error("Element volume is zero or too small");
     }
     BiI /= VOL;
     
-    // 8. 计算雅可比矩阵和行列式（单元中心�?
+    // 8. 计算雅可比矩阵和行列式（单元中心）
     Eigen::Matrix3d JAC = jacobian_center(coords);
     double DETJ = jacobian_determinant(JAC);
     
@@ -685,13 +764,13 @@ void compute_c3d8r_stiffness_matrix(
         throw std::runtime_error("Jacobian determinant is zero or too small");
     }
     
-    // 9. 构建 B 矩阵�?x24�?
+    // 9. 构建 B 矩阵 (6x24)
     Eigen::Matrix<double, 6, 24> B = form_b_matrix(BiI);
     
-    // 10. 计算体积刚度矩阵（优化点 D：使�?noalias 和优化乘法顺序）
+    // 10. 计算体积刚度矩阵（优化点 D：使用 noalias 和优化乘法顺序）
     // K_vol = B^T * D * B * detJ * WG
     // 优化：先计算 D * B (6x24)，再计算 B^T * (D*B) (24x24)
-    // 这样�?B^T * D (24x6) * B (6x24) 要快，因为中间矩阵更小且更利于缓�?
+    // 这样比 B^T * D (24x6) * B (6x24) 要快，因为中间矩阵更小且更利于缓存
     double scale_vol = DETJ * WG;
     Eigen::Matrix<double, 24, 24> K_total;
     
@@ -702,8 +781,8 @@ void compute_c3d8r_stiffness_matrix(
     // Step 2: K_vol = B^T * DB * scale_vol
     K_total.noalias() = B.transpose() * DB * scale_vol;
     
-    // 11. 计算沙漏刚度矩阵（Puso EAS 方法�?
-    // 直接累加�?K_total 上，避免创建额外�?K_hg 矩阵（内存优化）
+    // 11. 计算沙漏刚度矩阵（Puso EAS 方法）
+    // 直接累加到 K_total 上，避免创建额外的 K_hg 矩阵（内存优化）
     Eigen::Matrix<double, 24, 24> K_hg;
     compute_hourglass_stiffness(coords, BiI, JAC, D, DETJ * WG, K_hg);
     
@@ -712,6 +791,71 @@ void compute_c3d8r_stiffness_matrix(
     
     // 输出到缓冲区
     Ke_output = K_total;
+}
+
+// -------------------------------------------------------------------
+// Post-process: compute element stress and strain from displacement
+// -------------------------------------------------------------------
+bool compute_c3d8r_stress_strain(
+    const entt::registry& registry,
+    entt::entity element_entity,
+    const Eigen::Matrix<double, 6, 6>& D,
+    Eigen::Vector<double, 6>& stress,
+    Eigen::Vector<double, 6>& strain
+) {
+    if (!registry.all_of<Component::Connectivity>(element_entity))
+        return false;
+    const auto& connectivity = registry.get<Component::Connectivity>(element_entity);
+    if (connectivity.nodes.size() != 8)
+        return false;
+
+    Eigen::Matrix<double, 8, 3> coords;
+    for (size_t i = 0; i < 8; ++i) {
+        if (!registry.all_of<Component::Position>(connectivity.nodes[i]))
+            return false;
+        const auto& pos = registry.get<Component::Position>(connectivity.nodes[i]);
+        coords(i, 0) = pos.x;
+        coords(i, 1) = pos.y;
+        coords(i, 2) = pos.z;
+    }
+
+    Eigen::Matrix<double, 8, 3> BiI;
+    double x[8], y[8], z[8];
+    for (int i = 0; i < 8; ++i) {
+        x[i] = coords(i, 0);
+        y[i] = coords(i, 1);
+        z[i] = coords(i, 2);
+    }
+    calc_b_bar_component(y, z, BiI.data() + 0 * 8);
+    calc_b_bar_component(z, x, BiI.data() + 1 * 8);
+    calc_b_bar_component(x, y, BiI.data() + 2 * 8);
+
+    double VOL = calc_vol_bbar(BiI.data() + 0 * 8, x);
+    if (std::abs(VOL) < 1.0e-20)
+        return false;
+    BiI /= VOL;
+
+    Eigen::Matrix<double, 6, 24> B = form_b_matrix(BiI);
+
+    Eigen::Vector<double, 24> u_elem;
+    for (size_t i = 0; i < 8; ++i) {
+        entt::entity node = connectivity.nodes[i];
+        double dx = 0.0, dy = 0.0, dz = 0.0;
+        if (registry.all_of<Component::Displacement>(node)) {
+            const auto& disp = registry.get<Component::Displacement>(node);
+            dx = disp.dx;
+            dy = disp.dy;
+            dz = disp.dz;
+        }
+        u_elem(3 * i + 0) = dx;
+        u_elem(3 * i + 1) = dy;
+        u_elem(3 * i + 2) = dz;
+    }
+
+    strain = B * u_elem;
+    stress = D * strain;
+
+    return true;
 }
 
 // -------------------------------------------------------------------

@@ -16,6 +16,7 @@
 #include <spdlog/spdlog.h>
 #include <fstream>
 #include <iomanip>
+#include <map>
 #include <set>
 
 using json = nlohmann::json;
@@ -133,6 +134,9 @@ bool JsonExporter::save(const std::string& filepath, const DataContext& data_con
         
         json ns_j;
         ns_j["nsid"] = nsid;
+        if (registry.all_of<Component::SetName>(e)) {
+            ns_j["name"] = registry.get<Component::SetName>(e).value;
+        }
         ns_j["nids"] = json::array();
         for (auto node_e : members.members) {
             if (registry.valid(node_e) && registry.all_of<Component::NodeID>(node_e)) {
@@ -151,6 +155,9 @@ bool JsonExporter::save(const std::string& filepath, const DataContext& data_con
         
         json es_j;
         es_j["esid"] = esid;
+        if (registry.all_of<Component::SetName>(e)) {
+            es_j["name"] = registry.get<Component::SetName>(e).value;
+        }
         es_j["eids"] = json::array();
         for (auto elem_e : members.members) {
             if (registry.valid(elem_e) && registry.all_of<Component::ElementID>(elem_e)) {
@@ -177,37 +184,43 @@ bool JsonExporter::save(const std::string& filepath, const DataContext& data_con
 
     // --- 7. Export Loads (Inverse application logic) ---
     j["load"] = json::array();
-    // Reconstruct load applications from nodes
-    // Map of (lid, nsid) to avoids duplicates if same load applied to same nodeset entry multiple times
-    // However, NodeSet itself is the key.
+    // Use a unique counter for exported LIDs to avoid duplicate-ID issues
+    // when nodes belong to multiple nodesets (the inverse mapping over-expands).
+    // Also filter: only export a load for a nodeset if ALL nodes in that
+    // set have that load applied — prevents superset nodesets from claiming
+    // loads that only apply to a subset.
+    // Dedup: each load entity is exported at most once, even if multiple
+    // nodesets contain the same nodes.
+    int export_lid = 1;
+    std::set<entt::entity> exported_loads;
     
-    auto nodes_with_loads = registry.view<Component::AppliedLoadRef>();
-    // Better approach: Iterate over NodeSets, and for each NodeSet, check if its nodes have loads.
     for (auto ns_e : ns_view) {
         int nsid = registry.get<Component::NodeSetID>(ns_e).value;
         const auto& members = registry.get<Component::NodeSetMembers>(ns_e);
         
-        // Find loads common to ALL nodes in this set? 
-        // Or any load applied to ANY node in this set?
-        // JsonParser applies a load to ALL nodes in a set.
-        // So we look for loads that are shared by nodes in this set.
-        
-        std::map<int, entt::entity> unique_loads_in_set;
+        // Count how many nodes in this set have each load
+        std::map<entt::entity, size_t> load_node_count;
         for (auto node_e : members.members) {
             if (registry.all_of<Component::AppliedLoadRef>(node_e)) {
                 const auto& applied = registry.get<Component::AppliedLoadRef>(node_e);
                 for (auto load_e : applied.load_entities) {
                     if (registry.valid(load_e) && registry.all_of<Component::LoadID>(load_e)) {
-                        int lid = registry.get<Component::LoadID>(load_e).value;
-                        unique_loads_in_set[lid] = load_e;
+                        load_node_count[load_e]++;
                     }
                 }
             }
         }
         
-        for (auto const& [lid, load_e] : unique_loads_in_set) {
+        size_t total_nodes = members.members.size();
+        for (auto [load_e, count] : load_node_count) {
+            // Only export if ALL nodes in this set have this load
+            if (count < total_nodes) continue;
+            // Skip if this load entity has already been exported
+            if (exported_loads.count(load_e)) continue;
+            exported_loads.insert(load_e);
+            
             json load_j;
-            load_j["lid"] = lid;
+            load_j["lid"] = export_lid++;
             load_j["nsid"] = nsid;
             
             if (registry.all_of<Component::NodalLoad>(load_e)) {
@@ -227,26 +240,34 @@ bool JsonExporter::save(const std::string& filepath, const DataContext& data_con
 
     // --- 8. Export Boundaries (Inverse application logic) ---
     j["boundary"] = json::array();
+    // Use a unique counter for exported BIDs to avoid duplicate-ID issues
+    // when nodes belong to multiple nodesets. Also filter: only export a
+    // boundary for a nodeset if ALL nodes in that set have that boundary.
+    int export_bid = 1;
     for (auto ns_e : ns_view) {
         int nsid = registry.get<Component::NodeSetID>(ns_e).value;
         const auto& members = registry.get<Component::NodeSetMembers>(ns_e);
         
-        std::map<int, entt::entity> unique_bnds_in_set;
+        // Count how many nodes in this set have each boundary
+        std::map<entt::entity, size_t> bnd_node_count;
         for (auto node_e : members.members) {
             if (registry.all_of<Component::AppliedBoundaryRef>(node_e)) {
                 const auto& applied = registry.get<Component::AppliedBoundaryRef>(node_e);
                 for (auto bnd_e : applied.boundary_entities) {
                     if (registry.valid(bnd_e) && registry.all_of<Component::BoundaryID>(bnd_e)) {
-                        int bid = registry.get<Component::BoundaryID>(bnd_e).value;
-                        unique_bnds_in_set[bid] = bnd_e;
+                        bnd_node_count[bnd_e]++;
                     }
                 }
             }
         }
         
-        for (auto const& [bid, bnd_e] : unique_bnds_in_set) {
+        size_t total_nodes = members.members.size();
+        for (auto [bnd_e, count] : bnd_node_count) {
+            // Only export if ALL nodes in this set have this boundary
+            if (count < total_nodes) continue;
+            
             json bnd_j;
-            bnd_j["bid"] = bid;
+            bnd_j["bid"] = export_bid++;
             bnd_j["nsid"] = nsid;
             
             if (registry.all_of<Component::BoundarySPC>(bnd_e)) {

@@ -219,6 +219,8 @@ struct ParseCtx {
     int analysis_id_counter  = 1;
     int boundary_id_counter  = 1;
     int load_id_counter      = 1;
+    int nodeset_id_counter   = 1;
+    int eleset_id_counter    = 1;
 };
 
 // ---------------------------------------------------------------------------
@@ -302,6 +304,7 @@ void process_nset(const AbaqusBlock& block, ParseCtx& ctx) {
     } else {
         set_e = ctx.registry.create();
         ctx.registry.emplace<Component::SetName>(set_e, name);
+        ctx.registry.emplace<Component::NodeSetID>(set_e, ctx.nodeset_id_counter++);
         ctx.registry.emplace<Component::NodeSetMembers>(set_e);
         ctx.nodeset_name_map[name] = set_e;
     }
@@ -377,6 +380,7 @@ void process_elset(const AbaqusBlock& block, ParseCtx& ctx) {
     } else {
         set_e = ctx.registry.create();
         ctx.registry.emplace<Component::SetName>(set_e, name);
+        ctx.registry.emplace<Component::EleSetID>(set_e, ctx.eleset_id_counter++);
         ctx.registry.emplace<Component::ElementSetMembers>(set_e);
         ctx.elset_name_map[name] = set_e;
     }
@@ -694,7 +698,7 @@ void process_step(const AbaqusBlock& block,
             }
         } else if (sub.keyword == "STATIC") {
             ctx.registry.emplace_or_replace<Component::AnalysisType>(
-                analysis_e, "Static");
+                analysis_e, "static");
 
             if (!sub.data_lines.empty()) {
                 auto f = split_csv(sub.data_lines[0]);
@@ -714,28 +718,39 @@ void process_step(const AbaqusBlock& block,
                 std::string set_name = trim_copy(f[0]);
                 std::string dof_s    = trim_copy(f[1]);
                 if (dof_s.empty()) continue;
-                int dof = std::stoi(dof_s);
+                int dof_start = std::stoi(dof_s);
 
                 // Format: set, dof_start, dof_end(optional), value(optional)
+                // If dof_end is empty or missing, only constrain dof_start
+                int dof_end = dof_start;
+                if (f.size() >= 3 && !trim_copy(f[2]).empty()) {
+                    dof_end = std::stoi(trim_copy(f[2]));
+                }
+
                 double value = 0.0;
                 if (f.size() >= 4 && !trim_copy(f[3]).empty()) {
                     value = std::stod(trim_copy(f[3]));
                 }
 
-                auto b_e = ctx.registry.create();
-                ctx.registry.emplace<Component::BoundaryID>(b_e, ctx.boundary_id_counter++);
-                ctx.registry.emplace<Component::BoundarySPC>(b_e, 1,
-                    dof_int_to_string(dof), value);
-
+                // Look up node set once
                 auto sit = ctx.nodeset_name_map.find(set_name);
-                if (sit != ctx.nodeset_name_map.end()) {
+                if (sit == ctx.nodeset_name_map.end()) {
+                    spdlog::warn("BOUNDARY references unknown node set '{}'", set_name);
+                    continue;
+                }
+
+                // Create a constraint for each DOF in the range
+                for (int dof = dof_start; dof <= dof_end; ++dof) {
+                    auto b_e = ctx.registry.create();
+                    ctx.registry.emplace<Component::BoundaryID>(b_e, ctx.boundary_id_counter++);
+                    ctx.registry.emplace<Component::BoundarySPC>(b_e, 1,
+                        dof_int_to_string(dof), value);
+
                     auto& members = ctx.registry.get<Component::NodeSetMembers>(sit->second);
                     for (auto node : members.members) {
                         auto& ref = ctx.registry.get_or_emplace<Component::AppliedBoundaryRef>(node);
                         ref.boundary_entities.push_back(b_e);
                     }
-                } else {
-                    spdlog::warn("BOUNDARY references unknown node set '{}'", set_name);
                 }
             }
         } else if (sub.keyword == "CLOAD") {

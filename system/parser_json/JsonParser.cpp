@@ -555,7 +555,7 @@ void JsonParser::parse_nodesets(
 
     for (const auto& nset : j["nodeset"]) {
         int nsid = nset["nsid"];
-        std::string name = nset["name"];
+        std::string name = nset.value("name", "nodeset_" + std::to_string(nsid));
 
         // 检查重�?ID
         if (nodeset_id_map.count(nsid)) {
@@ -598,7 +598,7 @@ void JsonParser::parse_elesets(
 
     for (const auto& eset : j["eleset"]) {
         int esid = eset["esid"];
-        std::string name = eset["name"];
+        std::string name = eset.value("name", "eleset_" + std::to_string(esid));
 
         // 检查重�?ID
         if (eleset_id_map.count(esid)) {

@@ -166,10 +166,18 @@ void run_linearstatic_solver(DataContext& data_context) {
         return;
     }
 
-    // 3) Apply loads at t=0 (static)
-    spdlog::info("Applying loads (t=0)...");
+    // 3) Apply loads at end-time (static)
+    double load_time = 1.0;  // default end time
+    {
+        auto analysis_view = registry.view<Component::AnalysisType, Component::EndTime>();
+        for (auto e : analysis_view) {
+            load_time = registry.get<Component::EndTime>(e).value;
+            break;
+        }
+    }
+    spdlog::info("Applying loads (t={})...", load_time);
     LoadSystem::reset_external_forces(registry);
-    LoadSystem::apply_nodal_loads(registry, 0.0);
+    LoadSystem::apply_nodal_loads(registry, load_time);
     Eigen::VectorXd F = build_force_vector(registry, ndof);
 
     // 4) Assemble global stiffness K

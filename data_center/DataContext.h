@@ -36,10 +36,17 @@ struct DataContext {
 
     /**
      * @brief Command line specified VTU output path (from --output/-o)
-     * @details When non-empty, solver-level default VTU outputs (e.g. result/*.vtu)
+     * @details When non-empty, solver-level default VTU outputs (e.g. result/0.vtu)
      *          should be suppressed to avoid duplicate result files.
      */
     std::string cli_output_vtu_path;
+
+    /**
+     * @brief Command line specified CSV output prefix (from --output-csv)
+     * @details When non-empty, solver writes <prefix>_disp.csv and <prefix>_elements.csv
+     *          in Abaqus-compatible format after completion.
+     */
+    std::string cli_output_csv_prefix;
 
     /**
      * @brief Simdroid Blueprint (complete copy of original data)
