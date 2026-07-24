@@ -1,0 +1,4 @@
+# NovaFEA 预处理管线: Abaqus inp -> NovaFEA jsonc
+import implicit_c3d8r/T07/T07_im.inp
+info
+save implicit_c3d8r/T07/T07_im.jsonc

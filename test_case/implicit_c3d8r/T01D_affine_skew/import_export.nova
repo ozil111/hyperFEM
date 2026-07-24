@@ -1,0 +1,4 @@
+# NovaFEA 预处理管线: Abaqus inp -> NovaFEA jsonc
+import implicit_c3d8r/T01D_affine_skew/T01D_affine_skew_im.inp
+info
+save implicit_c3d8r/T01D_affine_skew/T01D_affine_skew_im.jsonc

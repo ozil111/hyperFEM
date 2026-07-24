@@ -1,0 +1,84 @@
+kind,location,variable
+field,AC YIELD1,Active yield flag for PEQC1
+field,AC YIELD2,Active yield flag for PEQC2
+field,AC YIELD3,Active yield flag for PEQC3
+field,AC YIELD4,Active yield flag for PEQC4
+field,AC YIELDT,Active yield flag for PEEQT
+field,ALPHA,Kinematic hardening shift tensor
+field,CENER,Creep dissipation energy density
+field,CF,Point loads
+field,COORD,Coordinates
+field,DMENER,Damage dissipation energy density
+field,E,Strain components
+field,EASEDEN,Total artificial strain energy density in the element
+field,ECDDEN,Total creep dissipation energy density in the element
+field,ECTEDEN,Total electrostatic energy density in the element
+field,EDMDDEN,Total damage dissipation energy density in the element
+field,EE,Elastic strain components
+field,EENER,Electrostatic energy density
+field,EKEDEN,Kinetic energy density in the element
+field,ELASE,Artificial strain energy magnitude in the element
+field,ELCD,Creep dissipation energy magnitude in the element
+field,ELCTE,Electrostatic energy in element
+field,ELDMD,Damage dissipation energy magnitude in the element
+field,ELJD,Total electrical energy dissipated due to flow of current
+field,ELKE,Kinetic energy magnitude in the element
+field,ELPD,Plastic dissipation energy magnitude in the element
+field,ELSD,Static dissipation energy magnitude in the element
+field,ELSE,Strain energy magnitude in the element
+field,ELVD,Viscous dissipation energy magnitude in the element
+field,EPDDEN,Total plastic dissipation energy density in the element
+field,ER,Total Mechanical strain rate components
+field,ESDDEN,Total static dissipation energy density in the element
+field,ESEDEN,Total elastic strain energy density in the element
+field,EVDDEN,Total viscous dissipation energy density in the element
+field,EVOL,Element volume
+field,IE,Inelastic strain components
+field,IVOL,Integration point volume
+field,JENER,Electrical current dissipation per unit volume
+field,MISESMAX,Maximum mises equivalent stress through the section points
+field,NFORC1,NFORC1
+field,NFORC2,NFORC2
+field,NFORC3,NFORC3
+field,PEEQMAX,Maximum equivalent plastic strain through the section points
+field,PEEQT,PEEQT
+field,PENER,Plastic dissipation energy density
+field,PEQC1,Equivalent plastic strain
+field,PEQC2,Equivalent plastic strain
+field,PEQC3,Equivalent plastic strain
+field,PEQC4,Equivalent plastic strain
+field,PS,Stress in the elastic-plastic network
+field,RD,Relative density
+field,RF,Reaction force
+field,S,Stress components
+field,SENER,Strain energy density
+field,TEMP,Temperature
+field,TF,Total force
+field,THE,Thermal strain components
+field,U,Spatial displacement
+field,VENER,Viscous dissipation energy density
+field,VOIDR,Void ratio
+history,Step-1/Assembly Assembly-1,ALLAE
+history,Step-1/Assembly Assembly-1,ALLCCDW
+history,Step-1/Assembly Assembly-1,ALLCCE
+history,Step-1/Assembly Assembly-1,ALLCCEN
+history,Step-1/Assembly Assembly-1,ALLCCET
+history,Step-1/Assembly Assembly-1,ALLCCSD
+history,Step-1/Assembly Assembly-1,ALLCCSDN
+history,Step-1/Assembly Assembly-1,ALLCCSDT
+history,Step-1/Assembly Assembly-1,ALLCD
+history,Step-1/Assembly Assembly-1,ALLDMD
+history,Step-1/Assembly Assembly-1,ALLDTI
+history,Step-1/Assembly Assembly-1,ALLEE
+history,Step-1/Assembly Assembly-1,ALLFD
+history,Step-1/Assembly Assembly-1,ALLIE
+history,Step-1/Assembly Assembly-1,ALLJD
+history,Step-1/Assembly Assembly-1,ALLKE
+history,Step-1/Assembly Assembly-1,ALLKL
+history,Step-1/Assembly Assembly-1,ALLPD
+history,Step-1/Assembly Assembly-1,ALLQB
+history,Step-1/Assembly Assembly-1,ALLSD
+history,Step-1/Assembly Assembly-1,ALLSE
+history,Step-1/Assembly Assembly-1,ALLVD
+history,Step-1/Assembly Assembly-1,ALLWK
+history,Step-1/Assembly Assembly-1,ETOTAL

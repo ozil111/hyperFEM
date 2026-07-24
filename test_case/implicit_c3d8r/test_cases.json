@@ -1,0 +1,247 @@
+{
+  "test_cases": [
+    {
+      "name": "c3d8r_im_t01",
+      "tags": ["c3d8r", "linear-static", "small-strain", "single-element", "pipeline"],
+      "steps": [
+        {
+          "command": "python",
+          "args": ["implicit_c3d8r/tools/run_abaqus_benchmark.py", "implicit_c3d8r/T01/T01_im.inp"],
+          "expected": {
+            "return_code": 0,
+            "output_contains": ["运行完成"]
+          }
+        },
+        {
+          "command": "../bin/Debug/NovaFEA_app.exe",
+          "args": ["-s", "implicit_c3d8r/T01/import_export.nova"],
+          "expected": {
+            "output_contains": ["Application finished successfully"]
+          }
+        },
+        {
+          "command": "../bin/Debug/NovaFEA_app.exe",
+          "args": ["-i", "implicit_c3d8r/T01/T01_im.jsonc", "--output", "implicit_c3d8r/T01/T01_im.vtk", "--output-csv", "implicit_c3d8r/T01/T01_im"],
+          "expected": {
+            "output_contains": ["Linear static solver completed.", "Application finished successfully"]
+          }
+        }
+      ],
+      "expected": {
+        "compare_files": [
+          {
+            "baseline": "./implicit_c3d8r/T01/T01_im_abaqus_disp.csv",
+            "actual": "./implicit_c3d8r/T01/T01_im_disp.csv",
+            "type": "csv", "rtol": 0.02
+          },
+          {
+            "baseline": "./implicit_c3d8r/T01/T01_im_abaqus_elements.csv",
+            "actual": "./implicit_c3d8r/T01/T01_im_elements.csv",
+            "type": "csv", "rtol": 0.02, "atol": 0.01
+          }
+        ]
+      }
+    },
+    {
+      "name": "c3d8r_im_t01d_affine_skew",
+      "tags": ["c3d8r", "linear-static", "small-strain", "single-element", "distorted", "pipeline"],
+      "steps": [
+        {
+          "command": "python",
+          "args": ["implicit_c3d8r/tools/run_abaqus_benchmark.py", "implicit_c3d8r/T01D_affine_skew/T01D_affine_skew_im.inp"],
+          "expected": {
+            "return_code": 0,
+            "output_contains": ["运行完成"]
+          }
+        },
+        {
+          "command": "../bin/Debug/NovaFEA_app.exe",
+          "args": ["-s", "implicit_c3d8r/T01D_affine_skew/import_export.nova"],
+          "expected": {
+            "output_contains": ["Application finished successfully"]
+          }
+        },
+        {
+          "command": "../bin/Debug/NovaFEA_app.exe",
+          "args": ["-i", "implicit_c3d8r/T01D_affine_skew/T01D_affine_skew_im.jsonc", "--output", "implicit_c3d8r/T01D_affine_skew/T01D_affine_skew_im.vtk", "--output-csv", "implicit_c3d8r/T01D_affine_skew/T01D_affine_skew_im"],
+          "expected": {
+            "output_contains": ["Linear static solver completed.", "Application finished successfully"]
+          }
+        }
+      ],
+      "expected": {
+        "compare_files": [
+          {
+            "baseline": "./implicit_c3d8r/T01D_affine_skew/T01D_affine_skew_im_abaqus_disp.csv",
+            "actual": "./implicit_c3d8r/T01D_affine_skew/T01D_affine_skew_im_disp.csv",
+            "type": "csv", "rtol": 0.02
+          },
+          {
+            "baseline": "./implicit_c3d8r/T01D_affine_skew/T01D_affine_skew_im_abaqus_elements.csv",
+            "actual": "./implicit_c3d8r/T01D_affine_skew/T01D_affine_skew_im_elements.csv",
+            "type": "csv", "rtol": 0.02, "atol": 0.01
+          }
+        ]
+      }
+    },
+    {
+      "name": "c3d8r_im_t01d_one_node_warped",
+      "tags": ["c3d8r", "linear-static", "small-strain", "single-element", "distorted", "pipeline"],
+      "steps": [
+        {
+          "command": "python",
+          "args": ["implicit_c3d8r/tools/run_abaqus_benchmark.py", "implicit_c3d8r/T01D_one_node_warped/T01D_one_node_warped_im.inp"],
+          "expected": {
+            "return_code": 0,
+            "output_contains": ["运行完成"]
+          }
+        },
+        {
+          "command": "../bin/Debug/NovaFEA_app.exe",
+          "args": ["-s", "implicit_c3d8r/T01D_one_node_warped/import_export.nova"],
+          "expected": {
+            "output_contains": ["Application finished successfully"]
+          }
+        },
+        {
+          "command": "../bin/Debug/NovaFEA_app.exe",
+          "args": ["-i", "implicit_c3d8r/T01D_one_node_warped/T01D_one_node_warped_im.jsonc", "--output", "implicit_c3d8r/T01D_one_node_warped/T01D_one_node_warped_im.vtk", "--output-csv", "implicit_c3d8r/T01D_one_node_warped/T01D_one_node_warped_im"],
+          "expected": {
+            "output_contains": ["Linear static solver completed.", "Application finished successfully"]
+          }
+        }
+      ],
+      "expected": {
+        "compare_files": [
+          {
+            "baseline": "./implicit_c3d8r/T01D_one_node_warped/T01D_one_node_warped_im_abaqus_disp.csv",
+            "actual": "./implicit_c3d8r/T01D_one_node_warped/T01D_one_node_warped_im_disp.csv",
+            "type": "csv", "rtol": 0.02
+          },
+          {
+            "baseline": "./implicit_c3d8r/T01D_one_node_warped/T01D_one_node_warped_im_abaqus_elements.csv",
+            "actual": "./implicit_c3d8r/T01D_one_node_warped/T01D_one_node_warped_im_elements.csv",
+            "type": "csv", "rtol": 0.02, "atol": 0.01
+          }
+        ]
+      }
+    },
+    {
+      "name": "c3d8r_im_t02",
+      "tags": ["c3d8r", "linear-static", "small-strain", "single-element", "pipeline"],
+      "steps": [
+        {
+          "command": "python",
+          "args": ["implicit_c3d8r/tools/run_abaqus_benchmark.py", "implicit_c3d8r/T02/T02_im.inp"],
+          "expected": {
+            "return_code": 0,
+            "output_contains": ["运行完成"]
+          }
+        },
+        {
+          "command": "../bin/Debug/NovaFEA_app.exe",
+          "args": ["-s", "implicit_c3d8r/T02/import_export.nova"],
+          "expected": {
+            "output_contains": ["Application finished successfully"]
+          }
+        },
+        {
+          "command": "../bin/Debug/NovaFEA_app.exe",
+          "args": ["-i", "implicit_c3d8r/T02/T02_im.jsonc", "--output", "implicit_c3d8r/T02/T02_im.vtk", "--output-csv", "implicit_c3d8r/T02/T02_im"],
+          "expected": {
+            "output_contains": ["Linear static solver completed.", "Application finished successfully"]
+          }
+        }
+      ],
+      "expected": {
+        "compare_files": [
+          {
+            "baseline": "./implicit_c3d8r/T02/T02_im_abaqus_disp.csv",
+            "actual": "./implicit_c3d8r/T02/T02_im_disp.csv",
+            "type": "csv", "rtol": 0.02
+          },
+          {
+            "baseline": "./implicit_c3d8r/T02/T02_im_abaqus_elements.csv",
+            "actual": "./implicit_c3d8r/T02/T02_im_elements.csv",
+            "type": "csv", "rtol": 0.02,
+            "start_line": 2, "end_line": 13
+          }
+        ]
+      }
+    },
+    {
+      "name": "c3d8r_im_t05",
+      "tags": ["c3d8r", "linear-static", "small-strain", "beam", "pipeline"],
+      "steps": [
+        {
+          "command": "python",
+          "args": ["implicit_c3d8r/tools/run_abaqus_benchmark.py", "implicit_c3d8r/T05/T05_im.inp"],
+          "expected": {
+            "return_code": 0,
+            "output_contains": ["运行完成"]
+          }
+        },
+        {
+          "command": "../bin/Debug/NovaFEA_app.exe",
+          "args": ["-s", "implicit_c3d8r/T05/import_export.nova"],
+          "expected": {
+            "output_contains": ["Application finished successfully"]
+          }
+        },
+        {
+          "command": "../bin/Debug/NovaFEA_app.exe",
+          "args": ["-i", "implicit_c3d8r/T05/T05_im.jsonc", "--output", "implicit_c3d8r/T05/T05_im.vtk", "--output-csv", "implicit_c3d8r/T05/T05_im"],
+          "expected": {
+            "output_contains": ["Linear static solver completed.", "Application finished successfully"]
+          }
+        }
+      ],
+      "expected": {
+        "compare_files": [
+          {
+            "baseline": "./implicit_c3d8r/T05/T05_im_abaqus_disp.csv",
+            "actual": "./implicit_c3d8r/T05/T05_im_disp.csv",
+            "type": "csv", "rtol": 0.02
+          }
+        ]
+      }
+    },
+    {
+      "name": "c3d8r_im_t07",
+      "tags": ["c3d8r", "linear-static", "small-strain", "beam", "distorted", "pipeline"],
+      "steps": [
+        {
+          "command": "python",
+          "args": ["implicit_c3d8r/tools/run_abaqus_benchmark.py", "implicit_c3d8r/T07/T07_im.inp"],
+          "expected": {
+            "return_code": 0,
+            "output_contains": ["运行完成"]
+          }
+        },
+        {
+          "command": "../bin/Debug/NovaFEA_app.exe",
+          "args": ["-s", "implicit_c3d8r/T07/import_export.nova"],
+          "expected": {
+            "output_contains": ["Application finished successfully"]
+          }
+        },
+        {
+          "command": "../bin/Debug/NovaFEA_app.exe",
+          "args": ["-i", "implicit_c3d8r/T07/T07_im.jsonc", "--output", "implicit_c3d8r/T07/T07_im.vtk", "--output-csv", "implicit_c3d8r/T07/T07_im"],
+          "expected": {
+            "output_contains": ["Linear static solver completed.", "Application finished successfully"]
+          }
+        }
+      ],
+      "expected": {
+        "compare_files": [
+          {
+            "baseline": "./implicit_c3d8r/T07/T07_im_abaqus_disp.csv",
+            "actual": "./implicit_c3d8r/T07/T07_im_disp.csv",
+            "type": "csv", "rtol": 0.02
+          }
+        ]
+      }
+    }
+  ]
+}

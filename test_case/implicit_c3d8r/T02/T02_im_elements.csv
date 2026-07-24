@@ -1,0 +1,13 @@
+variable,component,location,instance,element_label,node_label,integration_point,value
+S,S11,element,PART-1-1,1,,1,-7.66239e-13
+S,S22,element,PART-1-1,1,,1,-3.28388e-13
+S,S33,element,PART-1-1,1,,1,-3.28388e-13
+S,S12,element,PART-1-1,1,,1,4000
+S,S13,element,PART-1-1,1,,1,2.18925e-13
+S,S23,element,PART-1-1,1,,1,0
+E,E11,element,PART-1-1,1,,1,-2.71051e-20
+E,E22,element,PART-1-1,1,,1,0
+E,E33,element,PART-1-1,1,,1,0
+E,E12,element,PART-1-1,1,,1,0.000495238
+E,E13,element,PART-1-1,1,,1,2.71051e-20
+E,E23,element,PART-1-1,1,,1,0

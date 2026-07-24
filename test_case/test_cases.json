@@ -65,6 +65,12 @@
           }
         }
       ]
+    },
+    {
+      "import": "implicit_c3d8r/test_cases.json",
+      "tags": [
+        "implicit"
+      ]
     }
   ]
 }

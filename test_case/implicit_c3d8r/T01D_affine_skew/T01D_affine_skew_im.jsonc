@@ -1,0 +1,282 @@
+{
+    "analysis": [
+        {
+            "aid": 2,
+            "analysis_type": "static",
+            "endtime": 1.0,
+            "fixed_time_step": 1.0
+        },
+        {
+            "aid": 1
+        }
+    ],
+    "boundary": [
+        {
+            "bid": 1,
+            "dof": "y",
+            "nsid": 6,
+            "typeid": 1,
+            "value": 0.0
+        },
+        {
+            "bid": 2,
+            "dof": "y",
+            "nsid": 5,
+            "typeid": 1,
+            "value": 0.0
+        },
+        {
+            "bid": 3,
+            "dof": "y",
+            "nsid": 4,
+            "typeid": 1,
+            "value": 0.0
+        },
+        {
+            "bid": 4,
+            "dof": "x",
+            "nsid": 4,
+            "typeid": 1,
+            "value": 0.0
+        },
+        {
+            "bid": 5,
+            "dof": "y",
+            "nsid": 3,
+            "typeid": 1,
+            "value": 0.0
+        },
+        {
+            "bid": 6,
+            "dof": "z",
+            "nsid": 3,
+            "typeid": 1,
+            "value": 0.0
+        },
+        {
+            "bid": 7,
+            "dof": "y",
+            "nsid": 2,
+            "typeid": 1,
+            "value": 0.0
+        },
+        {
+            "bid": 8,
+            "dof": "x",
+            "nsid": 2,
+            "typeid": 1,
+            "value": 0.0
+        }
+    ],
+    "curve": [
+        {
+            "cid": 1,
+            "type": "linear",
+            "x": [
+                0.0,
+                1.0
+            ],
+            "y": [
+                0.0,
+                1.0
+            ]
+        }
+    ],
+    "eleset": [
+        {
+            "eids": [
+                1
+            ],
+            "esid": 3,
+            "name": "fix"
+        },
+        {
+            "eids": [
+                1
+            ],
+            "esid": 2,
+            "name": "Part-1-1_Set-1"
+        },
+        {
+            "eids": [
+                1
+            ],
+            "esid": 1,
+            "name": "HMprop_Part-1-1_Set-1"
+        }
+    ],
+    "load": [
+        {
+            "curve": 1,
+            "dof": "y",
+            "lid": 1,
+            "nsid": 8,
+            "typeid": 1,
+            "value": 100.0
+        }
+    ],
+    "material": [
+        {
+            "E": 21000000.0,
+            "mid": 1,
+            "nu": 0.3,
+            "rho": 1000.0,
+            "typeid": 1
+        }
+    ],
+    "mesh": {
+        "elements": [
+            {
+                "eid": 1,
+                "etype": 308,
+                "nids": [
+                    5,
+                    6,
+                    8,
+                    7,
+                    1,
+                    2,
+                    4,
+                    3
+                ],
+                "pid": 1
+            }
+        ],
+        "nodes": [
+            {
+                "nid": 8,
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            {
+                "nid": 7,
+                "x": 0.2,
+                "y": 1.0,
+                "z": 0.0
+            },
+            {
+                "nid": 6,
+                "x": 0.0,
+                "y": 0.0,
+                "z": 1.0
+            },
+            {
+                "nid": 5,
+                "x": 0.2,
+                "y": 1.0,
+                "z": 1.0
+            },
+            {
+                "nid": 4,
+                "x": 1.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            {
+                "nid": 3,
+                "x": 1.2,
+                "y": 1.0,
+                "z": 0.0
+            },
+            {
+                "nid": 2,
+                "x": 1.0,
+                "y": 0.0,
+                "z": 1.0
+            },
+            {
+                "nid": 1,
+                "x": 1.2,
+                "y": 1.0,
+                "z": 1.0
+            }
+        ]
+    },
+    "nodeset": [
+        {
+            "name": "load",
+            "nids": [
+                1,
+                3,
+                5,
+                7
+            ],
+            "nsid": 8
+        },
+        {
+            "name": "Part-1_Part-1-1-2",
+            "nids": [
+                1,
+                3,
+                5,
+                7
+            ],
+            "nsid": 7
+        },
+        {
+            "name": "fix",
+            "nids": [
+                2,
+                4,
+                6,
+                8
+            ],
+            "nsid": 6
+        },
+        {
+            "name": "Part-1_Part-1-1-1",
+            "nids": [
+                2,
+                4,
+                6,
+                8
+            ],
+            "nsid": 5
+        },
+        {
+            "name": "hgfix",
+            "nids": [
+                8
+            ],
+            "nsid": 4
+        },
+        {
+            "name": "Set-4",
+            "nids": [
+                4
+            ],
+            "nsid": 3
+        },
+        {
+            "name": "Set-3",
+            "nids": [
+                6
+            ],
+            "nsid": 2
+        },
+        {
+            "name": "Part-1-1_Set-1",
+            "nids": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8
+            ],
+            "nsid": 1
+        }
+    ],
+    "property": [
+        {
+            "hourglass_control": "enhanced",
+            "integration_network": 1,
+            "mid": 1,
+            "pid": 1,
+            "typeid": 308
+        }
+    ]
+}

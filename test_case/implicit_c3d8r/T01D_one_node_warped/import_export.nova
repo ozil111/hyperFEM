@@ -1,0 +1,4 @@
+# NovaFEA 预处理管线: Abaqus inp -> NovaFEA jsonc
+import implicit_c3d8r/T01D_one_node_warped/T01D_one_node_warped_im.inp
+info
+save implicit_c3d8r/T01D_one_node_warped/T01D_one_node_warped_im.jsonc
