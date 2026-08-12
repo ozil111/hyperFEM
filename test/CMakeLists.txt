@@ -65,6 +65,7 @@ add_executable(test_abaqus_parser
     test_abaqus_parser.cpp
     ${SYSTEM_SOURCES}
 )
+
 target_compile_definitions(test_abaqus_parser PRIVATE
     TEST_DATA_DIR="${CMAKE_SOURCE_DIR}/test/cases"
 )
@@ -155,22 +156,22 @@ if(WIN32 AND NOT MSVC)
         set(VCPKG_BIN_DIR "${CMAKE_SOURCE_DIR}/vcpkg_installed/${NOVAFEA_VCPKG_TRIPLET}/bin")
     endif()
 
-    foreach(TEST_TARGET test_assembly_system test_json_exporter test_connection_preserving_remesher test_abaqus_parser)
-        add_custom_command(TARGET ${TEST_TARGET} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${MINGW_BIN_DIR}/libgcc_s_seh-1.dll"
-                "$<TARGET_FILE_DIR:${TEST_TARGET}>"
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${MINGW_BIN_DIR}/libstdc++-6.dll"
-                "$<TARGET_FILE_DIR:${TEST_TARGET}>"
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${MINGW_BIN_DIR}/libwinpthread-1.dll"
-                "$<TARGET_FILE_DIR:${TEST_TARGET}>"
-            COMMAND ${CMAKE_COMMAND} -E copy_directory
-                "${VCPKG_BIN_DIR}"
-                "$<TARGET_FILE_DIR:${TEST_TARGET}>"
-            COMMENT "Copying runtime DLLs for ${TEST_TARGET}"
-        )
-    endforeach()
+    set(TEST_RUNTIME_DIR "${CMAKE_SOURCE_DIR}/bin/${CMAKE_BUILD_TYPE}/tests")
+    add_custom_target(prepare_test_runtime
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${TEST_RUNTIME_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${MINGW_BIN_DIR}/libgcc_s_seh-1.dll" "${TEST_RUNTIME_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${MINGW_BIN_DIR}/libstdc++-6.dll" "${TEST_RUNTIME_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${MINGW_BIN_DIR}/libwinpthread-1.dll" "${TEST_RUNTIME_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory "${VCPKG_BIN_DIR}" "${TEST_RUNTIME_DIR}"
+        COMMENT "Preparing shared runtime DLLs for tests"
+        VERBATIM
+    )
+    add_dependencies(test_assembly_system prepare_test_runtime)
+    add_dependencies(test_json_exporter prepare_test_runtime)
+    add_dependencies(test_connection_preserving_remesher prepare_test_runtime)
+    add_dependencies(test_abaqus_parser prepare_test_runtime)
 endif()
 
