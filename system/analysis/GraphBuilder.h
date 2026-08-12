@@ -82,14 +82,13 @@ public:
                            std::to_string(p.integration_points[1]) + "," +
                            std::to_string(p.integration_points[2]) + "]";
                 } else if (registry.all_of<Component::SolidProperty>(sec)) {
-                    std::string info = "Solid: type=" + std::to_string(registry.get<Component::SolidProperty>(sec).type_id);
+                    info = "Solid: type=" + std::to_string(registry.get<Component::SolidProperty>(sec).type_id);
                     if (registry.all_of<Component::Formulation>(sec))
                         info += ", form=" + registry.get<Component::Formulation>(sec).value;
                     if (registry.all_of<Component::IntegrationPoints>(sec))
                         info += ", npts=" + std::to_string(registry.get<Component::IntegrationPoints>(sec).value);
                     if (registry.all_of<Component::HourglassControl>(sec))
                         info += ", hg=" + registry.get<Component::HourglassControl>(sec).value;
-                    node.property_info = std::move(info);
                 }
 
                 node.property_info = std::move(info);
