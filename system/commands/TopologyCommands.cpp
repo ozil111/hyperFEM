@@ -21,6 +21,7 @@
 #include <cstdlib>
 #include <vector>
 #include <string>
+#include <cmath>
 
 namespace cmd::topology {
 
@@ -149,13 +150,36 @@ void handle_graph(std::stringstream& ss, AppSession& session) {
         return;
     }
 
-    std::string output_filename = read_rest_of_line(ss);
+    // Parse arguments: [output_filename] [--contact-gap <value>]
+    std::string output_filename;
+    double contact_gap = -1.0;  // -1 = auto-calculate
+
+    std::string token;
+    while (ss >> token) {
+        if (token == "--contact-gap") {
+            if (!(ss >> contact_gap)) {
+                spdlog::warn("--contact-gap requires a numeric value, using auto.");
+                contact_gap = -1.0;
+            } else if (!std::isfinite(contact_gap) || contact_gap <= 0.0) {
+                spdlog::warn("--contact-gap must be a finite positive value, using contact/auto settings.");
+                contact_gap = -1.0;
+            }
+        } else {
+            // Non-flag token is treated as output filename
+            if (output_filename.empty()) {
+                output_filename = token;
+            }
+        }
+    }
     if (output_filename.empty()) output_filename = "connectivity.html";
 
+    if (contact_gap > 0.0) {
+        spdlog::info("Contact gap threshold: {}", contact_gap);
+    }
     spdlog::info("Analyzing connectivity...");
 
     // 1. Build part connectivity graph
-    PartGraph graph = GraphBuilder::build(session.data.registry, session.inspector);
+    PartGraph graph = GraphBuilder::build(session.data.registry, session.inspector, contact_gap);
 
     // 2. Optional: simple stats (e.g. isolated parts)
     int isolated_count = 0;

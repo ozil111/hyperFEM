@@ -42,6 +42,7 @@ public:
         <hr/>
         <div class="legend-item">Thick line: Tie connection</div>
         <div class="legend-item">Dashed line: Shared nodes</div>
+        <div class="legend-item"><div class="color-box" style="background:transparent; border:2px dashed #27ae60;"></div> Green dashed: General contact (auto)</div>
     </div>
     <div id="network-container"></div>
 
@@ -98,6 +99,8 @@ public:
                 if (edge.type == ConnectionType::Contact) {
                     if (edge.sub_type == "Tie") {
                         file << "label: 'Tie', width: 4, color: '#e67e22'";
+                    } else if (edge.sub_type == "GeneralContact") {
+                        file << "label: 'GeneralContact', width: 2, color: '#27ae60', dashes: [8,4]";
                     } else {
                         file << "label: 'Contact', width: 2, color: '#2980b9'";
                     }
