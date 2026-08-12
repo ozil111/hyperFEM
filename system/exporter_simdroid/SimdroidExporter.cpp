@@ -248,6 +248,30 @@ void SimdroidExporter::save_mesh_dat(const std::string& path, entt::registry& re
     file << "}\n\n";
 
     // --- 1. Nodes ---
+    // 建立 OriginalID -> 新连续 ID (从0开始) 的映射
+    // Simdroid 要求 node id 从 0 开始连续排列
+    std::unordered_map<int, int> node_old_to_new;
+    {
+        std::vector<int> old_node_ids;
+        old_node_ids.reserve(node_count);
+        for (auto entity : node_view) {
+            old_node_ids.push_back(node_view.get<const Component::OriginalID>(entity).value);
+        }
+        std::sort(old_node_ids.begin(), old_node_ids.end());
+        old_node_ids.erase(std::unique(old_node_ids.begin(), old_node_ids.end()), old_node_ids.end());
+
+        node_old_to_new.reserve(old_node_ids.size());
+        for (int i = 0; i < static_cast<int>(old_node_ids.size()); ++i) {
+            node_old_to_new.emplace(old_node_ids[i], i);
+        }
+    }
+
+    // 辅助 lambda：将旧节点 ID 转为新 ID（找不到则原样返回）
+    auto remap_node = [&](int old_id) -> int {
+        auto it = node_old_to_new.find(old_id);
+        return (it != node_old_to_new.end()) ? it->second : old_id;
+    };
+
     file << "Node {\n";
     // 为了美观，建议按 ID 排序输出（可选）
     std::map<int, const Component::Position*> sorted_nodes;
@@ -257,7 +281,7 @@ void SimdroidExporter::save_mesh_dat(const std::string& path, entt::registry& re
     
     for (const auto& [id, pos] : sorted_nodes) {
         // Format: ID [x,y,z]  (无逗号分隔 ID 和方括号)
-        file << "    " << id << " [" << pos->x << "," << pos->y << "," << pos->z << "]\n";
+        file << "    " << remap_node(id) << " [" << pos->x << "," << pos->y << "," << pos->z << "]\n";
     }
     file << "}\n\n";
 
@@ -275,10 +299,10 @@ void SimdroidExporter::save_mesh_dat(const std::string& path, entt::registry& re
         const int eid = (it_eid == element_id_to_index.end()) ? 0 : it_eid->second;
         const auto& conn = elem_view.get<const Component::Connectivity>(entity);
 
-        // 转换节点 Entity -> Original ID
+        // 转换节点 Entity -> Original ID，再映射为新编号
         std::vector<int> node_ids;
         for (auto ne : conn.nodes) {
-            node_ids.push_back(registry.get<Component::OriginalID>(ne).value);
+            node_ids.push_back(remap_node(registry.get<Component::OriginalID>(ne).value));
         }
 
         // 类型 ID 转 Simdroid 字符串
@@ -353,7 +377,7 @@ void SimdroidExporter::save_mesh_dat(const std::string& path, entt::registry& re
             node_ids.reserve(sc.size());
             for (auto ne : sc) {
                 if (registry.valid(ne) && registry.all_of<Component::OriginalID>(ne)) {
-                    node_ids.push_back(registry.get<Component::OriginalID>(ne).value);
+                    node_ids.push_back(remap_node(registry.get<Component::OriginalID>(ne).value));
                 }
             }
 
@@ -400,14 +424,12 @@ void SimdroidExporter::save_mesh_dat(const std::string& path, entt::registry& re
             file << "  }\n";
         };
 
-        if (!line2_surfs.empty() || !tri3_surfs.empty() || !tri6_surfs.empty() || !quad4_surfs.empty()) {
-            file << "Surface {\n";
-            write_surface_bucket("Line2", line2_surfs);
-            write_surface_bucket("Tri3", tri3_surfs);
-            write_surface_bucket("Tri6", tri6_surfs);
-            write_surface_bucket("Quad4", quad4_surfs);
-            file << "}\n\n";
-        }
+        file << "Surface {\n";
+        write_surface_bucket("Line2", line2_surfs);
+        write_surface_bucket("Tri3", tri3_surfs);
+        write_surface_bucket("Tri6", tri6_surfs);
+        write_surface_bucket("Quad4", quad4_surfs);
+        file << "}\n\n";
 
     } else if (registry.ctx().contains<std::unique_ptr<TopologyData>>()) {
         auto& topo = *registry.ctx().get<std::unique_ptr<TopologyData>>();
@@ -444,7 +466,7 @@ void SimdroidExporter::save_mesh_dat(const std::string& path, entt::registry& re
             auto push_surface_line = [&](std::vector<std::string>& out, const std::vector<int>& nodes) {
                 std::vector<std::string> toks;
                 toks.reserve(nodes.size() + 1);
-                for (int nid : nodes) toks.emplace_back(std::to_string(nid));
+                for (int nid : nodes) toks.emplace_back(std::to_string(remap_node(nid)));
                 toks.emplace_back(std::to_string(parent_elem_id));
                 const std::string first_prefix = "    " + std::to_string(surface_id) + " [";
                 out.push_back(wrap_csv_tokens_with_comma_limit(first_prefix, "      ", toks, 10, "]"));
@@ -519,39 +541,41 @@ void SimdroidExporter::save_mesh_dat(const std::string& path, entt::registry& re
             ++surface_id;
         }
         
-        // 写入 Surface 块
-        if (!line2_lines.empty() || !tri3_lines.empty() || !tri6_lines.empty() || !quad4_lines.empty()) {
-            file << "Surface {\n";
-            if (!line2_lines.empty()) {
-                file << "  Line2 {\n";
-                for (const auto& line : line2_lines) {
-                    file << line << "\n";
-                }
-                file << "  }\n";
+        // 写入 Surface 块（即使为空也输出空块，Simdroid 要求）
+        file << "Surface {\n";
+        if (!line2_lines.empty()) {
+            file << "  Line2 {\n";
+            for (const auto& line : line2_lines) {
+                file << line << "\n";
             }
-            if (!tri3_lines.empty()) {
-                file << "  Tri3 {\n";
-                for (const auto& line : tri3_lines) {
-                    file << line << "\n";
-                }
-                file << "  }\n";
-            }
-            if (!tri6_lines.empty()) {
-                file << "  Tri6 {\n";
-                for (const auto& line : tri6_lines) {
-                    file << line << "\n";
-                }
-                file << "  }\n";
-            }
-            if (!quad4_lines.empty()) {
-                file << "  Quad4 {\n";
-                for (const auto& line : quad4_lines) {
-                    file << line << "\n";
-                }
-                file << "  }\n";
-            }
-            file << "}\n\n";
+            file << "  }\n";
         }
+        if (!tri3_lines.empty()) {
+            file << "  Tri3 {\n";
+            for (const auto& line : tri3_lines) {
+                file << line << "\n";
+            }
+            file << "  }\n";
+        }
+        if (!tri6_lines.empty()) {
+            file << "  Tri6 {\n";
+            for (const auto& line : tri6_lines) {
+                file << line << "\n";
+            }
+            file << "  }\n";
+        }
+        if (!quad4_lines.empty()) {
+            file << "  Quad4 {\n";
+            for (const auto& line : quad4_lines) {
+                file << line << "\n";
+            }
+            file << "  }\n";
+        }
+        file << "}\n\n";
+    } else {
+        // 既无显式 Surface 实体，也无 TopologyData，输出空块以满足 Simdroid 格式要求
+        file << "Surface {\n";
+        file << "}\n\n";
     }
 
     // --- 3. Sets (NodeSet & ElementSet & Parts) ---
@@ -571,7 +595,7 @@ void SimdroidExporter::save_mesh_dat(const std::string& path, entt::registry& re
             ids.reserve(members.size());
             for(auto ne : members) {
                 if(registry.valid(ne) && registry.all_of<Component::OriginalID>(ne))
-                    ids.push_back(registry.get<Component::OriginalID>(ne).value);
+                    ids.push_back(remap_node(registry.get<Component::OriginalID>(ne).value));
             }
 
             if (!ids.empty()) {
