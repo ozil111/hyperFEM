@@ -1,0 +1,3 @@
+import_simdroid solid_spring/control.json
+delete_part Component_1_Set-1
+export_simdroid solid_spring/result/mesh.dat solid_spring/result/control.json

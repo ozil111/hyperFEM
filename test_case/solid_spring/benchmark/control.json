@@ -1,0 +1,150 @@
+{
+    "AnalysisControl": {
+        "TimeStepControl": {
+            "DtControlType": "MassScaling",
+            "DtScale": 0.9,
+            "EndTime": 0.4,
+            "FixedDt": 1e-05,
+            "InitMassScalRatio": 0.0
+        }
+    },
+    "Constraint": {
+        "Boundary": {
+            "Loads1": {
+                "CoordSys": "",
+                "Dofs": [
+                    0,
+                    0,
+                    0,
+                    1,
+                    1,
+                    1
+                ],
+                "NodeSet": "load1"
+            },
+            "NodeValueSet_1_1": {
+                "CoordSys": "",
+                "Dofs": [
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1
+                ],
+                "NodeSet": "fix"
+            }
+        }
+    },
+    "CrossSection": {
+        "Section1": {
+            "CoRotationFlag": "NonCorotation",
+            "ConstPressure": "",
+            "CrossSectID": 1,
+            "Formulation": [
+                "Hex8RPH"
+            ],
+            "LinearViscosity": 0.06,
+            "QuadraticViscosity": 1.2,
+            "SmallStrain": "Tdtmin",
+            "Type": "Solid",
+            "dtmin": 0.0,
+            "hm": 0.1
+        },
+        "Section2": {
+            "CrossSectID": 2,
+            "DampingCoefficient": 0.0,
+            "Formulation": [
+                "SpringOnly"
+            ],
+            "HardeningFlag": "None",
+            "Load_DeflectionCurve": "NonlinearSpringCurve",
+            "Mass": 1e-10,
+            "NonlinearSpring": true,
+            "Stiffness": 0.0,
+            "Type": "AxialSpringDamper"
+        }
+    },
+    "Function": {
+        "Amp-1": {
+            "Analysis": "General",
+            "InterpMethod": "Linear",
+            "Type": "Tabular"
+        },
+        "NonlinearSpringCurve": {
+            "InterpMethod": "Linear",
+            "Type": "TabularMultiVar"
+        }
+    },
+    "Global": {
+        "Dimension": 3,
+        "Solver": "StructureExplicit",
+        "Version": 5.0
+    },
+    "History": {
+        "Format": "ASCII",
+        "GlobalFields": [
+            "Time",
+            "Cycle",
+            "Time-Step",
+            "Error",
+            "I-Energy",
+            "K-Energy-TOT",
+            "Mass-Err",
+            "HG-Energy",
+            "TOT-Energy",
+            "Ext-Work"
+        ],
+        "HistoryOutTimeInterval": 0.0001,
+        "SpringFields": {
+            "EleSet": [
+                "spring"
+            ],
+            "SpringVariables": [
+                "FX",
+                "FY",
+                "FZ"
+            ]
+        }
+    },
+    "Load": {
+        "NodalForce_1": {
+            "CoordSys": "",
+            "Dof": "x",
+            "NodeSet": "load1",
+            "TimeCurve": "Amp-1",
+            "Type": "Displacement",
+            "Value": -1
+        }
+    },
+    "Material": {
+        "Material-1_M": {
+            "Density": 7.85e-09,
+            "MID": 1,
+            "MaterialConstants": {
+                "ElasticModulus": 210000.0,
+                "PoissonRatio": 0.3
+            },
+            "MaterialType": "IsotropicElastic"
+        }
+    },
+    "Output": {
+        "AnimOutTimeInterval": 0.01,
+        "OutFields": [
+            "PEEQ",
+            "Mises",
+            "S",
+            "Displacement",
+            "Velocity"
+        ]
+    },
+    "PartProperty": {
+        "Part_2": {
+            "CrossSection": "Section2",
+            "EleSet": "spring",
+            "Material": "Material-1_M",
+            "PID": 2,
+            "Title": "spring"
+        }
+    }
+}

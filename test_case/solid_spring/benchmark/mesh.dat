@@ -1,0 +1,33 @@
+Stat {
+    Nodes 2
+    Elements 1
+    Surfaces 0
+}
+
+Node {
+    0 [2,0,0]
+    1 [102,0,0]
+}
+
+Element {
+  Line2 {
+    0 [0,1]
+  }
+}
+
+Surface {
+}
+
+Set {
+  Node {
+    fix [0]
+    load1 [1]
+  }
+  Element {
+    spring [0]
+  }
+}
+
+Part {
+    Part_1_spring [0]
+}

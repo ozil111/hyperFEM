@@ -67,6 +67,33 @@
       ]
     },
     {
+      "name": "simdroid_delete_part",
+      "tags":["simdroid","delete_part"],
+      "steps":[
+        {
+          "command": "../bin/Debug/NovaFEA_app.exe",
+          "args":["-s","solid_spring/delete_part.nova"],
+          "expected": {
+            "output_contains": ["Application finished successfully"]
+          }
+        }
+      ],
+      "expected":{
+        "compare_files":[
+          {
+            "baseline":"solid_spring/benchmark/control.json",
+            "actual":"solid_spring/result/control.json",
+            "type":"json"
+          },
+          {
+            "baseline":"solid_spring/benchmark/mesh.dat",
+            "actual":"solid_spring/result/mesh.dat",
+            "type":"text"
+          }
+        ]
+      }
+    },
+    {
       "import": "implicit_c3d8r/test_cases.json",
       "tags": [
         "implicit"
