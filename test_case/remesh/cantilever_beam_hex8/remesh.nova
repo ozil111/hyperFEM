@@ -1,0 +1,2 @@
+import_simdroid remesh/cantilever_beam_hex8/control.json
+remesh_generate remesh/cantilever_beam_hex8/result 100

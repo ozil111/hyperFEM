@@ -5,8 +5,9 @@
       "tags": ["tet4", "mat1", "imlicit","solver"],
       "steps":[
         {
-          "command": "../bin/Debug/NovaFEA_app.exe",
+          "command": "{solver}",
           "args":["-i","tet4_mat1_im/tet4_mat1_im.jsonc","--output","tet4_mat1_im/tet4_mat1_im.vtu"],
+          "timeout": 60,
           "expected": {
             "output_contains": ["Application finished successfully"]
           }
@@ -31,8 +32,9 @@
       "tags":["inp","preprocess","explicit"],
       "steps":[
         {
-          "command": "../bin/Debug/NovaFEA_app.exe",
+          "command": "{solver}",
           "args":["-s","abaqus_T01_explicit/import_export.nova"],
+          "timeout": 120,
           "expected": {
             "output_contains": ["Application finished successfully"]
           }
@@ -40,6 +42,7 @@
         {
           "command": "python",
           "args":["-s","abaqus_T01_explicit/run_abaqus.py","abaqus_T01_explicit/abaqus_T01_export.inp"],
+          "timeout": 120,
           "expected": {
             "output_contains": ["运行完成"]
           }
@@ -51,8 +54,9 @@
       "tags":["inp","preprocess","implicit"],
       "steps":[
         {
-          "command": "../bin/Debug/NovaFEA_app.exe",
+          "command": "{solver}",
           "args":["-s","abaqus_T01_explicit/import_export_implicit.nova"],
+          "timeout": 120,
           "expected": {
             "output_contains": ["Application finished successfully"]
           }
@@ -60,6 +64,7 @@
         {
           "command": "python",
           "args":["-s","abaqus_T01_explicit/run_abaqus.py","abaqus_T01_explicit/abaqus_T01_implicit_export.inp"],
+          "timeout": 120,
           "expected": {
             "output_contains": ["运行完成"]
           }
@@ -71,8 +76,9 @@
       "tags":["simdroid","delete_part"],
       "steps":[
         {
-          "command": "../bin/Debug/NovaFEA_app.exe",
+          "command": "{solver}",
           "args":["-s","solid_spring/delete_part.nova"],
+          "timeout": 60,
           "expected": {
             "output_contains": ["Application finished successfully"]
           }
@@ -97,6 +103,12 @@
       "import": "implicit_c3d8r/test_cases.json",
       "tags": [
         "implicit"
+      ]
+    },
+    {
+      "import": "remesh/test_cases.json",
+      "tags": [
+        "remesh"
       ]
     }
   ]

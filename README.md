@@ -39,7 +39,7 @@ git submodule update --remote --recursive
 
 ### 2. 自动化构建与测试工具
 
-我们推荐使用根目录下的 `run_build_and_test.py`脚本，它整合了构建、单元测试和集成测试流程。
+我们推荐使用根目录下的 `run_build_and_test.py`脚本，它整合了构建与集成测试流程。
 
 **基本用法：**
 
@@ -50,25 +50,18 @@ python run_build_and_test.py [OPTIONS]
 **常用选项：**
 
 - `--build`: 执行 CMake 构建流程。
-- `--test`: 运行 C++ 单元测试（位于 `test/`目录）。
 - `--itest`: 运行集成测试（位于 `test_case/`目录）。
-- `--mode {debug, release, msvc, msvc-release}`: 指定构建模式（默认为 `debug`）。
+- `--mode {debug, release, gcc, gcc-release, msvc, msvc-release}`: 指定构建模式（默认为 `debug`）。
 - `--rebuild`: 在构建前清理之前的构建目录。
 
 **示例：**
 
 ```bash
-# 构建并运行所有测试
-python run_build_and_test.py --build --test --itest --mode release
+# 构建并运行集成测试
+python run_build_and_test.py --build --itest
 ```
 
 ## 测试框架
-
-项目采用多层次的测试策略确保代码质量。
-
-### 单元测试 (C++)
-
-位于 `test/`目录，主要验证 C++ 核心组件的逻辑正确性。
 
 ### 集成测试 (cli-test-framework)
 
@@ -134,7 +127,6 @@ python test.py --test-target tet4_mat1_im --tag solver
 ├── docs/demos/jax/     # JAX 示例脚本
 ├── case/               # 仿真算例输入文件
 ├── build_scripts/      # 基础构建脚本 (vcpkg_install, build)
-├── test/               # C++ 单元测试
 ├── test_case/          # 基于 cli-test-framework 的集成测试
 ├── run_build_and_test.py # 统一工作流脚本
 └── vcpkg.json          # C++ 依赖定义

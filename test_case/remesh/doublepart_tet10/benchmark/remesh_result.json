@@ -1,0 +1,124 @@
+{
+  "after": {
+    "interfaces": [
+      {
+        "count": 2,
+        "source_part": "Component_1_HMprop_Part-1-1_Set-1",
+        "sub_type": "Tie",
+        "target_part": "Component_2_HMprop_Part-2-1_Set-1",
+        "type": "Contact"
+      }
+    ],
+    "options": {
+      "min_elements_per_part": 1,
+      "preserve_interface_elements": true,
+      "target_compression_ratio": 100.0
+    },
+    "parts": [
+      {
+        "element_type_counts": {
+          "310": 180
+        },
+        "has_constraint": true,
+        "has_load": false,
+        "material_type": "IsotropicElastic",
+        "original_element_count": 180,
+        "part_name": "Component_1_HMprop_Part-1-1_Set-1",
+        "property_type": "SolidProperty",
+        "protected_constrained_node_count": 9,
+        "protected_contact_node_count": 62,
+        "protected_loaded_node_count": 0,
+        "protected_shared_node_count": 0,
+        "target_element_count": 2
+      },
+      {
+        "element_type_counts": {
+          "310": 180
+        },
+        "has_constraint": false,
+        "has_load": true,
+        "material_type": "IsotropicElastic",
+        "original_element_count": 180,
+        "part_name": "Component_2_HMprop_Part-2-1_Set-1",
+        "property_type": "SolidProperty",
+        "protected_constrained_node_count": 0,
+        "protected_contact_node_count": 183,
+        "protected_loaded_node_count": 4,
+        "protected_shared_node_count": 0,
+        "target_element_count": 2
+      }
+    ],
+    "summary": {
+      "estimated_compression_ratio": 90.0,
+      "original_element_count": 360,
+      "target_element_count": 4
+    },
+    "warnings": []
+  },
+  "before": {
+    "interfaces": [
+      {
+        "count": 2,
+        "source_part": "Component_1_HMprop_Part-1-1_Set-1",
+        "sub_type": "Tie",
+        "target_part": "Component_2_HMprop_Part-2-1_Set-1",
+        "type": "Contact"
+      }
+    ],
+    "options": {
+      "min_elements_per_part": 1,
+      "preserve_interface_elements": true,
+      "target_compression_ratio": 100.0
+    },
+    "parts": [
+      {
+        "element_type_counts": {
+          "310": 18018
+        },
+        "has_constraint": true,
+        "has_load": false,
+        "material_type": "IsotropicElastic",
+        "original_element_count": 18018,
+        "part_name": "Component_1_HMprop_Part-1-1_Set-1",
+        "property_type": "SolidProperty",
+        "protected_constrained_node_count": 121,
+        "protected_contact_node_count": 2211,
+        "protected_loaded_node_count": 0,
+        "protected_shared_node_count": 0,
+        "target_element_count": 181
+      },
+      {
+        "element_type_counts": {
+          "310": 18018
+        },
+        "has_constraint": false,
+        "has_load": true,
+        "material_type": "IsotropicElastic",
+        "original_element_count": 18018,
+        "part_name": "Component_2_HMprop_Part-2-1_Set-1",
+        "property_type": "SolidProperty",
+        "protected_constrained_node_count": 0,
+        "protected_contact_node_count": 2211,
+        "protected_loaded_node_count": 4,
+        "protected_shared_node_count": 0,
+        "target_element_count": 181
+      }
+    ],
+    "summary": {
+      "estimated_compression_ratio": 99.54696132596685,
+      "original_element_count": 36036,
+      "target_element_count": 362
+    },
+    "warnings": []
+  },
+  "message": "structured Tet remesh completed",
+  "success": true,
+  "validation": {
+    "errors": [],
+    "valid": true,
+    "warnings": []
+  },
+  "warnings": [
+    "structured Tet remesh is debug-only and only preserves coarse connectivity contracts"
+  ]
+}

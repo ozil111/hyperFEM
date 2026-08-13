@@ -1,0 +1,32 @@
+{
+  "interfaces": [],
+  "options": {
+    "min_elements_per_part": 1,
+    "preserve_interface_elements": true,
+    "target_compression_ratio": 100.0
+  },
+  "parts": [
+    {
+      "element_type_counts": {
+        "308": 200
+      },
+      "has_constraint": true,
+      "has_load": true,
+      "material_type": "IsotropicElastic",
+      "original_element_count": 200,
+      "part_name": "Component_1_Set-1",
+      "property_type": "SolidProperty",
+      "protected_constrained_node_count": 4,
+      "protected_contact_node_count": 0,
+      "protected_loaded_node_count": 4,
+      "protected_shared_node_count": 0,
+      "target_element_count": 2
+    }
+  ],
+  "summary": {
+    "estimated_compression_ratio": 100.0,
+    "original_element_count": 200,
+    "target_element_count": 2
+  },
+  "warnings": []
+}

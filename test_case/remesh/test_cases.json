@@ -1,0 +1,118 @@
+{
+  "test_cases": [
+    {
+      "name": "remesh_double_part_hex8",
+      "tags": ["remesh", "hex8", "tie", "connection-preserving"],
+      "steps": [
+        {
+          "command": "{solver}",
+          "args": ["-s", "remesh/double_part_hex8/remesh.nova"],
+          "timeout": 180,
+          "expected": {
+            "output_contains": ["Application finished successfully"]
+          }
+        }
+      ],
+      "expected": {
+        "compare_files": [
+          {
+            "baseline": "remesh/double_part_hex8/benchmark/remesh_before.json",
+            "actual": "remesh/double_part_hex8/result/remesh_before.json",
+            "type": "json"
+          },
+          {
+            "baseline": "remesh/double_part_hex8/benchmark/remesh_after.json",
+            "actual": "remesh/double_part_hex8/result/remesh_after.json",
+            "type": "json"
+          },
+          {
+            "baseline": "remesh/double_part_hex8/benchmark/remesh_validation.json",
+            "actual": "remesh/double_part_hex8/result/remesh_validation.json",
+            "type": "json"
+          },
+          {
+            "baseline": "remesh/double_part_hex8/benchmark/remesh_result.json",
+            "actual": "remesh/double_part_hex8/result/remesh_result.json",
+            "type": "json"
+          }
+        ]
+      }
+    },
+    {
+      "name": "remesh_cantilever_beam_hex8",
+      "tags": ["remesh", "hex8", "single-part", "connection-preserving"],
+      "steps": [
+        {
+          "command": "{solver}",
+          "args": ["-s", "remesh/cantilever_beam_hex8/remesh.nova"],
+          "timeout": 60,
+          "expected": {
+            "output_contains": ["Application finished successfully"]
+          }
+        }
+      ],
+      "expected": {
+        "compare_files": [
+          {
+            "baseline": "remesh/cantilever_beam_hex8/benchmark/remesh_before.json",
+            "actual": "remesh/cantilever_beam_hex8/result/remesh_before.json",
+            "type": "json"
+          },
+          {
+            "baseline": "remesh/cantilever_beam_hex8/benchmark/remesh_after.json",
+            "actual": "remesh/cantilever_beam_hex8/result/remesh_after.json",
+            "type": "json"
+          },
+          {
+            "baseline": "remesh/cantilever_beam_hex8/benchmark/remesh_validation.json",
+            "actual": "remesh/cantilever_beam_hex8/result/remesh_validation.json",
+            "type": "json"
+          },
+          {
+            "baseline": "remesh/cantilever_beam_hex8/benchmark/remesh_result.json",
+            "actual": "remesh/cantilever_beam_hex8/result/remesh_result.json",
+            "type": "json"
+          }
+        ]
+      }
+    },
+    {
+      "name": "remesh_doublepart_tet10",
+      "tags": ["remesh", "tet10", "tie", "connection-preserving"],
+      "steps": [
+        {
+          "command": "{solver}",
+          "args": ["-s", "remesh/doublepart_tet10/remesh.nova"],
+          "timeout": 120,
+          "expected": {
+            "output_contains": ["Application finished successfully"]
+          }
+        }
+      ],
+      "expected": {
+        "compare_files": [
+          {
+            "baseline": "remesh/doublepart_tet10/benchmark/remesh_before.json",
+            "actual": "remesh/doublepart_tet10/result/remesh_before.json",
+            "type": "json"
+          },
+          {
+            "baseline": "remesh/doublepart_tet10/benchmark/remesh_after.json",
+            "actual": "remesh/doublepart_tet10/result/remesh_after.json",
+            "type": "json"
+          },
+          {
+            "baseline": "remesh/doublepart_tet10/benchmark/remesh_validation.json",
+            "actual": "remesh/doublepart_tet10/result/remesh_validation.json",
+            "type": "json"
+          },
+          {
+            "baseline": "remesh/doublepart_tet10/benchmark/remesh_result.json",
+            "actual": "remesh/doublepart_tet10/result/remesh_result.json",
+            "type": "json"
+          }
+        ]
+      }
+    }
+  ]
+}

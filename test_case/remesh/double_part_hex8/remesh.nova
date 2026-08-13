@@ -1,0 +1,2 @@
+import_simdroid remesh/double_part_hex8/control.json
+remesh_generate remesh/double_part_hex8/result 100

@@ -1,0 +1,2 @@
+import_simdroid remesh/doublepart_tet10/control.json
+remesh_generate remesh/doublepart_tet10/result 100

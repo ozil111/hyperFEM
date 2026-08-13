@@ -5,7 +5,6 @@
     "fmt",
     "spdlog",
     "eigen3",
-    "gtest",
     "nlohmann-json",
     "entt",
     "tinyxml2",

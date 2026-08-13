@@ -1,0 +1,180 @@
+{
+    "Global": {
+        "Version": 5.0,
+        "Solver": "StructureExplicit",
+        "Dimension": 3
+    },
+    "AnalysisControl": {
+        "TimeStepControl": {
+            "EndTime": 1.0,
+            "Dtmin": 0.0,
+            "DtScale": 0.9,
+            "InitMassScalRatio": 0.0,
+            "DtControlType": "MassScaling",
+            "StopEnergyErr": 0.9
+        },
+        "Analy": {
+            "N2d3d": 0,
+            "Iparith": 0,
+            "Isubcycle": 0
+        }
+    },
+    "Output": {
+        "Format": "Binary",
+        "OutFields": [
+            "S",
+            "E",
+            "PEEQ",
+            "Acceleration",
+            "Displacement",
+            "Mises",
+            "Velocity"
+        ],
+        "AnimOutTimeInterval": 0.05
+    },
+    "History": {
+        "Format": "ASCII",
+        "GlobalFields": [
+            "Time",
+            "Cycle",
+            "Time-Step",
+            "Error",
+            "I-Energy",
+            "K-Energy-TOT",
+            "Mass-Err",
+            "HG-Energy",
+            "TOT-Energy",
+            "Ext-Work"
+        ],
+        "HistoryOutTimeInterval": 0.005
+    },
+    "Material": {
+        "Material-1_M": {
+            "Label": "Material-1_M",
+            "MID": 1,
+            "MaterialType": "IsotropicElastic",
+            "Density": 1000.0,
+            "MaterialConstants": {
+                "ElasticModulus": 21000000.0,
+                "PoissonRatio": 0.3
+            }
+        }
+    },
+    "CrossSection": {
+        "Section1": {
+            "Type": "Solid",
+            "CrossSectID": 1,
+            "Formulation": [
+                "Hex8"
+            ],
+            "SmallStrain": "Tdtmin",
+            "ConstPressure": "",
+            "CoRotationFlag": "NonCorotation",
+            "QuadraticViscosity": 1.2,
+            "LinearViscosity": 0.06,
+            "hm": 0.1,
+            "dtmin": 0
+        }
+    },
+    "Constraint": {
+        "Boundary": {
+            "NodeValueSet_1_1": {
+                "NodeSet": "NodeValueSet_1",
+                "Dofs": [
+                    1,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ],
+                "CoordSys": ""
+            },
+            "NodeValueSet_2_2": {
+                "NodeSet": "NodeValueSet_2",
+                "Dofs": [
+                    0,
+                    1,
+                    0,
+                    0,
+                    0,
+                    0
+                ],
+                "CoordSys": ""
+            },
+            "NodeValueSet_3_3": {
+                "NodeSet": "NodeValueSet_3",
+                "Dofs": [
+                    0,
+                    0,
+                    1,
+                    0,
+                    0,
+                    0
+                ],
+                "CoordSys": ""
+            },
+            "NodeValueSet_4_4": {
+                "NodeSet": "NodeValueSet_4",
+                "Dofs": [
+                    0,
+                    0,
+                    0,
+                    1,
+                    0,
+                    0
+                ],
+                "CoordSys": ""
+            },
+            "NodeValueSet_5_5": {
+                "NodeSet": "NodeValueSet_5",
+                "Dofs": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    1,
+                    0
+                ],
+                "CoordSys": ""
+            },
+            "NodeValueSet_6_6": {
+                "NodeSet": "NodeValueSet_6",
+                "Dofs": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    1
+                ],
+                "CoordSys": ""
+            }
+        }
+    },
+    "Load": {
+        "NodalForce_1": {
+            "Type": "Force",
+            "Dof": "y",
+            "NodeSet": "load",
+            "Value": 100.0,
+            "TimeCurve": "curve",
+            "CoordSys": ""
+        }
+    },
+    "Function": {
+        "curve": {
+            "Type": "TabularMultiVar",
+            "InterpMethod": "Linear"
+        }
+    },
+    "PartProperty": {
+        "Part_1": {
+            "PID": 1,
+            "Title": "Component_1_Set-1",
+            "EleSet": "Component_1_Set-1",
+            "Material": "Material-1_M",
+            "CrossSection": "Section1"
+        }
+    }
+}

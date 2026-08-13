@@ -17,10 +17,6 @@ The project provides the following build scripts:
 - `build.bat` - for Windows systems
 - `build.sh` - for Linux/macOS systems
 
-### Test Runner Scripts
-- `run_test.bat` - for Windows systems
-- `run_test.sh` - for Linux/macOS systems
-
 ### vcpkg Installation Scripts
 - `vcpkg_install.bat` - for Windows systems
 - `vcpkg_install.sh` - for Linux/macOS systems
@@ -52,7 +48,7 @@ python run_build_and_test.py [options]
 
 Ensure scripts have execution permissions:
 ```bash
-chmod +x build.sh run_test.sh vcpkg_install.sh
+chmod +x build.sh vcpkg_install.sh
 ```
 
 ## Available Options
@@ -61,12 +57,9 @@ chmod +x build.sh run_test.sh vcpkg_install.sh
 | Option | Description |
 |--------|-------------|
 | `--build` | Run the build script |
-| `--test` | Run the test script |
+| `--itest` | Run integration tests (symtest) in `test_case/` |
 | `--mode` | Build mode: debug (default), release, msvc, or msvc-release |
 | `--rebuild` | Clean build directories before building |
-| `--skip-tests` | Skip building tests |
-| `--no-ignore-test-errors` | Do not ignore test build errors |
-| `--test-target` | Specify test target to build and run (default: 'all') |
 
 ### Native Script Options
 | Option | Description |
@@ -76,9 +69,6 @@ chmod +x build.sh run_test.sh vcpkg_install.sh
 | `--msvc` | Build Debug version using MSVC compiler |
 | `--msvc-release` | Build Release version using MSVC compiler |
 | `--clean` | Clean build directories before building |
-| `--skip-tests` | Skip building tests |
-| `--no-ignore-test-errors` | Do not ignore test build errors |
-| `--test <test_name>` | Build and run specified test |
 
 ## Build Mode Description
 
@@ -104,42 +94,10 @@ The project supports four build modes:
    - Build type: Release
    - Output directory: `bin/msvc`
 
-## Building and Running Specific Unit Tests
+## Running Integration Tests
 
-### Using Python Script
 ```bash
-python run_build_and_test.py --build --test --test-target <test_name>
-```
-
-### Using Native Scripts
-
-#### Windows Example
-```bash
-.\build.bat --test <test_name>
-```
-
-#### Linux/macOS Example
-```bash
-./build.sh --test <test_name>
-```
-
-## Running Tests Separately (Without Recompiling)
-
-### Using Python Script
-```bash
-python run_build_and_test.py --test --test-target <test_name>
-```
-
-### Using Native Scripts
-
-#### Windows
-```bash
-.\run_test.bat --test <test_name> [--debug|--release|--msvc|--msvc-release]
-```
-
-#### Linux/macOS
-```bash
-./run_test.sh --test <test_name> [--debug|--release|--msvc|--msvc-release]
+python run_build_and_test.py --build --itest
 ```
 
 ## vcpkg Dependency Installation
@@ -164,15 +122,14 @@ The project uses the following main dependency libraries:
 - **fmt** - Formatting library
 - **eigen3** - Linear algebra library
 - **entt** - Entity Component System library
-- **gtest** - Testing framework
 
 ## Examples
 
 ### Using Python Script
 
-#### Build GCC Debug version and run all tests
+#### Build GCC Debug version and run integration tests
 ```bash
-python run_build_and_test.py --build --test
+python run_build_and_test.py --build --itest
 ```
 
 #### Build GCC Release version and clean previous build
@@ -188,16 +145,6 @@ python run_build_and_test.py --build --mode msvc
 #### Build MSVC Release version
 ```bash
 python run_build_and_test.py --build --mode msvc-release
-```
-
-#### Build main program only, skip tests
-```bash
-python run_build_and_test.py --build --skip-tests
-```
-
-#### Run specific test
-```bash
-python run_build_and_test.py --test --test-target <test_name>
 ```
 
 ### Using Native Scripts
@@ -222,16 +169,6 @@ python run_build_and_test.py --test --test-target <test_name>
 .\build.bat --msvc-release
 ```
 
-#### Build main program only, skip tests
-```bash
-.\build.bat --skip-tests
-```
-
-#### Run already built tests without recompiling
-```bash
-.\run_test.bat --test <test_name>
-```
-
 ## Error Handling
 
 ### Build Logs
@@ -251,9 +188,6 @@ cd build/msvc && cmake --build . --config Debug
 
 ## Notes
 
-- Build scripts ignore test build errors by default, as long as the main program builds successfully
-- Use the `--no-ignore-test-errors` option to stop the build process when test builds fail
 - After building, executables will be located in the appropriate `bin` directories
-- If test builds fail, you may need to modify test code or CMake configuration
 - Python scripts provide better progress display and error handling features, recommended for use
 - MSVC and GCC versions use different output directories and won't conflict with each other 

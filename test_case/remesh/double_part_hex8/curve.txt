@@ -1,0 +1,6 @@
+#VERSION 5.0
+#INFO	Variables=2	IndependentVariables=1	DataLines=2
+#TYPE	time	Load
+#DATA
+0.0	1.0	
+1.0	1.0	

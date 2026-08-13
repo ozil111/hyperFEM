@@ -106,88 +106,6 @@ def run_script(script_path, args=[], log_file=None, show_time=False):
         with open(os.path.join('build', 'good.build'), 'w', encoding='utf-8') as f:
             f.write(f"Build completed successfully in {int(minutes)}m {int(seconds)}s\n")
 
-def run_test_script(test_args=[], show_time=False):
-    """Runs the new test script from the test directory."""
-    start_time = time.time()
-    elapsed_time = 0
-    timer_thread = None
-    process = None
-
-    # Detect console encoding
-    console_encoding = locale.getpreferredencoding(False) or 'utf-8'
-    print(f"Using console encoding: {console_encoding}")
-
-    # Timer function to display elapsed time
-    def print_elapsed_time():
-        nonlocal elapsed_time
-        while process and process.poll() is None:
-            elapsed_time = time.time() - start_time
-            minutes, seconds = divmod(elapsed_time, 60)
-            print(f"\rElapsed time: {int(minutes)}m {int(seconds)}s", end="")
-            time.sleep(1)
-
-    try:
-        # Determine the test script path based on platform
-        if platform.system() == "Windows":
-            test_script = os.path.join('test', 'run_tests.bat')
-        else:
-            test_script = os.path.join('test', 'run_tests.sh')
-            # Make sure the script is executable
-            os.chmod(test_script, 0o755)
-
-        # The project root is the directory containing this Python script.
-        # This is more reliable than having the batch/shell script guess its location.
-        project_root = os.path.dirname(os.path.abspath(__file__))
-
-        command = [os.path.abspath(test_script)] + test_args
-        print(f"Executing test script from '{project_root}': {' '.join(command)}")
-
-        # Start the test process, setting the correct working directory
-        process = subprocess.Popen(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, 
-                                 encoding=console_encoding, errors='replace', cwd=project_root)
-
-        if show_time:
-            timer_thread = threading.Thread(target=print_elapsed_time)
-            timer_thread.daemon = True
-            timer_thread.start()
-
-        # Read output in real-time
-        test_output = []
-        while True:
-            line = process.stdout.readline()
-            if not line and process.poll() is not None:
-                break
-            if line:
-                print(line.rstrip())
-                test_output.append(line)
-        
-        return_code = process.wait()
-        
-        if return_code != 0:
-            stderr = process.stderr.read()
-            if stderr:
-                print(f"\nTest script stderr:\n{stderr}", file=sys.stderr)
-            raise subprocess.CalledProcessError(return_code, command, ''.join(test_output), stderr)
-
-    except (subprocess.CalledProcessError, FileNotFoundError) as e:
-        elapsed_time = time.time() - start_time
-        minutes, seconds = divmod(elapsed_time, 60)
-        
-        print(f"\n--- TEST SCRIPT FAILED ---", file=sys.stderr)
-        print(f"Error running test script", file=sys.stderr)
-        print(f"Failed in {int(minutes)}m {int(seconds)}s", file=sys.stderr)
-        
-        if hasattr(e, 'stderr') and e.stderr:
-            print(f"Error details:\n{e.stderr}", file=sys.stderr)
-        
-        sys.exit(e.returncode if hasattr(e, 'returncode') else 1)
-    
-    else:
-        elapsed_time = time.time() - start_time
-        minutes, seconds = divmod(elapsed_time, 60)
-        print(f"\n--- TEST SCRIPT SUCCEEDED ---")
-        print(f"Tests completed successfully in {int(minutes)}m {int(seconds)}s")
-
 def get_project_venv_python(project_root: str) -> str:
     """Return python executable from .venv if it exists, otherwise fallback to current interpreter."""
     project_root_path = Path(project_root)
@@ -205,8 +123,12 @@ def get_project_venv_python(project_root: str) -> str:
     return sys.executable
 
 
-def run_integration_tests(project_root: str, show_time: bool = False):
-    """Run integration tests in test_case using the project's .venv if available."""
+def run_integration_tests(project_root: str, mode: str, show_time: bool = False):
+    """Run integration tests by delegating to test_case/test.py as a thin wrapper.
+
+    The solver path (bin/Debug vs bin/Release) is resolved inside test.py based
+    on the ``--mode`` argument, keeping this wrapper as thin as possible.
+    """
     start_time = time.time()
     elapsed_time = 0
     timer_thread = None
@@ -228,19 +150,27 @@ def run_integration_tests(project_root: str, show_time: bool = False):
     test_script = project_root_path / "test_case" / "test.py"
     python_exe = get_project_venv_python(project_root)
 
-    command = [python_exe, str(test_script)]
+    # Map build mode to solver variant: debug-ish modes use Debug, release-ish use Release.
+    if mode in ('release', 'gcc-release', 'msvc-release'):
+        solver_mode = 'release'
+    else:
+        solver_mode = 'debug'
+
+    command = [python_exe, str(test_script), '--mode', solver_mode]
     print(f"Executing integration tests: {' '.join(command)}")
 
     # Ensure the child Python process uses UTF-8 for stdio to avoid UnicodeEncodeError with '✓'
+    # and to prevent mojibake when subprocesses print Chinese text (e.g. '[√] 运行完成').
     env = os.environ.copy()
     env.setdefault("PYTHONIOENCODING", "utf-8")
+    env.setdefault("PYTHONUTF8", "1")
 
     try:
         process = subprocess.Popen(
             command,
             text=True,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             encoding=console_encoding,
             errors='replace',
             env=env,
@@ -252,22 +182,19 @@ def run_integration_tests(project_root: str, show_time: bool = False):
             timer_thread.daemon = True
             timer_thread.start()
 
-        # Stream stdout
+        # Stream merged stdout/stderr (stderr merged into stdout to avoid pipe deadlock)
         output_lines = []
         while True:
             line = process.stdout.readline()
             if not line and process.poll() is not None:
-                break;
+                break
             if line:
                 print(line.rstrip())
                 output_lines.append(line)
 
         return_code = process.wait()
         if return_code != 0:
-            stderr = process.stderr.read()
-            if stderr:
-                print(f"\nIntegration tests stderr:\n{stderr}", file=sys.stderr)
-            raise subprocess.CalledProcessError(return_code, command, ''.join(output_lines), stderr)
+            raise subprocess.CalledProcessError(return_code, command, ''.join(output_lines))
 
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
         elapsed_time = time.time() - start_time
@@ -277,8 +204,8 @@ def run_integration_tests(project_root: str, show_time: bool = False):
         print(f"Error running integration tests", file=sys.stderr)
         print(f"Failed in {int(minutes)}m {int(seconds)}s", file=sys.stderr)
 
-        if hasattr(e, 'stderr') and e.stderr:
-            print(f"Error details:\n{e.stderr}", file=sys.stderr)
+        if hasattr(e, 'output') and e.output:
+            print(f"Error details:\n{e.output}", file=sys.stderr)
 
         sys.exit(e.returncode if hasattr(e, 'returncode') else 1)
 
@@ -291,7 +218,6 @@ def run_integration_tests(project_root: str, show_time: bool = False):
 def main():
     parser = argparse.ArgumentParser(description="Build and Test Script Runner")
     parser.add_argument('--build', action='store_true', help="Run the build script")
-    parser.add_argument('--test', action='store_true', help="Run the test script")
     parser.add_argument('--itest', action='store_true', help="Run integration tests in test_case using .venv if available")
     parser.add_argument(
         '--mode',
@@ -300,47 +226,24 @@ def main():
         help="Build mode: debug/release = Clang (default toolchain); gcc/gcc-release = MinGW GCC",
     )
     parser.add_argument('--rebuild', action='store_true', help="Clean build directories before building")
-    parser.add_argument('--test-target', type=str, default='all', help="Specify a test target to run (use 'all' to run all tests)")
     
     args = parser.parse_args()
 
-    # Determine preset names based on mode and whether we're building tests
-    if args.test:
-        # Use test presets when running tests
-        if args.mode == 'msvc':
-            preset_name = 'test-msvc'
-        elif args.mode == 'msvc-release':
-            preset_name = 'test-msvc_release'
-        elif args.mode == 'release':
-            preset_name = 'test-release'
-        elif args.mode == 'gcc':
-            preset_name = 'test-gcc'
-        elif args.mode == 'gcc-release':
-            preset_name = 'test-gcc-release'
-        else:  # debug (Clang)
-            preset_name = 'test-default'
-    else:
-        # Use regular presets when building main program
-        if args.mode == 'msvc':
-            preset_name = 'msvc'
-        elif args.mode == 'msvc-release':
-            preset_name = 'msvc_release'
-        elif args.mode == 'release':
-            preset_name = 'release'
-        elif args.mode == 'gcc':
-            preset_name = 'gcc'
-        elif args.mode == 'gcc-release':
-            preset_name = 'gcc-release'
-        else:  # debug (Clang)
-            preset_name = 'default'
+    # Determine preset name based on mode
+    if args.mode == 'msvc':
+        preset_name = 'msvc'
+    elif args.mode == 'msvc-release':
+        preset_name = 'msvc_release'
+    elif args.mode == 'release':
+        preset_name = 'release'
+    elif args.mode == 'gcc':
+        preset_name = 'gcc'
+    elif args.mode == 'gcc-release':
+        preset_name = 'gcc-release'
+    else:  # debug (Clang)
+        preset_name = 'default'
 
-    # If building with tests, we need to use test presets
-    # Pass the preset name to build script if we're building tests
     build_args = [f'--{args.mode}']
-    if args.test:
-        # Add a flag to indicate we want to build with tests
-        build_args.append('--test-preset')
-        build_args.append(preset_name)
     
     # The --rebuild logic is now handled entirely within this Python script
     # by deleting the directory, so we no longer pass a --clean flag down.
@@ -384,24 +287,12 @@ def main():
         run_script(os.path.join('build_scripts', script_name), build_args, log_file, show_time=True)
         print(f"Build log saved to {log_file}")
 
-    if args.test:
-        print("Running test script...")
-        test_args = [f'--{args.mode}']
-        if args.test_target and args.test_target != 'all':
-            test_args.append('--test-target')
-            test_args.append(args.test_target)
-        
-        # Pass project root to test script to avoid path calculation issues
-        test_args.append('--project-root')
-        test_args.append(os.path.abspath('.'))
-        
-        run_test_script(test_args, show_time=True)
-
     if args.itest:
         # Use project root for resolving .venv and test_case
         project_root = os.path.abspath('.')
         print("Running integration tests (test_case)...")
-        run_integration_tests(project_root, show_time=True)
+
+        run_integration_tests(project_root, mode=args.mode, show_time=True)
 
 if __name__ == "__main__":
     main()

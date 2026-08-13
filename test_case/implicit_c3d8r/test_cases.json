@@ -7,21 +7,24 @@
         {
           "command": "python",
           "args": ["implicit_c3d8r/tools/run_abaqus_benchmark.py", "implicit_c3d8r/T01/T01_im.inp"],
+          "timeout": 120,
           "expected": {
             "return_code": 0,
             "output_contains": ["运行完成"]
           }
         },
         {
-          "command": "../bin/Debug/NovaFEA_app.exe",
+          "command": "{solver}",
           "args": ["-s", "implicit_c3d8r/T01/import_export.nova"],
+          "timeout": 120,
           "expected": {
             "output_contains": ["Application finished successfully"]
           }
         },
         {
-          "command": "../bin/Debug/NovaFEA_app.exe",
+          "command": "{solver}",
           "args": ["-i", "implicit_c3d8r/T01/T01_im.jsonc", "--output", "implicit_c3d8r/T01/T01_im.vtk", "--output-csv", "implicit_c3d8r/T01/T01_im"],
+          "timeout": 120,
           "expected": {
             "output_contains": ["Linear static solver completed.", "Application finished successfully"]
           }
@@ -49,21 +52,24 @@
         {
           "command": "python",
           "args": ["implicit_c3d8r/tools/run_abaqus_benchmark.py", "implicit_c3d8r/T01D_affine_skew/T01D_affine_skew_im.inp"],
+          "timeout": 120,
           "expected": {
             "return_code": 0,
             "output_contains": ["运行完成"]
           }
         },
         {
-          "command": "../bin/Debug/NovaFEA_app.exe",
+          "command": "{solver}",
           "args": ["-s", "implicit_c3d8r/T01D_affine_skew/import_export.nova"],
+          "timeout": 120,
           "expected": {
             "output_contains": ["Application finished successfully"]
           }
         },
         {
-          "command": "../bin/Debug/NovaFEA_app.exe",
+          "command": "{solver}",
           "args": ["-i", "implicit_c3d8r/T01D_affine_skew/T01D_affine_skew_im.jsonc", "--output", "implicit_c3d8r/T01D_affine_skew/T01D_affine_skew_im.vtk", "--output-csv", "implicit_c3d8r/T01D_affine_skew/T01D_affine_skew_im"],
+          "timeout": 120,
           "expected": {
             "output_contains": ["Linear static solver completed.", "Application finished successfully"]
           }
@@ -91,21 +97,24 @@
         {
           "command": "python",
           "args": ["implicit_c3d8r/tools/run_abaqus_benchmark.py", "implicit_c3d8r/T01D_one_node_warped/T01D_one_node_warped_im.inp"],
+          "timeout": 120,
           "expected": {
             "return_code": 0,
             "output_contains": ["运行完成"]
           }
         },
         {
-          "command": "../bin/Debug/NovaFEA_app.exe",
+          "command": "{solver}",
           "args": ["-s", "implicit_c3d8r/T01D_one_node_warped/import_export.nova"],
+          "timeout": 120,
           "expected": {
             "output_contains": ["Application finished successfully"]
           }
         },
         {
-          "command": "../bin/Debug/NovaFEA_app.exe",
+          "command": "{solver}",
           "args": ["-i", "implicit_c3d8r/T01D_one_node_warped/T01D_one_node_warped_im.jsonc", "--output", "implicit_c3d8r/T01D_one_node_warped/T01D_one_node_warped_im.vtk", "--output-csv", "implicit_c3d8r/T01D_one_node_warped/T01D_one_node_warped_im"],
+          "timeout": 120,
           "expected": {
             "output_contains": ["Linear static solver completed.", "Application finished successfully"]
           }
@@ -133,21 +142,24 @@
         {
           "command": "python",
           "args": ["implicit_c3d8r/tools/run_abaqus_benchmark.py", "implicit_c3d8r/T02/T02_im.inp"],
+          "timeout": 120,
           "expected": {
             "return_code": 0,
             "output_contains": ["运行完成"]
           }
         },
         {
-          "command": "../bin/Debug/NovaFEA_app.exe",
+          "command": "{solver}",
           "args": ["-s", "implicit_c3d8r/T02/import_export.nova"],
+          "timeout": 120,
           "expected": {
             "output_contains": ["Application finished successfully"]
           }
         },
         {
-          "command": "../bin/Debug/NovaFEA_app.exe",
+          "command": "{solver}",
           "args": ["-i", "implicit_c3d8r/T02/T02_im.jsonc", "--output", "implicit_c3d8r/T02/T02_im.vtk", "--output-csv", "implicit_c3d8r/T02/T02_im"],
+          "timeout": 120,
           "expected": {
             "output_contains": ["Linear static solver completed.", "Application finished successfully"]
           }
@@ -176,21 +188,24 @@
         {
           "command": "python",
           "args": ["implicit_c3d8r/tools/run_abaqus_benchmark.py", "implicit_c3d8r/T05/T05_im.inp"],
+          "timeout": 120,
           "expected": {
             "return_code": 0,
             "output_contains": ["运行完成"]
           }
         },
         {
-          "command": "../bin/Debug/NovaFEA_app.exe",
+          "command": "{solver}",
           "args": ["-s", "implicit_c3d8r/T05/import_export.nova"],
+          "timeout": 120,
           "expected": {
             "output_contains": ["Application finished successfully"]
           }
         },
         {
-          "command": "../bin/Debug/NovaFEA_app.exe",
+          "command": "{solver}",
           "args": ["-i", "implicit_c3d8r/T05/T05_im.jsonc", "--output", "implicit_c3d8r/T05/T05_im.vtk", "--output-csv", "implicit_c3d8r/T05/T05_im"],
+          "timeout": 120,
           "expected": {
             "output_contains": ["Linear static solver completed.", "Application finished successfully"]
           }
@@ -213,21 +228,24 @@
         {
           "command": "python",
           "args": ["implicit_c3d8r/tools/run_abaqus_benchmark.py", "implicit_c3d8r/T07/T07_im.inp"],
+          "timeout": 120,
           "expected": {
             "return_code": 0,
             "output_contains": ["运行完成"]
           }
         },
         {
-          "command": "../bin/Debug/NovaFEA_app.exe",
+          "command": "{solver}",
           "args": ["-s", "implicit_c3d8r/T07/import_export.nova"],
+          "timeout": 120,
           "expected": {
             "output_contains": ["Application finished successfully"]
           }
         },
         {
-          "command": "../bin/Debug/NovaFEA_app.exe",
+          "command": "{solver}",
           "args": ["-i", "implicit_c3d8r/T07/T07_im.jsonc", "--output", "implicit_c3d8r/T07/T07_im.vtk", "--output-csv", "implicit_c3d8r/T07/T07_im"],
+          "timeout": 120,
           "expected": {
             "output_contains": ["Linear static solver completed.", "Application finished successfully"]
           }

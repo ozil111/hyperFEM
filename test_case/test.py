@@ -259,6 +259,15 @@ def main():
         help="模板变量替换，格式 KEY=VALUE，例如：--var solver=/path/to/solver.exe",
     )
 
+    # ---- 求解器构建模式 ----
+    parser.add_argument(
+        "--mode",
+        choices=["debug", "release"],
+        default=None,
+        help="求解器构建模式，决定 {solver} 占位符指向 bin/Debug 还是 bin/Release；"
+             "默认 debug",
+    )
+
     # ---- 自定义比较器插件 ----
     parser.add_argument(
         "--plugin-dir",
@@ -296,6 +305,22 @@ def main():
                 parser.error(f"Invalid --var format: '{item}' (expected KEY=VALUE)")
             key, value = item.split("=", 1)
             variables[key.strip()] = value.strip()
+
+    # ---- solver 占位符默认值 ----
+    # 优先使用显式传入的 --var solver=...；否则按 --mode 推导（默认 debug）。
+    if "solver" not in variables:
+        solver_dir = "Release" if args.mode == "release" else "Debug"
+        # 基于脚本自身位置推导 solver 路径，避免依赖调用方的 cwd
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        solver_path = os.path.join(script_dir, "..", "bin", solver_dir, "NovaFEA_app.exe")
+        if not os.path.isfile(solver_path):
+            print(
+                f"Error: Solver not found at {solver_path}. "
+                f"Build it first (run_build_and_test.py --build) or pass --var solver=<path>.",
+                file=sys.stderr,
+            )
+            return 1
+        variables["solver"] = solver_path
 
     # ---- 工作区默认值 ----
     workspace = args.workspace

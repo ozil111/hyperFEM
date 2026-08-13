@@ -1,0 +1,6 @@
+#VERSION 4.0
+#INFO	Variables=2	IndependentVariables=1	DataLines=2
+#TYPE	Scalar	Scalar	
+#DATA
+0   1
+1   1
