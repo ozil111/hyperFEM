@@ -47,6 +47,7 @@ jobs:
 
       - name: Install C++ dependencies (产物落 vcpkg_installed/x64-windows)
         run: |
+          New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
           & $env:RUNNER_TEMP/vcpkg/vcpkg.exe install --triplet x64-windows
         env:
           # runner 上下文仅在 step 级 env/with 中可用 (job 级 env 不允许)
