@@ -39,6 +39,9 @@ endif()
 if(MSVC)
     add_compile_options(/utf-8 /bigobj)
     add_definitions(-D_USE_MATH_DEFINES)
+    # Generated kernels use the GCC/Clang spelling __restrict__ (trailing
+    # underscores); MSVC only supports __restrict. Map it at compile time.
+    add_compile_definitions(__restrict__=__restrict)
 endif()
 
 # MinGW ABI on Windows (GCC or Clang): support for large object files (resolves 'too many sections')
@@ -113,10 +116,12 @@ set_target_properties(NovaFEA_app PROPERTIES
 if(WIN32)
     if(MSVC)
         # MSVC: Copy vcpkg DLLs
+        # NOTE: `cmake -E copy_if_different` does not expand globs — "*.dll" is
+        # taken literally and fails. copy_directory works without shell globbing.
         add_custom_command(TARGET NovaFEA_app POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E echo "Copying MSVC DLLs..."
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/$<IF:$<CONFIG:Debug>,debug/,>bin/*.dll"
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+                "${CMAKE_SOURCE_DIR}/vcpkg_installed/x64-windows/$<IF:$<CONFIG:Debug>,debug/,>bin"
                 "$<TARGET_FILE_DIR:NovaFEA_app>"
             COMMENT "Copying runtime DLLs for MSVC build"
         )
