@@ -8,8 +8,10 @@ on:
   workflow_dispatch:
 
 env:
-  # 必须与 vcpkg.json 的 builtin-baseline 保持一致（改 baseline 时同步更新）
-  VCPKG_COMMIT: cf72b50294a4aa13e607a0c7b40280b933801698
+  # vcpkg 工具版本用较新 tag: baseline(2024.05) 的 msys2 版本表所引用的
+  # msys2-runtime-3.5.4-2 已被镜像清理(404), 新版工具的 msys2 依赖表已更新。
+  # 依赖包版本不受影响: 仍由 vcpkg.json 的 builtin-baseline + overrides 锁定, 与本地一致。
+  VCPKG_REF: "2026.07.29"
   NOVAFEA_SKIP_ABAQUS: "1"
   PYTHONUTF8: "1"
 
@@ -37,12 +39,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/vcpkg-binary-cache
-          key: vcpkg-bin-x64-windows-${{ env.VCPKG_COMMIT }}-${{ hashFiles('vcpkg.json') }}
+          key: vcpkg-bin-x64-windows-${{ env.VCPKG_REF }}-${{ hashFiles('vcpkg.json') }}
 
       - name: Clone vcpkg (pinned to manifest baseline)
         run: |
           git clone https://github.com/microsoft/vcpkg.git $env:RUNNER_TEMP/vcpkg
-          git -C $env:RUNNER_TEMP/vcpkg checkout $env:VCPKG_COMMIT
+          git -C $env:RUNNER_TEMP/vcpkg checkout $env:VCPKG_REF
           & $env:RUNNER_TEMP/vcpkg/bootstrap-vcpkg.bat -disableMetrics
 
       - name: Install C++ dependencies (产物落 vcpkg_installed/x64-windows)
