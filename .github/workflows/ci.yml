@@ -21,7 +21,7 @@ jobs:
       VCPKG_DEFAULT_BINARY_CACHE: ${{ runner.temp }}/vcpkg-binary-cache
 
     steps:
-      - name: Checkout (不拉子模块: fea_codegen 是 SSH URL, 构建不需要 extern/)
+      - name: "Checkout (不拉子模块: fea_codegen 是 SSH URL, 构建不需要 extern/)"
         uses: actions/checkout@v4
 
       - name: Setup Python
@@ -48,7 +48,8 @@ jobs:
           & $env:RUNNER_TEMP/vcpkg/bootstrap-vcpkg.bat -disableMetrics
 
       - name: Install C++ dependencies (产物落 vcpkg_installed/x64-windows)
-        run: & $env:RUNNER_TEMP/vcpkg/vcpkg.exe install --triplet x64-windows
+        run: |
+          & $env:RUNNER_TEMP/vcpkg/vcpkg.exe install --triplet x64-windows
 
       - name: Configure (MSVC Release, 绕过含本机硬编码路径的 presets)
         run: |
