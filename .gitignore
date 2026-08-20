@@ -19,5 +19,7 @@ test_case/test_report.txt
 /case
 *.odb
 *.symtest
-tools
+# 只忽略仓库根目录的本地工具目录; 不能无锚定, 否则误伤 test_case 等子目录
+# (曾导致 test_case/implicit_c3d8r/tools/run_abaqus_benchmark.py 未入库, CI 报 exit 2)
+/tools
 *.odb_f

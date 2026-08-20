@@ -74,8 +74,9 @@ jobs:
 
       - name: Integration tests (13 用例, Abaqus 步骤跳过, 与仓库基准对比)
         run: |
+          # MSVC 多配置生成器会在 RUNTIME_OUTPUT_DIRECTORY 后追加配置名 -> bin/msvc/Release
           python test_case/test.py `
-            --var solver="$PWD/bin/msvc/NovaFEA_app.exe" `
+            --var solver="$PWD/bin/msvc/Release/NovaFEA_app.exe" `
             --junit-xml junit_report.xml `
             --workers 4
 
