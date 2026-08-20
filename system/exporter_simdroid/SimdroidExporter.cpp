@@ -586,10 +586,14 @@ void SimdroidExporter::save_mesh_dat(const std::string& path, entt::registry& re
     {
         file << "  Node {\n";
         auto view = registry.view<const Component::SetName, const Component::NodeSetMembers>();
+        // registry view 的遍历顺序在不同编译器/标准库实现间不稳定 (如 MSVC STL vs
+        // libstdc++), 会导致导出的 mesh.dat 中 Node Set 行序随编译器变化。
+        // 输出前按 Set 名称排序, 保证跨编译器字节一致。
+        std::vector<std::pair<std::string, std::vector<int>>> node_sets;
         for (auto entity : view) {
             const auto& name = view.get<const Component::SetName>(entity).value;
             const auto& members = view.get<const Component::NodeSetMembers>(entity).members;
-            
+
             // 提取所有成员的 ID
             std::vector<int> ids;
             ids.reserve(members.size());
@@ -599,11 +603,16 @@ void SimdroidExporter::save_mesh_dat(const std::string& path, entt::registry& re
             }
 
             if (!ids.empty()) {
-                const std::string ranges = compress_ids_to_ranges(ids);
-                const auto toks = split_csv_tokens(ranges);
-                const std::string first_prefix = "    " + name + " [";
-                file << wrap_csv_tokens_with_comma_limit(first_prefix, "      ", toks, 10, "]") << "\n";
+                node_sets.emplace_back(name, std::move(ids));
             }
+        }
+        std::sort(node_sets.begin(), node_sets.end(),
+                  [](const auto& a, const auto& b) { return a.first < b.first; });
+        for (auto& [name, ids] : node_sets) {
+            const std::string ranges = compress_ids_to_ranges(ids);
+            const auto toks = split_csv_tokens(ranges);
+            const std::string first_prefix = "    " + name + " [";
+            file << wrap_csv_tokens_with_comma_limit(first_prefix, "      ", toks, 10, "]") << "\n";
         }
         file << "  }\n";
     }
