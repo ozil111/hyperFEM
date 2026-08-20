@@ -70,6 +70,10 @@ def main(argv=None):
                     help='Abaqus job 名（默认取 inp 文件名 stem）')
     args = ap.parse_args(argv)
 
+    if os.environ.get('NOVAFEA_SKIP_ABAQUS', '').strip().lower() in ('1', 'true', 'yes'):
+        print("[√] 运行完成, NOVAFEA_SKIP_ABAQUS=1 已跳过 Abaqus 求解")
+        return
+
     inp = Path(args.input).resolve()
     if not inp.exists():
         sys.exit(f"错误: 输入文件不存在: {inp}")

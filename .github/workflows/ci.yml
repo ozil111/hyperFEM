@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+  workflow_dispatch:
+
+env:
+  # 必须与 vcpkg.json 的 builtin-baseline 保持一致（改 baseline 时同步更新）
+  VCPKG_COMMIT: cf72b50294a4aa13e607a0c7b40280b933801698
+  NOVAFEA_SKIP_ABAQUS: "1"
+  PYTHONUTF8: "1"
+
+jobs:
+  build-and-test:
+    runs-on: windows-2022
+    timeout-minutes: 90
+    env:
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ runner.temp }}/vcpkg-binary-cache
+
+    steps:
+      - name: Checkout (不拉子模块: fea_codegen 是 SSH URL, 构建不需要 extern/)
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install test framework (symtest-cli, 提供 compare-files)
+        # 固定 numpy<2.5: symtest-cli 1.3.2 未限制 numpy 上限, 拉最新 2.5 会与
+        # h5py 3.16 发生二进制 ABI 不兼容 (numpy.dtype size changed), 导致 CSV 对比崩溃。
+        run: |
+          pip install "symtest-cli==1.3.2" "numpy<2.5"
+
+      - name: Restore vcpkg binary cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/vcpkg-binary-cache
+          key: vcpkg-bin-x64-windows-${{ env.VCPKG_COMMIT }}-${{ hashFiles('vcpkg.json') }}
+
+      - name: Clone vcpkg (pinned to manifest baseline)
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git $env:RUNNER_TEMP/vcpkg
+          git -C $env:RUNNER_TEMP/vcpkg checkout $env:VCPKG_COMMIT
+          & $env:RUNNER_TEMP/vcpkg/bootstrap-vcpkg.bat -disableMetrics
+
+      - name: Install C++ dependencies (产物落 vcpkg_installed/x64-windows)
+        run: & $env:RUNNER_TEMP/vcpkg/vcpkg.exe install --triplet x64-windows
+
+      - name: Configure (MSVC Release, 绕过含本机硬编码路径的 presets)
+        run: |
+          cmake -S . -B build/ci -G "Visual Studio 17 2022" -A x64 `
+            -DCMAKE_TOOLCHAIN_FILE="$env:RUNNER_TEMP/vcpkg/scripts/buildsystems/vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET=x64-windows
+
+      - name: Build
+        run: cmake --build build/ci --config Release --parallel
+
+      - name: Verify test tooling on PATH
+        # compare-files 由 pip 安装到 Python Scripts 目录, 必须对 symtest 子进程可见
+        # (缺它会导致 tet4_mat1_im 的文本对比步骤失败)。
+        run: |
+          python -c "import shutil; assert shutil.which('compare-files'), 'compare-files not on PATH'"
+          compare-files --help | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "compare-files check failed" }
+
+      - name: Integration tests (13 用例, Abaqus 步骤跳过, 与仓库基准对比)
+        run: |
+          python test_case/test.py `
+            --var solver="$PWD/bin/msvc/NovaFEA_app.exe" `
+            --junit-xml junit_report.xml `
+            --workers 4
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            test_case/test_report.txt
+            test_case/junit_report.xml
