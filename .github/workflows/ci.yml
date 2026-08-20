@@ -17,8 +17,6 @@ jobs:
   build-and-test:
     runs-on: windows-2022
     timeout-minutes: 90
-    env:
-      VCPKG_DEFAULT_BINARY_CACHE: ${{ runner.temp }}/vcpkg-binary-cache
 
     steps:
       - name: "Checkout (不拉子模块: fea_codegen 是 SSH URL, 构建不需要 extern/)"
@@ -50,6 +48,9 @@ jobs:
       - name: Install C++ dependencies (产物落 vcpkg_installed/x64-windows)
         run: |
           & $env:RUNNER_TEMP/vcpkg/vcpkg.exe install --triplet x64-windows
+        env:
+          # runner 上下文仅在 step 级 env/with 中可用 (job 级 env 不允许)
+          VCPKG_DEFAULT_BINARY_CACHE: ${{ runner.temp }}/vcpkg-binary-cache
 
       - name: Configure (MSVC Release, 绕过含本机硬编码路径的 presets)
         run: |
