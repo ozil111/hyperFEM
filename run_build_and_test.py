@@ -156,7 +156,8 @@ def run_integration_tests(project_root: str, mode: str, show_time: bool = False)
     else:
         solver_mode = 'debug'
 
-    command = [python_exe, str(test_script), '--mode', solver_mode]
+    command = [python_exe, str(test_script), '--mode', solver_mode,
+               '--history-dir', os.path.join('.symtest', solver_mode)]
     print(f"Executing integration tests: {' '.join(command)}")
 
     # Ensure the child Python process uses UTF-8 for stdio to avoid UnicodeEncodeError with '✓'
