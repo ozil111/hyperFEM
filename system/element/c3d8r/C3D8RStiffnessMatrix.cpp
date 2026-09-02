@@ -15,13 +15,13 @@
 #include <cmath>
 
 // ===================================================================
-// **第一阶段：常量定�?(Constants Module)**
+// **第一阶段：常量定义 (Constants Module)**
 // ===================================================================
 
 namespace {
     // 沙漏模式向量 H_VECTORS (8x4)
     // FORTRAN: H_VECTORS(8,4) = reshape([...], [8,4])
-    // 注意：FORTRAN 是列主序，Eigen 默认也是列主�?
+    // 注意：FORTRAN 是列主序，Eigen 默认也是列主序
     static const Eigen::Matrix<double, 8, 4> H_VECTORS = (Eigen::Matrix<double, 8, 4>() <<
         // h1: (1, -1, 1, -1, 1, -1, 1, -1)
          1.0,  1.0,  1.0, -1.0,
@@ -34,7 +34,7 @@ namespace {
         -1.0, -1.0,  1.0, -1.0
     ).finished();
 
-    // 调优参数（对�?FORTRAN 中的 SCALE_* 参数�?
+    // 调优参数（对应 FORTRAN 中的 SCALE_* 参数）
     static constexpr double SCALE_HOURGLASS = 1.0;
     static constexpr double SCALE_K_MATRIX = 1.0;
     static constexpr double SCALE_GAMMA = 1.0;
@@ -50,16 +50,16 @@ namespace {
 }
 
 // -------------------------------------------------------------------
-// **辅助函数：计�?B-bar 向量的一个分�?*
-// 参�?FORTRAN 代码中的 CALC_B_BAR 子程�?
-// 注意：FORTRAN 索引�?1 开始，C++ �?0 开�?
+// **辅助函数：计算 B-bar 向量的一个分量**
+// 参考 FORTRAN 代码中的 CALC_B_BAR 子程序
+// 注意：FORTRAN 索引从 1 开始，C++ 从 0 开始
 // -------------------------------------------------------------------
 static void calc_b_bar_component(
-    const double* y,  // 8个节点的 y 坐标（索�?0-7�?
-    const double* z,  // 8个节点的 z 坐标（索�?0-7�?
-    double* BiI       // 输出�?个节点的 B-bar 值（索引 0-7�?
+    const double* y,  // 8个节点的 y 坐标（索引 0-7）
+    const double* z,  // 8个节点的 z 坐标（索引 0-7）
+    double* BiI       // 输出：8个节点的 B-bar 值（索引 0-7）
 ) {
-    // FORTRAN 代码中的 CALC_B_BAR 逻辑（已转换�?C++ 索引�?
+    // FORTRAN 代码中的 CALC_B_BAR 逻辑（已转换为 C++ 索引）
     // FORTRAN BiI(1) 对应 C++ BiI[0]，FORTRAN y(1) 对应 C++ y[0]
     BiI[0] = -(y[1]*(z[2]+z[3]-z[4]-z[5])+y[2]*(-z[1]+z[3])
              +y[3]*(-z[1]-z[2]+z[4]+z[7])+y[4]*(z[1]-z[3]+z[5]-z[7])
@@ -96,7 +96,7 @@ static void calc_b_bar_component(
 
 // -------------------------------------------------------------------
 // **辅助函数：计算单元中心处的雅可比矩阵**
-// 参�?FORTRAN 代码中的 JACOBIAN_CENTER 子程�?
+// 参考 FORTRAN 代码中的 JACOBIAN_CENTER 子程序
 // FORTRAN: JAC = matmul(transpose(XiI), COORD) * one_over_eight; JAC = transpose(JAC)
 // -------------------------------------------------------------------
 static Eigen::Matrix3d jacobian_center(const Eigen::Matrix<double, 8, 3>& coords) {
@@ -173,8 +173,8 @@ static void jacobian_at_point(
 }
 
 // -------------------------------------------------------------------
-// **辅助函数：计算单元体积（B-bar 方法�?*
-// 参�?FORTRAN 代码中的 CALC_VOL_BBAR
+// **辅助函数：计算单元体积（B-bar 方法）**
+// 参考 FORTRAN 代码中的 CALC_VOL_BBAR
 // -------------------------------------------------------------------
 static double calc_vol_bbar(const double* BiI, const double* X) {
     double V = 0.0;
@@ -185,25 +185,25 @@ static double calc_vol_bbar(const double* BiI, const double* X) {
 }
 
 // -------------------------------------------------------------------
-// **辅助函数：构�?B 矩阵�?x24�?*
-// 参�?FORTRAN 代码中的 FORM_B_MATRIX
+// **辅助函数：构建 B 矩阵（6x24）**
+// 参考 FORTRAN 代码中的 FORM_B_MATRIX
 // 
-// [UPDATED] 现在的顺序与 Abaqus/Fortran 保持一�?
+// [UPDATED] 现在的顺序与 Abaqus/Fortran 保持一致:
 // Index: 0->XX, 1->YY, 2->ZZ, 3->XY, 4->YZ, 5->XZ
 // -------------------------------------------------------------------
 static Eigen::Matrix<double, 6, 24> form_b_matrix(
-    const Eigen::Matrix<double, 8, 3>& BiI  // 8x3 �?B-bar 矩阵
+    const Eigen::Matrix<double, 8, 3>& BiI  // 8x3 的 B-bar 矩阵
 ) {
     Eigen::Matrix<double, 6, 24> B = Eigen::Matrix<double, 6, 24>::Zero();
     
     for (int K = 0; K < 8; ++K) {
-        // FORTRAN: B(1,3*K-2)=BiI(K,1) �?C++: B(0, 3*K+0) = BiI(K, 0) [XX]
+        // FORTRAN: B(1,3*K-2)=BiI(K,1) → C++: B(0, 3*K+0) = BiI(K, 0) [XX]
         B(0, 3*K + 0) = BiI(K, 0);
         
-        // FORTRAN: B(2,3*K-1)=BiI(K,2) �?C++: B(1, 3*K+1) = BiI(K, 1) [YY]
+        // FORTRAN: B(2,3*K-1)=BiI(K,2) → C++: B(1, 3*K+1) = BiI(K, 1) [YY]
         B(1, 3*K + 1) = BiI(K, 1);
         
-        // FORTRAN: B(3,3*K)=BiI(K,3) �?C++: B(2, 3*K+2) = BiI(K, 2) [ZZ]
+        // FORTRAN: B(3,3*K)=BiI(K,3) → C++: B(2, 3*K+2) = BiI(K, 2) [ZZ]
         B(2, 3*K + 2) = BiI(K, 2);
         
         // -------------------------------------------------------------
@@ -213,20 +213,20 @@ static Eigen::Matrix<double, 6, 24> form_b_matrix(
         // Row 3 -> XY (对应 Fortran B(4))
         // xy = ∂v/∂x + ∂u/∂y
         // FORTRAN B(4,3*K-2)=BiI(K,2), B(4,3*K-1)=BiI(K,1)
-        B(3, 3*K + 0) = BiI(K, 1);  // u �?y 的导�?(BiI(:,1))
-        B(3, 3*K + 1) = BiI(K, 0);  // v �?x 的导�?(BiI(:,0))
+        B(3, 3*K + 0) = BiI(K, 1);  // u 对 y 的导数 (BiI(:,1))
+        B(3, 3*K + 1) = BiI(K, 0);  // v 对 x 的导数 (BiI(:,0))
 
         // Row 4 -> YZ (对应 Fortran B(5))
         // yz = ∂w/∂y + ∂v/∂z
         // FORTRAN B(5,3*K-1)=BiI(K,3), B(5,3*K)=BiI(K,2)
-        B(4, 3*K + 1) = BiI(K, 2);  // v �?z 的导�?(BiI(:,2))
-        B(4, 3*K + 2) = BiI(K, 1);  // w �?y 的导�?(BiI(:,1))
+        B(4, 3*K + 1) = BiI(K, 2);  // v 对 z 的导数 (BiI(:,2))
+        B(4, 3*K + 2) = BiI(K, 1);  // w 对 y 的导数 (BiI(:,1))
 
         // Row 5 -> XZ (对应 Fortran B(6))
         // xz = ∂w/∂x + ∂u/∂z
         // FORTRAN B(6,3*K-2)=BiI(K,3), B(6,3*K)=BiI(K,1)
-        B(5, 3*K + 0) = BiI(K, 2);  // u �?z 的导�?(BiI(:,2))
-        B(5, 3*K + 2) = BiI(K, 0);  // w �?x 的导�?(BiI(:,0))
+        B(5, 3*K + 0) = BiI(K, 2);  // u 对 z 的导数 (BiI(:,2))
+        B(5, 3*K + 2) = BiI(K, 0);  // w 对 x 的导数 (BiI(:,0))
     }
     
     return B;
@@ -237,15 +237,15 @@ static Eigen::Matrix<double, 6, 24> form_b_matrix(
 // ===================================================================
 
 /**
- * @brief 极分解：J0_T = R * U，计�?R �?U_diag_inv
- * 参�?FORTRAN: POLAR_DECOMP_FOR_J0HINV
+ * @brief 极分解：J0_T = R * U，计算 R 和 U_diag_inv
+ * 参考 FORTRAN: POLAR_DECOMP_FOR_J0HINV
  */
 static void polar_decomp_for_j0hinv(
     const Eigen::Matrix3d& J0_T,
     Eigen::Matrix3d& R,
     Eigen::Matrix3d& U_diag_inv
 ) {
-    // 提取行向�?j1, j2, j3（FORTRAN: J0_T(1,:), J0_T(2,:), J0_T(3,:)�?
+    // 提取行向量 j1, j2, j3（FORTRAN: J0_T(1,:), J0_T(2,:), J0_T(3,:)）
     Eigen::Vector3d j1 = J0_T.row(0).transpose();
     Eigen::Vector3d j2 = J0_T.row(1).transpose();
     Eigen::Vector3d j3 = J0_T.row(2).transpose();
@@ -277,7 +277,7 @@ static void polar_decomp_for_j0hinv(
 
 /**
  * @brief 旋转材料矩阵：D_rotated = J^T * D * J
- * 参�?FORTRAN: ROT_DMTX
+ * 参考 FORTRAN: ROT_DMTX
  */
 static void rot_dmtx(
     const Eigen::Matrix<double, 6, 6>& D,
@@ -285,18 +285,18 @@ static void rot_dmtx(
     Eigen::Matrix<double, 6, 6>& D_rotated
 ) {
     // 提取 J0Inv 的分量（与 FORTRAN 一致：行优先）
-    // jXY = J0Inv 的第 X �?Y �?
+    // jXY = J0Inv 的第 X 行 Y 列
     double j11 = J0Inv(0, 0), j12 = J0Inv(0, 1), j13 = J0Inv(0, 2);
     double j21 = J0Inv(1, 0), j22 = J0Inv(1, 1), j23 = J0Inv(1, 2);
     double j31 = J0Inv(2, 0), j32 = J0Inv(2, 1), j33 = J0Inv(2, 2);
     
     // 构建 6x6 变换矩阵 J_transform
-    // Voigt �?XX, YY, ZZ, XY, YZ, XZ
+    // Voigt 顺序：XX, YY, ZZ, XY, YZ, XZ
     // FORTRAN: 每行使用 J0Inv 的对应行（而非列）
     Eigen::Matrix<double, 6, 6> J_transform;
     J_transform.setZero();
     
-    // Row 0 (XX) — 使用 J0Inv �?0 �?
+    // Row 0 (XX) — 使用 J0Inv 第 0 行
     J_transform(0, 0) = j11 * j11;
     J_transform(0, 1) = j12 * j12;
     J_transform(0, 2) = j13 * j13;
@@ -304,7 +304,7 @@ static void rot_dmtx(
     J_transform(0, 4) = 2.0 * j12 * j13;
     J_transform(0, 5) = 2.0 * j11 * j13;
     
-    // Row 1 (YY) — 使用 J0Inv �?1 �?
+    // Row 1 (YY) — 使用 J0Inv 第 1 行
     J_transform(1, 0) = j21 * j21;
     J_transform(1, 1) = j22 * j22;
     J_transform(1, 2) = j23 * j23;
@@ -312,7 +312,7 @@ static void rot_dmtx(
     J_transform(1, 4) = 2.0 * j22 * j23;
     J_transform(1, 5) = 2.0 * j21 * j23;
     
-    // Row 2 (ZZ) — 使用 J0Inv �?2 �?
+    // Row 2 (ZZ) — 使用 J0Inv 第 2 行
     J_transform(2, 0) = j31 * j31;
     J_transform(2, 1) = j32 * j32;
     J_transform(2, 2) = j33 * j33;
@@ -320,7 +320,7 @@ static void rot_dmtx(
     J_transform(2, 4) = 2.0 * j32 * j33;
     J_transform(2, 5) = 2.0 * j31 * j33;
     
-    // Row 3 (XY) — 使用 J0Inv �?0 �?1 �?
+    // Row 3 (XY) — 使用 J0Inv 第 0 与 1 行
     J_transform(3, 0) = j11 * j21;
     J_transform(3, 1) = j12 * j22;
     J_transform(3, 2) = j13 * j23;
@@ -328,7 +328,7 @@ static void rot_dmtx(
     J_transform(3, 4) = j12 * j23 + j13 * j22;
     J_transform(3, 5) = j11 * j23 + j13 * j21;
     
-    // Row 4 (YZ) — 使用 J0Inv �?1 �?2 �?
+    // Row 4 (YZ) — 使用 J0Inv 第 1 与 2 行
     J_transform(4, 0) = j21 * j31;
     J_transform(4, 1) = j22 * j32;
     J_transform(4, 2) = j23 * j33;
@@ -336,7 +336,7 @@ static void rot_dmtx(
     J_transform(4, 4) = j22 * j33 + j23 * j32;
     J_transform(4, 5) = j21 * j33 + j23 * j31;
     
-    // Row 5 (XZ) — 使用 J0Inv �?0 �?2 �?
+    // Row 5 (XZ) — 使用 J0Inv 第 0 与 2 行
     J_transform(5, 0) = j11 * j31;
     J_transform(5, 1) = j12 * j32;
     J_transform(5, 2) = j13 * j33;
@@ -349,12 +349,12 @@ static void rot_dmtx(
 }
 
 // ===================================================================
-// **第二阶段：几何参数计�?(Geometry & Shape)**
+// **第二阶段：几何参数计算 (Geometry & Shape)**
 // ===================================================================
 
 /**
  * @brief 计算沙漏形状向量 Gamma
- * 参�?FORTRAN: HOURGLASS_SHAPE_VECTORS
+ * 参考 FORTRAN: HOURGLASS_SHAPE_VECTORS
  * 公式：Γ_i = (1/8) * [h_i - Σ (h_i · x_a) * b_a]
  */
 static void compute_hourglass_shape_vectors(
@@ -365,7 +365,7 @@ static void compute_hourglass_shape_vectors(
     gammas.setZero();
     
     for (int i = 0; i < 4; ++i) {
-        // 计算 h_i · x_a 对于所�?个方�?
+        // 计算 h_i · x_a 对于所有3个方向
         Eigen::Vector3d h_dot_x = Eigen::Vector3d::Zero();
         for (int A = 0; A < 8; ++A) {
             h_dot_x(0) += H_VECTORS(A, i) * coords(A, 0);
@@ -389,7 +389,7 @@ static void compute_hourglass_shape_vectors(
 
 /**
  * @brief 计算旋转后的材料矩阵 C_tilde
- * 参�?FORTRAN: GET_CMTXH
+ * 参考 FORTRAN: GET_CMTXH
  * 对于线弹性小变形，rj = 1.0
  */
 static void get_cmtxh(
@@ -401,7 +401,7 @@ static void get_cmtxh(
     // Step 1: 计算 J0^T
     Eigen::Matrix3d J0_T = FJAC.transpose();
     
-    // Step 2: 极分解得�?R �?U_diag_inv
+    // Step 2: 极分解得到 R 和 U_diag_inv
     Eigen::Matrix3d R, U_diag_inv;
     polar_decomp_for_j0hinv(J0_T, R, U_diag_inv);
     
@@ -411,13 +411,13 @@ static void get_cmtxh(
     // Step 4: 旋转材料矩阵
     rot_dmtx(DMAT, hat_J0_inv, Cmtxh);
     
-    // Step 5: 应用 rj 和缩放因�?
+    // Step 5: 应用 rj 和缩放因子
     Cmtxh *= rj * SCALE_C_TILDE;
 }
 
 /**
- * @brief 计算 K 矩阵（K_uu, K_au, K_aa�?
- * 参�?FORTRAN: CALC_K_MATRICES
+ * @brief 计算 K 矩阵（K_uu, K_au, K_aa）
+ * 参考 FORTRAN: CALC_K_MATRICES
  */
 static void calc_k_matrices(
     const Eigen::Matrix<double, 6, 6>& C_tilde,
@@ -426,7 +426,7 @@ static void calc_k_matrices(
     Eigen::Matrix<double, 6, 3> K_au[4],
     Eigen::Matrix<double, 6, 6>& K_aa
 ) {
-    // 初始�?
+    // 初始化
     for (int i = 0; i < 4; ++i) {
         for (int j = 0; j < 4; ++j) {
             K_uu[i][j].setZero();
@@ -443,7 +443,7 @@ static void calc_k_matrices(
     // 提取 C 矩阵分量（简化符号）
     const Eigen::Matrix<double, 6, 6>& C = C_tilde;
     
-    // ========== 对角�?==========
+    // ========== 对角项 ==========
     
     // K^11
     K_uu[0][0](0, 0) = factor_K123 * C(0, 0);
@@ -477,7 +477,7 @@ static void calc_k_matrices(
     K_uu[3][3](1, 1) = factor_K4 * C(1, 1);
     K_uu[3][3](2, 2) = factor_K4 * C(2, 2);
     
-    // ========== 交叉�?==========
+    // ========== 交叉项 ==========
     
     // K^12
     K_uu[0][1](1, 1) = factor_K123 * C(1, 4);
@@ -560,15 +560,15 @@ static void calc_k_matrices(
 // ===================================================================
 
 /**
- * @brief 计算沙漏刚度矩阵�?4x24�? 优化版本
+ * @brief 计算沙漏刚度矩阵（24x24）- 优化版本
  * 这是主要的沙漏控制函数，对应 VUEL 中的 Step 2 全部逻辑
  * 
  * 优化点：
- * - 使用 Block 操作代替逐元素循环（利用 SIMD�?
- * - 预计�?FJAC 转置，避免循环内重复计算
- * - 预计�?K_au^T * K_aa_inv，减少矩阵乘法次�?
+ * - 使用 Block 操作代替逐元素循环（利用 SIMD）
+ * - 预计算 FJAC 转置，避免循环内重复计算
+ * - 预计算 K_au^T * K_aa_inv，减少矩阵乘法次数
  * - 使用 noalias() 避免临时矩阵分配
- * - 稀疏优化：跳过极小�?gamma �?
+ * - 稀疏优化：跳过极小的 gamma 值
  */
 static void compute_hourglass_stiffness(
     const Eigen::Matrix<double, 8, 3>& coords,
@@ -587,18 +587,18 @@ static void compute_hourglass_stiffness(
     Eigen::Matrix<double, 6, 6> C_tilde;
     get_cmtxh(D_mat, FJAC, 1.0, C_tilde);
     
-    // 3. 计算子刚度矩�?
+    // 3. 计算子刚度矩阵
     Eigen::Matrix<double, 3, 3> K_uu[4][4];
     Eigen::Matrix<double, 6, 3> K_au[4];
     Eigen::Matrix<double, 6, 6> K_aa;
     
     calc_k_matrices(C_tilde, vol, K_uu, K_au, K_aa);
     
-    // 4. �?K_aa 求逆（利用对角特性）
-    // 优化：预先计算逆矩阵的对角线元素，避免全矩阵乘�?
+    // 4. 对 K_aa 求逆（利用对角特性）
+    // 优化：预先计算逆矩阵的对角线元素，避免全矩阵乘法
     Eigen::Matrix<double, 6, 6> K_aa_inv;
     K_aa_inv.setZero();
-    // 使用 epsilon 避免除零，虽然理论上刚度不应�?
+    // 使用 epsilon 避免除零，虽然理论上刚度不应为零
     constexpr double eps = 1.0e-20;
     for (int i = 0; i < 6; ++i) {
         double val = K_aa(i, i);
@@ -629,23 +629,23 @@ static void compute_hourglass_stiffness(
         }
     }
 
-    // 预计�?FJAC 的转置，避免在循环中重复计算（单点路径使用）
+    // 预计算 FJAC 的转置，避免在循环中重复计算（单点路径使用）
     const Eigen::Matrix3d FJAC_T = FJAC.transpose();
 
-    // 临时变量放在循环外（优化�?B：减少临时分配）
+    // 临时变量放在循环外（优化点 B：减少临时分配）
     Eigen::Matrix3d K_cond;
     Eigen::Matrix3d K_cond_transformed;
 
     // 循环 4x4 模式
     for (int i = 0; i < 4; ++i) {
-        // 预计算部�?K_au 项：Temp = K_au_i^T * K_aa_inv
-        // K_au[i] �?6x3，转置是 3x6。K_aa_inv �?6x6 对角�?
+        // 预计算部分 K_au 项：Temp = K_au_i^T * K_aa_inv
+        // K_au[i] 是 6x3，转置是 3x6。K_aa_inv 是 6x6 对角。
         // 因为 K_aa_inv 是对角的，这个乘法其实是对行进行缩放
         Eigen::Matrix<double, 3, 6> Kau_T_KaaInv;
         Kau_T_KaaInv.noalias() = K_au[i].transpose() * K_aa_inv;
 
         for (int j = 0; j < 4; ++j) {
-            // A. 计算凝聚后的 3x3 刚度�?
+            // A. 计算凝聚后的 3x3 刚度核
             // K_cond = K_uu[i][j] - (Kau_T_KaaInv * K_au[j])
             K_cond.noalias() = K_uu[i][j] - Kau_T_KaaInv * K_au[j];
 
@@ -664,23 +664,23 @@ static void compute_hourglass_stiffness(
                 K_cond_transformed.noalias() = FJAC * K_cond * FJAC_T;
             }
 
-            // C. 组装�?24x24 矩阵 (Kronecker Product 优化 - 优化�?A)
+            // C. 组装到 24x24 矩阵 (Kronecker Product 优化 - 优化点 A)
             // 原理：Ke_block_AB += gamma(A,i)*gamma(B,j) * M_IJ
             // 利用 Block 操作代替逐元素循环，利用 SIMD 指令
 
-            // 提取�?i 列和�?j �?gamma�?x1 向量�?
+            // 提取第 i 列和第 j 列 gamma（8x1 向量）
             auto gamma_i = gammas.col(i);
             auto gamma_j = gammas.col(j);
 
             for (int A = 0; A < 8; ++A) {
                 double g_Ai = gamma_i(A);
-                // 稀疏优化：如果 g_Ai 极小，跳过内层循�?
+                // 稀疏优化：如果 g_Ai 极小，跳过内层循环
                 if (std::abs(g_Ai) < 1e-15) continue;
 
                 for (int B = 0; B < 8; ++B) {
                     double coef = g_Ai * gamma_j(B);
 
-                    // 利用 Eigen �?block 操作直接加上 3x3 矩阵
+                    // 利用 Eigen 的 block 操作直接加上 3x3 矩阵
                     // 这比逐元素加法快得多，因为利用了 SIMD
                     Ke_hg_out.block<3, 3>(3 * A, 3 * B).noalias() += coef * K_cond_transformed;
                 }
@@ -712,7 +712,7 @@ void compute_c3d8r_stiffness_matrix(
         throw std::runtime_error("Element entity missing Connectivity component");
     }
     
-    // 2. 获取连接�?
+    // 2. 获取连接性
     const auto& connectivity = registry.get<Component::Connectivity>(element_entity);
     if (connectivity.nodes.size() != 8) {
         throw std::runtime_error("C3D8R element must have exactly 8 nodes");
@@ -730,10 +730,10 @@ void compute_c3d8r_stiffness_matrix(
         coords(i, 2) = pos.z;
     }
     
-    // 4. 计算 B-bar 矩阵（D 矩阵已由调用者传入，无需查找�?
+    // 4. 计算 B-bar 矩阵（D 矩阵已由调用者传入，无需查找）
     Eigen::Matrix<double, 8, 3> BiI;
     
-    // 提取坐标分量（注�?FORTRAN 代码中的顺序�?
+    // 提取坐标分量（注意 FORTRAN 代码中的顺序）
     double y[8], z[8];
     double x[8];
     for (int i = 0; i < 8; ++i) {
@@ -742,10 +742,10 @@ void compute_c3d8r_stiffness_matrix(
         z[i] = coords(i, 2);
     }
     
-    // 计算三个分量�?B-bar
-    calc_b_bar_component(y, z, BiI.data() + 0*8);  // x 分量（对�?BiI(:,1)�?
-    calc_b_bar_component(z, x, BiI.data() + 1*8);  // y 分量（对�?BiI(:,2)�?
-    calc_b_bar_component(x, y, BiI.data() + 2*8);  // z 分量（对�?BiI(:,3)�?
+    // 计算三个分量的 B-bar
+    calc_b_bar_component(y, z, BiI.data() + 0*8);  // x 分量（对应 BiI(:,1)）
+    calc_b_bar_component(z, x, BiI.data() + 1*8);  // y 分量（对应 BiI(:,2)）
+    calc_b_bar_component(x, y, BiI.data() + 2*8);  // z 分量（对应 BiI(:,3)）
     
     // 6. 计算单元体积
     double VOL = calc_vol_bbar(BiI.data() + 0*8, x);  // 使用第一个分量
@@ -786,7 +786,7 @@ void compute_c3d8r_stiffness_matrix(
     Eigen::Matrix<double, 24, 24> K_hg;
     compute_hourglass_stiffness(coords, BiI, JAC, D, DETJ * WG, K_hg);
     
-    // 12. 总刚度矩�?= 体积刚度 + 沙漏刚度
+    // 12. 总刚度矩阵 = 体积刚度 + 沙漏刚度
     K_total += K_hg;
     
     // 输出到缓冲区
@@ -859,13 +859,13 @@ bool compute_c3d8r_stress_strain(
 }
 
 // -------------------------------------------------------------------
-// **向后兼容版本：计�?C3D8R 单元刚度矩阵（旧接口�?*
+// **向后兼容版本：计算 C3D8R 单元刚度矩阵（旧接口）**
 // -------------------------------------------------------------------
 Eigen::Matrix<double, 24, 24> compute_c3d8r_stiffness_matrix(
     entt::registry& registry,
     entt::entity element_entity
 ) {
-    // 通过 Part 获取材料 D 矩阵（element -> TopologyData -> Part -> material�?
+    // 通过 Part 获取材料 D 矩阵（element -> TopologyData -> Part -> material）
     if (!registry.all_of<Component::ElementID>(element_entity)) {
         throw std::runtime_error("Element entity missing ElementID component");
     }
