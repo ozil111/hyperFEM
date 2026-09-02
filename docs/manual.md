@@ -2,6 +2,10 @@
 
 NovaFEA 是一个现代、高性能的有限元分析引擎。本手册介绍可执行程序 `NovaFEA_app` 的命令行用法和三种运行模式。
 
+**相关文档**：
+- [JSON 格式参考](./json_format_reference.md) —— JSON 输入文件格式详细定义
+- [交互模式使用手册](./交互模式使用手册.md) —— 交互/脚本模式命令详解
+
 ---
 
 ## 1. 概述
@@ -64,6 +68,8 @@ NovaFEA_app -i case/model.jsonc -e case/output.xfem -o case/result.vtk
 |------|--------|------|
 | JSON | `.json` / `.jsonc` | 推荐格式，支持注释 |
 | XFEM | `.xfem` | 传统文本格式，向后兼容 |
+
+> JSON 输入文件的完整语法（材料、属性、网格、集合、曲线、载荷、边界条件、分析设置、输出请求等各字段的详细定义）请参考 [JSON 格式参考](./json_format_reference.md)。
 
 ---
 
