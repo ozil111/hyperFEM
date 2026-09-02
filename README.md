@@ -1,16 +1,13 @@
 # NovaFEA
 
 [![License](https://img.shields.io/badge/license-MPL--2.0-blue.svg)](LICENSE)
-[![Language](https://img.shields.io/badge/language-C%2B%2B%20%26%20Python-orange.svg)]()
 
-**NovaFEA** 是一个从零开始构建的、现代、高性能的有限元分析（FEA）引擎。它旨在融合传统高性能计算与现代 AI 驱动的开发范式，探索从符号数学定义到高效计算内核的自动化演进路径。
+**NovaFEA** 是一个实验性的工业有限元软件的开源替代项目。包括TUI前处理、隐式结构求解器和显式结构求解器。
 
 ## 核心特性
 
-- **高性能 C++ 核心**：采用现代 C++ (17/20) 编写，利用 CMake 与 Vcpkg 进行构建和依赖管理。
-- **声明式输入文件**：支持 `.jsonc`格式，使算例定义清晰且具有注释支持。
-- **符号代码生成 (Symbolic Code Generation)**：核心创新点，利用 Python/SymPy 自动生成高度优化的 C++、CUDA 与 JAX 计算内核。
-- **Python/JAX 生态**：利用 JAX 进行快速算法原型设计和求解器验证。
+- **高性能hex8r_EAS单元**：参考Puso, Michael A.. “A highly efficient enhanced assumed strain physically stabilized hexahedral element.” International Journal for Numerical Methods in Engineering 49 (2000): 1029-1064.构建了工业级的单点积分六面体单元
+- **高精度回归测试**: 使用[symtest_cli](https://github.com/ozil111/symtest-cli)进行回归测试，可以进行高精度有限元结果对比，保证结果的正确性
 
 ## 安装与构建
 
@@ -63,9 +60,9 @@ python run_build_and_test.py --build --itest
 
 ## 测试框架
 
-### 集成测试 (cli-test-framework)
+### 集成测试 (symtest_cli)
 
-位于 `test_case/`目录，基于 cli-test-framework 开发。
+位于 `test_case/`目录，基于 symtest_cli 开发。
 
 该框架通过 `test_case/test_cases.json`定义测试矩阵，自动运行 `NovaFEA`命令行工具并验证输出结果。
 
