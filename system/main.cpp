@@ -15,7 +15,6 @@
 #include "components/mesh_components.h"   // Introduce component definitions
 #include "components/analysis_component.h"
 #include "AppSession.h"                   // Introduce session state machine
-#include "output/VtuExporter.h"          // VTU result output
 #include "output/VtkExporter.h"          // Legacy VTK result output
 #include "output/CsvExporter.h"          // CSV result output (Abaqus format)
 #include "main0_explicit.h"              // Explicit solver logic
@@ -52,7 +51,7 @@ void print_help() {
     std::cout << "Options:" << std::endl;
     std::cout << "  --input-file, -i <file>    Specify input file (.xfem or .json/.jsonc)" << std::endl;
     std::cout << "  --export, -e <file>        Export preprocessed mesh (.xfem or .jsonc)" << std::endl;
-    std::cout << "  --output, -o <file>        Output result file (.vtu or .vtk)" << std::endl;
+    std::cout << "  --output, -o <file>        Output result file (.vtk)" << std::endl;
     std::cout << "  --output-csv <prefix>      Output CSV results with given prefix (<prefix>_disp.csv, <prefix>_elements.csv)" << std::endl;
     std::cout << "  --output-file <file>       [deprecated] Alias for --export (.xfem or .jsonc)" << std::endl;
     std::cout << "  --log-level, -l <level>    Set log level (trace, debug, info, warn, error, critical)" << std::endl;
@@ -67,7 +66,7 @@ void print_help() {
     std::cout << std::endl;
     std::cout << "Examples:" << std::endl;
     std::cout << "  NovaFEA_app --input-file case/model.jsonc --export case/output.xfem" << std::endl;
-    std::cout << "  NovaFEA_app --input-file case/model.jsonc --output case/result.vtu" << std::endl;
+    std::cout << "  NovaFEA_app --input-file case/model.jsonc --output case/result.vtk" << std::endl;
     std::cout << "  NovaFEA_app --input-file case/node.xfem --export case/output.xfem" << std::endl;
 }
 
@@ -88,8 +87,8 @@ int main(int argc, char* argv[]) {
     // Export mesh file path (old --output-file behavior)
     std::string export_file_path;
     
-    // Result output .vtu file path (new output)
-    std::string output_vtu_path;
+    // Result output file path (new output)
+    std::string output_result_path;
 
     // CSV output prefix (from --output-csv)
     std::string output_csv_prefix;
@@ -164,14 +163,14 @@ int main(int argc, char* argv[]) {
             }
         } else if (arg == "--output" || arg == "-o") {
             if (i + 1 < argc) {
-                output_vtu_path = argv[++i];
+                output_result_path = argv[++i];
 
-                // Validate file extension (supports .vtu and .vtk)
-                std::filesystem::path file_path(output_vtu_path);
+                // Validate file extension (supports .vtk)
+                std::filesystem::path file_path(output_result_path);
                 auto ext = file_path.extension().string();
-                if (ext != ".vtu" && ext != ".vtk") {
-                    std::cerr << "Error: Output file must have .vtu or .vtk extension" << std::endl;
-                    std::cerr << "Provided file: " << output_vtu_path << std::endl;
+                if (ext != ".vtk") {
+                    std::cerr << "Error: Output file must have .vtk extension" << std::endl;
+                    std::cerr << "Provided file: " << output_result_path << std::endl;
                     return 1;
                 }
             } else {
@@ -263,8 +262,8 @@ int main(int argc, char* argv[]) {
         
         // Create DataContext object to store parsed data
         DataContext data_context;
-        // Record command line specified VTU output path (if any), used to suppress default result/*.vtu output in solver
-        data_context.cli_output_vtu_path = output_vtu_path;
+        // Record command line specified output path (if any), used to suppress default result/*.vtk output in solver
+        data_context.cli_output_path = output_result_path;
         // Record command line specified CSV output prefix
         data_context.cli_output_csv_prefix = output_csv_prefix;
         
@@ -318,21 +317,13 @@ int main(int argc, char* argv[]) {
             }
 
             // --- Step 7: Export result if an output file is specified ---
-            if (!output_vtu_path.empty()) {
-                std::filesystem::path out_path(output_vtu_path);
-                auto out_ext = out_path.extension().string();
-                bool export_ok = false;
-                if (out_ext == ".vtu") {
-                    spdlog::info("Exporting VTU result to: {}", output_vtu_path);
-                    export_ok = VtuExporter::save(output_vtu_path, data_context, data_context.output_entity);
-                } else if (out_ext == ".vtk") {
-                    spdlog::info("Exporting legacy VTK result to: {}", output_vtu_path);
-                    export_ok = VtkExporter::save(output_vtu_path, data_context, data_context.output_entity);
-                }
+            if (!output_result_path.empty()) {
+                spdlog::info("Exporting legacy VTK result to: {}", output_result_path);
+                bool export_ok = VtkExporter::save(output_result_path, data_context, data_context.output_entity);
                 if (export_ok) {
                     spdlog::info("Successfully exported result.");
                 } else {
-                    spdlog::error("Failed to export result to: {}", output_vtu_path);
+                    spdlog::error("Failed to export result to: {}", output_result_path);
                     return 1;
                 }
             }

@@ -19,7 +19,7 @@
 #include "load/LoadSystem.h"
 #include "explicit/ExplicitSolver.h"
 #include "material/dmatMain.h"
-#include "output/VtuExporter.h"
+#include "output/VtkExporter.h"
 #include <filesystem>
 #include <iomanip>
 #include <sstream>
@@ -89,7 +89,7 @@ void run_explicit_solver(DataContext& data_context) {
     }
     spdlog::info("Starting time integration. dt = {:.2e}, total_time = {:.2e}", dt, total_time);
 
-    const bool has_cli_output = !data_context.cli_output_vtu_path.empty();
+    const bool has_cli_output = !data_context.cli_output_path.empty();
     const bool do_output = (!has_cli_output &&
                             data_context.output_entity != entt::null &&
                             data_context.registry.valid(data_context.output_entity));
@@ -102,8 +102,8 @@ void run_explicit_solver(DataContext& data_context) {
     if (do_output) {
         std::filesystem::create_directories("result");
         std::ostringstream oss;
-        oss << "result/res_" << std::setfill('0') << std::setw(4) << 0 << ".vtu";
-        VtuExporter::save(oss.str(), data_context, data_context.output_entity);
+        oss << "result/res_" << std::setfill('0') << std::setw(4) << 0 << ".vtk";
+        VtkExporter::save(oss.str(), data_context, data_context.output_entity);
         output_index = 0;
         next_output_time = output_interval;
     }
@@ -128,8 +128,8 @@ void run_explicit_solver(DataContext& data_context) {
             output_index++;
             std::filesystem::create_directories("result");
             std::ostringstream oss;
-            oss << "result/res_" << std::setfill('0') << std::setw(4) << output_index << ".vtu";
-            VtuExporter::save(oss.str(), data_context, data_context.output_entity);
+            oss << "result/res_" << std::setfill('0') << std::setw(4) << output_index << ".vtk";
+            VtkExporter::save(oss.str(), data_context, data_context.output_entity);
             next_output_time += output_interval;
         }
         

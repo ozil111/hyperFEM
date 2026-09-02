@@ -28,7 +28,7 @@ Usage: NovaFEA_app [options]
 |------|------|------|
 | `--input-file` | `-i` | 指定输入文件（`.xfem`、`.json`、`.jsonc`），进入批处理模式 |
 | `--export` | `-e` | 导出预处理后的网格（`.xfem` 或 `.jsonc`） |
-| `--output` | `-o` | 指定结果输出文件（`.vtu`） |
+| `--output` | `-o` | 指定结果输出文件（`.vtk`） |
 | `--output-file` | - | [已废弃] `--export` 的别名 |
 | `--script` | `-s` | 指定脚本文件，进入脚本模式 |
 | `--log-level` | `-l` | 设置日志级别（trace/debug/info/warn/error/critical） |
@@ -44,7 +44,7 @@ Usage: NovaFEA_app [options]
 ### 用法
 
 ```bash
-NovaFEA_app -i case/model.jsonc -e case/output.xfem -o case/result.vtu
+NovaFEA_app -i case/model.jsonc -e case/output.xfem -o case/result.vtk
 ```
 
 ### 执行流程
@@ -56,7 +56,7 @@ NovaFEA_app -i case/model.jsonc -e case/output.xfem -o case/result.vtu
    - `explicit` → 显式求解器
    - `static` → 线性静力求解器
 3. 若指定了 `--export`，将网格导出为 `.xfem` 或 `.jsonc`
-4. 若指定了 `--output`，将结果导出为 `.vtu`
+4. 若指定了 `--output`，将结果导出为 `.vtk`
 
 ### 支持的输入格式
 
@@ -204,7 +204,7 @@ NovaFEA 使用 `spdlog` 同时输出日志到文件和控制台。
 ### 场景 1：求解有限元算例
 
 ```bash
-NovaFEA_app -i case/beam_analysis.jsonc -o result/beam.vtu
+NovaFEA_app -i case/beam_analysis.jsonc -o result/beam.vtk
 ```
 
 ### 场景 2：网格格式转换

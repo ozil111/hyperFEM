@@ -21,7 +21,7 @@
 #include "material/dmatMain.h"
 #include "components/simdroid_components.h"
 #include "mesh/TopologySystems.h"
-#include "output/VtuExporter.h"
+#include "output/VtkExporter.h"
 
 #include <Eigen/SparseCholesky>
 #include <Eigen/SparseLU>
@@ -319,15 +319,15 @@ void run_linearstatic_solver(DataContext& data_context) {
     }
 
     // 8) Optional output (single snapshot)
-    const bool has_cli_output = !data_context.cli_output_vtu_path.empty();
+    const bool has_cli_output = !data_context.cli_output_path.empty();
     const bool do_output = (!has_cli_output &&
                             data_context.output_entity != entt::null &&
                             registry.valid(data_context.output_entity));
     if (do_output) {
         std::filesystem::create_directories("result");
         std::ostringstream oss;
-        oss << "result/static_" << std::setfill('0') << std::setw(4) << 0 << ".vtu";
-        VtuExporter::save(oss.str(), data_context, data_context.output_entity);
+        oss << "result/static_" << std::setfill('0') << std::setw(4) << 0 << ".vtk";
+        VtkExporter::save(oss.str(), data_context, data_context.output_entity);
         spdlog::info("LinearStatic: Wrote output to {}", oss.str());
     }
 

@@ -2,17 +2,29 @@
   "test_cases": [
     {
       "name": "remesh_double_part_hex8",
-      "tags": ["remesh", "hex8", "tie", "connection-preserving"],
-      "steps": [
-        {
-          "command": "{solver}",
-          "args": ["-s", "remesh/double_part_hex8/remesh.nova"],
-          "timeout": 180,
-          "expected": {
-            "output_contains": ["Application finished successfully"]
-          }
-        }
+      "tags": [
+        "remesh",
+        "hex8",
+        "tie",
+        "connection-preserving"
       ],
+      "execution": {
+        "steps": [
+          {
+            "command": "{solver}",
+            "args": [
+              "-s",
+              "remesh/double_part_hex8/remesh.nova"
+            ],
+            "timeout": 180,
+            "expected": {
+              "output_contains": [
+                "Application finished successfully"
+              ]
+            }
+          }
+        ]
+      },
       "expected": {
         "compare_files": [
           {
@@ -40,17 +52,29 @@
     },
     {
       "name": "remesh_cantilever_beam_hex8",
-      "tags": ["remesh", "hex8", "single-part", "connection-preserving"],
-      "steps": [
-        {
-          "command": "{solver}",
-          "args": ["-s", "remesh/cantilever_beam_hex8/remesh.nova"],
-          "timeout": 60,
-          "expected": {
-            "output_contains": ["Application finished successfully"]
-          }
-        }
+      "tags": [
+        "remesh",
+        "hex8",
+        "single-part",
+        "connection-preserving"
       ],
+      "execution": {
+        "steps": [
+          {
+            "command": "{solver}",
+            "args": [
+              "-s",
+              "remesh/cantilever_beam_hex8/remesh.nova"
+            ],
+            "timeout": 60,
+            "expected": {
+              "output_contains": [
+                "Application finished successfully"
+              ]
+            }
+          }
+        ]
+      },
       "expected": {
         "compare_files": [
           {
@@ -78,17 +102,29 @@
     },
     {
       "name": "remesh_doublepart_tet10",
-      "tags": ["remesh", "tet10", "tie", "connection-preserving"],
-      "steps": [
-        {
-          "command": "{solver}",
-          "args": ["-s", "remesh/doublepart_tet10/remesh.nova"],
-          "timeout": 120,
-          "expected": {
-            "output_contains": ["Application finished successfully"]
-          }
-        }
+      "tags": [
+        "remesh",
+        "tet10",
+        "tie",
+        "connection-preserving"
       ],
+      "execution": {
+        "steps": [
+          {
+            "command": "{solver}",
+            "args": [
+              "-s",
+              "remesh/doublepart_tet10/remesh.nova"
+            ],
+            "timeout": 120,
+            "expected": {
+              "output_contains": [
+                "Application finished successfully"
+              ]
+            }
+          }
+        ]
+      },
       "expected": {
         "compare_files": [
           {

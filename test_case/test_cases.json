@@ -2,114 +2,172 @@
   "test_cases": [
     {
       "name": "tet4_mat1_im",
-      "tags": ["tet4", "mat1", "imlicit","solver"],
-      "steps":[
-        {
-          "command": "{solver}",
-          "args":["-i","tet4_mat1_im/tet4_mat1_im.jsonc","--output","tet4_mat1_im/tet4_mat1_im.vtu"],
-          "timeout": 60,
-          "expected": {
-            "output_contains": ["Application finished successfully"]
-          }
-        },
-        {
-          "command": "compare-files",
-          "args": [
-            "tet4_mat1_im/tet4_mat1_im.vtu",
-            "tet4_mat1_im/benchmark/tet4_mat1_im.vtu",
-            "--file-type=text"
-          ],
-          "expected": {
-            "output_contains": [
-              "Files are identical"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "abaqus_parser_t01_explicit",
-      "tags":["inp","preprocess","explicit"],
-      "steps":[
-        {
-          "command": "{solver}",
-          "args":["-s","abaqus_T01_explicit/import_export.nova"],
-          "timeout": 120,
-          "expected": {
-            "output_contains": ["Application finished successfully"]
-          }
-        },
-        {
-          "command": "python",
-          "args":["-s","abaqus_T01_explicit/run_abaqus.py","abaqus_T01_explicit/abaqus_T01_export.inp"],
-          "timeout": 120,
-          "expected": {
-            "output_contains": ["运行完成"]
-          }
-        }
-      ]
-    },
-    {
-      "name": "abaqus_parser_t01_implicit",
-      "tags":["inp","preprocess","implicit"],
-      "steps":[
-        {
-          "command": "{solver}",
-          "args":["-s","abaqus_T01_explicit/import_export_implicit.nova"],
-          "timeout": 120,
-          "expected": {
-            "output_contains": ["Application finished successfully"]
-          }
-        },
-        {
-          "command": "python",
-          "args":["-s","abaqus_T01_explicit/run_abaqus.py","abaqus_T01_explicit/abaqus_T01_implicit_export.inp"],
-          "timeout": 120,
-          "expected": {
-            "output_contains": ["运行完成"]
-          }
-        }
-      ]
-    },
-    {
-      "name": "simdroid_delete_part",
-      "tags":["simdroid","delete_part"],
-      "steps":[
-        {
-          "command": "{solver}",
-          "args":["-s","solid_spring/delete_part.nova"],
-          "timeout": 60,
-          "expected": {
-            "output_contains": ["Application finished successfully"]
-          }
-        }
+      "tags": [
+        "tet4",
+        "mat1",
+        "imlicit",
+        "solver"
       ],
-      "expected":{
-        "compare_files":[
+      "execution": {
+        "steps": [
           {
-            "baseline":"solid_spring/benchmark/control.json",
-            "actual":"solid_spring/result/control.json",
-            "type":"json"
+            "command": "{solver}",
+            "args": [
+              "-i",
+              "tet4_mat1_im/tet4_mat1_im.jsonc",
+              "--output",
+              "tet4_mat1_im/tet4_mat1_im.vtk"
+            ],
+            "timeout": 60,
+            "expected": {
+              "output_contains": [
+                "Application finished successfully"
+              ]
+            }
           },
           {
-            "baseline":"solid_spring/benchmark/mesh.dat",
-            "actual":"solid_spring/result/mesh.dat",
-            "type":"text"
+            "command": "compare-files",
+            "args": [
+              "tet4_mat1_im/tet4_mat1_im.vtk",
+              "tet4_mat1_im/benchmark/tet4_mat1_im.vtk",
+              "--file-type=text"
+            ],
+            "expected": {
+              "output_contains": [
+                "Files are identical"
+              ]
+            }
           }
         ]
       }
     },
     {
-      "import": "implicit_c3d8r/test_cases.json",
+      "name": "abaqus_parser_t01_explicit",
       "tags": [
-        "implicit"
-      ]
+        "inp",
+        "preprocess",
+        "explicit"
+      ],
+      "execution": {
+        "steps": [
+          {
+            "command": "{solver}",
+            "args": [
+              "-s",
+              "abaqus_T01_explicit/import_export.nova"
+            ],
+            "timeout": 120,
+            "expected": {
+              "output_contains": [
+                "Application finished successfully"
+              ]
+            }
+          },
+          {
+            "command": "python",
+            "args": [
+              "-s",
+              "abaqus_T01_explicit/run_abaqus.py",
+              "abaqus_T01_explicit/abaqus_T01_export.inp"
+            ],
+            "timeout": 120,
+            "expected": {
+              "output_contains": [
+                "运行完成"
+              ]
+            }
+          }
+        ]
+      }
     },
     {
-      "import": "remesh/test_cases.json",
+      "name": "abaqus_parser_t01_implicit",
+      "tags": [
+        "inp",
+        "preprocess",
+        "implicit"
+      ],
+      "execution": {
+        "steps": [
+          {
+            "command": "{solver}",
+            "args": [
+              "-s",
+              "abaqus_T01_explicit/import_export_implicit.nova"
+            ],
+            "timeout": 120,
+            "expected": {
+              "output_contains": [
+                "Application finished successfully"
+              ]
+            }
+          },
+          {
+            "command": "python",
+            "args": [
+              "-s",
+              "abaqus_T01_explicit/run_abaqus.py",
+              "abaqus_T01_explicit/abaqus_T01_implicit_export.inp"
+            ],
+            "timeout": 120,
+            "expected": {
+              "output_contains": [
+                "运行完成"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "simdroid_delete_part",
+      "tags": [
+        "simdroid",
+        "delete_part"
+      ],
+      "execution": {
+        "steps": [
+          {
+            "command": "{solver}",
+            "args": [
+              "-s",
+              "solid_spring/delete_part.nova"
+            ],
+            "timeout": 60,
+            "expected": {
+              "output_contains": [
+                "Application finished successfully"
+              ]
+            }
+          }
+        ]
+      },
+      "expected": {
+        "compare_files": [
+          {
+            "baseline": "solid_spring/benchmark/control.json",
+            "actual": "solid_spring/result/control.json",
+            "type": "json"
+          },
+          {
+            "baseline": "solid_spring/benchmark/mesh.dat",
+            "actual": "solid_spring/result/mesh.dat",
+            "type": "text"
+          }
+        ]
+      }
+    },
+    {
+      "tags": [
+        "implicit"
+      ],
+      "import": "implicit_c3d8r/test_cases.json"
+    },
+    {
       "tags": [
         "remesh"
-      ]
+      ],
+      "import": "remesh/test_cases.json"
     }
   ]
 }
